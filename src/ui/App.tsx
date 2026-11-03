@@ -4,6 +4,7 @@ import { attachKeyboard } from "../editor/keyboard";
 import { openFromHash, startAutosave } from "../editor/session";
 import { useEditor } from "../editor/store";
 import { Canvas } from "./Canvas";
+import { ContextMenu } from "./ContextMenu";
 import { DiagramsDialog, ExportDialog, HelpDialog } from "./Dialogs";
 import { Inspector } from "./Inspector";
 import { TextEditor } from "./TextEditor";
@@ -35,6 +36,7 @@ export function App() {
       <TextEditor />
       <Toolbar openDialog={setDialog} />
       <Inspector />
+      <ContextMenu />
       {dialog === "export" && <ExportDialog onClose={close} />}
       {dialog === "diagrams" && <DiagramsDialog onClose={close} />}
       {dialog === "help" && <HelpDialog onClose={close} />}

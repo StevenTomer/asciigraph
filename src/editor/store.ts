@@ -38,6 +38,8 @@ export interface EditorState {
   /** Which saved diagram is open, or null for a shared one that hasn't been saved. */
   diagramId: string | null;
   diagramName: string;
+  /** The right-click menu: where it opened (screen px) and the cell under it. */
+  menu: { x: number; y: number; cell: { x: number; y: number } } | null;
 }
 
 const MAX_HISTORY = 200;
@@ -56,6 +58,7 @@ export const useEditor = create<EditorState>(() => ({
   grid: true,
   diagramId: null,
   diagramName: "",
+  menu: null,
 }));
 
 export const getState = useEditor.getState;
@@ -168,6 +171,10 @@ export function finishEditing() {
 
 export function setView(view: Partial<View>) {
   setState({ view: { ...getState().view, ...view } });
+}
+
+export function setMenu(menu: EditorState["menu"]) {
+  setState({ menu });
 }
 
 export function setPrefs(prefs: Partial<Pick<EditorState, "dark" | "grid">>) {

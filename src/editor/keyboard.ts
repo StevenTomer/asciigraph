@@ -1,5 +1,7 @@
 import { withContents } from "../model/containment";
-import { deleteObjects, moveObjects } from "../model/ops";
+import { moveObjects } from "../model/ops";
+import { deleteSelection, duplicateCommand } from "./clipboard";
+import { arrange, selectAll } from "./commands";
 import { keys } from "./input";
 import {
   type ToolId, apply, getState, redo, select, setOverlay, setTool, startEditing, undo,
@@ -28,8 +30,16 @@ export function attachKeyboard(): () => void {
         redo();
         e.preventDefault();
       } else if (k === "a") {
-        const d = getState().diagram;
-        select([...d.order, ...Object.keys(d.edges)]);
+        selectAll();
+        e.preventDefault();
+      } else if (k === "d") {
+        duplicateCommand();
+        e.preventDefault();
+      } else if (e.code === "BracketRight" || e.code === "BracketLeft") {
+        // Ctrl+] / Ctrl+[ forward / backward; with Shift, all the way.
+        const front = e.code === "BracketRight";
+        (front ? (e.shiftKey ? arrange.bringToFront : arrange.bringForward)
+               : (e.shiftKey ? arrange.sendToBack : arrange.sendBackward))();
         e.preventDefault();
       }
       return; // copy/cut/paste arrive as clipboard events (clipboard.ts)
@@ -60,8 +70,7 @@ export function attachKeyboard(): () => void {
       case "Delete":
       case "Backspace":
         if (selection.length) {
-          apply((d) => deleteObjects(d, selection));
-          select([]);
+          deleteSelection();
           e.preventDefault();
         }
         return;

@@ -335,3 +335,81 @@ test("text mode: alt-click places a label inside a box, which then moves with it
   s = await state(page);
   expect(s.diagram.nodes[label.id].rect).toMatchObject({ x: 5, y: 14 });
 });
+
+test("right-click menu: arrange, align, distribute", async ({ page }) => {
+  await box(page, [2, 2], [10, 4], "A");
+  await box(page, [16, 6], [28, 10], "B");
+  await box(page, [40, 3], [46, 5], "C");
+  const ids = Object.fromEntries(Object.values((await state(page)).diagram.nodes).map((n) => [n.text, n.id]));
+  const rect = async (t) => (await state(page)).diagram.nodes[ids[t]].rect;
+  const menu = async (x, y) => {
+    const p = await at(page, x, y);
+    await page.mouse.click(p.x, p.y, { button: "right" });
+    await expect(page.getByRole("menu").first()).toBeVisible();
+  };
+
+  // Right-click a box: it's selected, and the menu has the arrange items (no Align for one box).
+  await menu(20, 8);
+  expect((await state(page)).selection).toEqual([ids.B]);
+  await expect(page.getByRole("menuitem", { name: "Send to Back" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Align" })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Send to Back" }).click();
+  expect((await state(page)).diagram.order[0]).toBe(ids.B);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  // Select all three, then Align ▸ Align Top.
+  await page.keyboard.press("Control+a");
+  await menu(20, 8);
+  expect((await state(page)).selection).toHaveLength(3); // right-click inside the selection keeps it
+  await page.getByRole("menuitem", { name: "Align", exact: true }).hover();
+  await page.getByRole("menuitem", { name: "Align Top" }).click();
+  expect((await rect("A")).y).toBe(2);
+  expect((await rect("B")).y).toBe(2);
+  expect((await rect("C")).y).toBe(2);
+
+  // Distribute ▸ Distribute Horizontally: equal gaps, A and C stay put.
+  await menu(20, 4);
+  await page.getByRole("menuitem", { name: "Distribute", exact: true }).hover();
+  await page.getByRole("menuitem", { name: "Distribute Horizontally" }).click();
+  const [a, b, c] = [await rect("A"), await rect("B"), await rect("C")];
+  expect(a.x).toBe(2);
+  expect(c.x).toBe(40);
+  expect(b.x - (a.x + a.w)).toBe(c.x - (b.x + b.w));
+
+  // Esc closes the menu without clearing the selection; Ctrl+Z undoes the last arrangement.
+  await menu(20, 4);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  expect((await state(page)).selection).toHaveLength(3);
+  await page.keyboard.press("Control+z");
+  expect((await rect("B")).x).toBe(16);
+
+  // Right-click empty space: selection cleared, menu offers Paste / Select All.
+  await menu(30, 20);
+  expect((await state(page)).selection).toEqual([]);
+  await expect(page.getByRole("menuitem", { name: "Select All" })).toBeVisible();
+});
+
+test("keyboard: Ctrl+] / Ctrl+Shift+[ reorder, Ctrl+D duplicates", async ({ page }) => {
+  await box(page, [2, 2], [10, 5], "A");
+  await box(page, [6, 3], [14, 6], "B");
+  const order = async () => (await state(page)).diagram.order;
+  const [a, b] = await order();
+  await click(page, 3, 3); // A's visible part
+  await page.keyboard.press("Control+]");
+  expect(await order()).toEqual([b, a]);
+  await page.keyboard.press("Control+Shift+[");
+  expect(await order()).toEqual([a, b]);
+  await page.keyboard.press("Control+d");
+  expect(await order()).toHaveLength(3);
+});
+
+test("right-click menu works from the keyboard", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  const p = await at(page, 6, 3);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.keyboard.press("ArrowDown"); // into the menu: first item
+  await expect(page.getByRole("menuitem", { name: "Edit Text" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  expect((await state(page)).editing).not.toBeNull();
+});

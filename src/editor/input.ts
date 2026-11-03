@@ -1,5 +1,6 @@
 import { eq } from "../geometry/geom";
-import { cancel, finishEditing, getState, setView } from "./store";
+import { hitTest } from "./hitTest";
+import { cancel, finishEditing, getState, select, setMenu, setView } from "./store";
 import { type PointerInfo, TOOL_IMPL } from "./tools";
 import { screenToCell, zoomAt } from "./view";
 
@@ -118,6 +119,23 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
     }
   };
 
+  // Right-click (or long-press): select what's under the pointer, unless it's already part of
+  // the selection, then open the menu for it.
+  const contextmenu = (e: MouseEvent) => {
+    e.preventDefault();
+    if (toolActive) return;
+    finishEditing();
+    const p = info(e);
+    const hit = hitTest(p.sx, p.sy);
+    const id =
+      hit.kind === "node" || hit.kind === "handle" ? hit.node
+      : hit.kind === "edge" || hit.kind === "endpoint" ? hit.edge
+      : null;
+    if (!id) select([]);
+    else if (!getState().selection.includes(id)) select([id]);
+    setMenu({ x: e.clientX, y: e.clientY, cell: p.cell });
+  };
+
   // Middle-click paste (X11 primary selection) would otherwise fire on Linux.
   const auxclick = (e: MouseEvent) => e.button === 1 && e.preventDefault();
 
@@ -128,7 +146,9 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
   canvas.addEventListener("dblclick", dblclick);
   canvas.addEventListener("wheel", wheel, { passive: false });
   canvas.addEventListener("auxclick", auxclick);
+  canvas.addEventListener("contextmenu", contextmenu);
   return () => {
+    canvas.removeEventListener("contextmenu", contextmenu);
     canvas.removeEventListener("pointerdown", down);
     canvas.removeEventListener("pointermove", move);
     canvas.removeEventListener("pointerup", up);

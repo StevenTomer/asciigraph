@@ -159,6 +159,9 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt>connector ends</dt><dd>select a connector, then drag an end handle onto or off a box to attach or detach it</dd>
         <dt><Kbd>enter</Kbd></dt><dd>edit the selected box's text; <Kbd>esc</Kbd> or click outside to finish</dd>
         <dt><Kbd>delete</Kbd>, arrows</dt><dd>delete or nudge the selection (<Kbd>shift</Kbd>: by 5)</dd>
+        <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align and Distribute</dd>
+        <dt><Kbd>ctrl+]</Kbd> / <Kbd>ctrl+[</Kbd></dt><dd>bring forward / send backward (with <Kbd>shift</Kbd>: to front / to back)</dd>
+        <dt><Kbd>ctrl+d</Kbd></dt><dd>duplicate</dd>
         <dt><Kbd>ctrl+z</Kbd> / <Kbd>ctrl+shift+z</Kbd></dt><dd>undo / redo</dd>
         <dt><Kbd>ctrl+c</Kbd> <Kbd>ctrl+x</Kbd> <Kbd>ctrl+v</Kbd></dt><dd>copy, cut, paste (copies as text for other apps too)</dd>
         <dt>scroll, <Kbd>space</Kbd>+drag, middle-drag</dt><dd>pan; <Kbd>ctrl</Kbd>+scroll or pinch to zoom</dd>
