@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addEdge, addNode, emptyDiagram, makeEdge, makeNode, updateNode } from "../model/ops";
+import { addEdge, addNode, emptyDiagram, makeEdge, makeNode, moveObjects, updateNode } from "../model/ops";
 import { diagramToText } from "../render/rasterize";
 
 const att = (node: string, extra = {}) => ({ kind: "attached" as const, node, side: "auto" as const, ...extra });
@@ -122,6 +122,20 @@ describe("more shapes", () => {
 `);
   });
 
+  it("keeps activation bars centred on their lifeline's line", () => {
+    // API's line is column 25; a bar placed or moved a column off is put back on it.
+    let s = [
+      makeNode({ x: 20, y: 0, w: 12, h: 14 }, { id: "a", kind: "lifeline", text: "API" }),
+      makeNode({ x: 25, y: 5, w: 3, h: 4 }, { id: "act", kind: "activation" }),
+    ].reduce(addNode, emptyDiagram());
+    expect(s.nodes.act.rect.x).toBe(24);
+    s = moveObjects(s, ["act"], { x: 1, y: 1 });
+    expect(s.nodes.act.rect).toMatchObject({ x: 24, y: 6 });
+    // Moved well away from any line, it stays where it's put.
+    s = moveObjects(s, ["act"], { x: 10, y: 0 });
+    expect(s.nodes.act.rect.x).toBe(34);
+  });
+
   it("puts activation bars on lifelines, with messages at rows", () => {
     let s = [
       makeNode({ x: 0, y: 0, w: 12, h: 14 }, { id: "c", kind: "lifeline", text: "Client" }),
@@ -136,13 +150,13 @@ describe("more shapes", () => {
 └────┬─────┘        └────┬─────┘
      ┆                   ┆
      ┆                   ┆
-     ┆                   ┌┴┐
-     ├────── call ──────►│ │
-     ┆                   │ │
-     ┆                   │ │
-     ┆                   │ │
-     ┆◄┄┄┄┄┄┄┄┄┄ result ┄┤ │
-     ┆                   └┬┘
+     ┆                  ┌┴┐
+     ├────── call ─────►│ │
+     ┆                  │ │
+     ┆                  │ │
+     ┆                  │ │
+     ┆◄┄┄┄┄┄┄┄┄ result ┄┤ │
+     ┆                  └┬┘
      ┆                   ┆
      ┆                   ┆
 `);

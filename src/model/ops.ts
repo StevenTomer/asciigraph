@@ -1,5 +1,6 @@
 import { type Point, type Rect, add } from "../geometry/geom";
 import { resolveEndpoint } from "../routing/endpoints";
+import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
 import type { Diagram, Edge, Endpoint, Id, Node } from "./types";
 
@@ -50,7 +51,28 @@ function normalizeNode(node: Node): Node {
 
 export function addNode(d: Diagram, node: Node): Diagram {
   const n = normalizeNode(node);
-  return { ...d, nodes: { ...d.nodes, [n.id]: n }, order: [...d.order, n.id] };
+  return seatActivations({ ...d, nodes: { ...d.nodes, [n.id]: n }, order: [...d.order, n.id] }, [n.id]);
+}
+
+/**
+ * Activation bars belong on a lifeline's line: one whose middle column is within a column of a
+ * lifeline's line (and which overlaps that lifeline vertically) is moved to sit centred on it.
+ */
+export function seatActivations(d: Diagram, ids: Iterable<Id>): Diagram {
+  let out = d;
+  for (const id of ids) {
+    const a = out.nodes[id];
+    if (a?.kind !== "activation") continue;
+    const mid = a.rect.x + 1;
+    const line = Object.values(out.nodes).find(
+      (n) => n.kind === "lifeline" && Math.abs(lifelineColumn(n.rect) - mid) <= 1 &&
+        a.rect.y <= n.rect.y + n.rect.h - 1 && a.rect.y + a.rect.h - 1 >= n.rect.y
+    );
+    if (line && lifelineColumn(line.rect) !== mid) {
+      out = { ...out, nodes: { ...out.nodes, [id]: { ...a, rect: { ...a.rect, x: lifelineColumn(line.rect) - 1 } } } };
+    }
+  }
+  return out;
 }
 
 export function updateNode(d: Diagram, id: Id, patch: Partial<Node>): Diagram {
@@ -70,7 +92,7 @@ export function setNodeText(d: Diagram, id: Id, text: string): Diagram {
 
 /** A resize by hand: turns autosize off. */
 export function resizeNode(d: Diagram, id: Id, rect: Rect): Diagram {
-  return updateNode(d, id, { rect, autosize: false });
+  return seatActivations(updateNode(d, id, { rect, autosize: false }), [id]);
 }
 
 export function addEdge(d: Diagram, edge: Edge): Diagram {
@@ -93,6 +115,7 @@ export function setEndpoint(d: Diagram, id: Id, which: "from" | "to", ep: Endpoi
  */
 export function moveObjects(d: Diagram, ids: Iterable<Id>, delta: Point): Diagram {
   if (delta.x === 0 && delta.y === 0) return d;
+  ids = [...ids];
   const nodes = { ...d.nodes };
   const edges = { ...d.edges };
   const moveFree = (ep: Endpoint): Endpoint => (ep.kind === "free" ? { ...ep, at: add(ep.at, delta) } : ep);
@@ -105,7 +128,7 @@ export function moveObjects(d: Diagram, ids: Iterable<Id>, delta: Point): Diagra
       edges[id] = { ...e, from: moveFree(e.from), to: moveFree(e.to), ...(e.via && { via: e.via.map((p) => add(p, delta)) }) };
     }
   }
-  return { ...d, nodes, edges };
+  return seatActivations({ ...d, nodes, edges }, ids);
 }
 
 /** Free an end where it currently is (used when its node is deleted, or on detach). */
