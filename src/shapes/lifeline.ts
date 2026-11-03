@@ -45,6 +45,12 @@ export const lifeline: ShapeDef = {
   fitSize: (n) => ({ w: n.rect.w, h: n.rect.h }),
   footprint: (n) => [header(n.rect)],
   attachByRow: (n, cell) => cell.y >= n.rect.y + HEADER && cell.y <= bottom(n.rect),
+  // Its header, and its dashed line (so an activation bar on it stays in front of it).
+  covers(n, q) {
+    const r = n.rect, cx = lifelineColumn(r);
+    const header = q.y < r.y + HEADER && bottom(q) >= r.y;
+    return header || (cx >= q.x && cx <= right(q) && bottom(q) >= r.y + HEADER && q.y <= bottom(r));
+  },
   hitTest(n, cell) {
     const r = n.rect;
     if (cell.x >= r.x && cell.x <= right(r) && cell.y >= r.y && cell.y < r.y + HEADER) return true;

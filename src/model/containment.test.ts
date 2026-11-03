@@ -79,3 +79,28 @@ describe("nesting", () => {
     expect(withContents(stays, ["o"])).toEqual(["o"]);
   });
 });
+
+describe("stacking things inside see-through containers", () => {
+  it("lets an activation bar and a frame it overlaps be stacked either way", () => {
+    const life = makeNode({ x: 0, y: 0, w: 9, h: 16 }, { id: "life", kind: "lifeline", text: "API" });
+    const act = makeNode({ x: 3, y: 5, w: 3, h: 8 }, { id: "act", kind: "activation" });
+    const frame = makeNode({ x: 1, y: 9, w: 14, h: 4 }, { id: "f", kind: "frame", name: "loop" });
+    let d = withNodes(life, act, frame);
+    const row = (dd: typeof d) => diagramToText(dd).split("\n")[9];
+    // The frame was drawn last: its top border crosses the bar.
+    expect(row(d)).toBe(" ┌─ loop ─────┐");
+    // Send the frame to the back: now the bar is in front of it.
+    d = { ...d, order: ["f", "life", "act"] };
+    expect(row(d)).toBe(" ┌─│ │op ─────┐");
+    expect(paintOrder(d)).toEqual(["f", "life", "act"]);
+    // Send the bar to the back and bring the frame to the front: the bar still stays in front
+    // of its own lifeline (whose line would run through it), and the frame is in front of both.
+    d = { ...d, order: ["act", "life", "f"] };
+    expect(paintOrder(d)).toEqual(["life", "act", "f"]);
+    expect(row(d)).toBe(" ┌─ loop ─────┐");
+  });
+
+  it("still keeps a box in front of the box it's inside, whatever the order", () => {
+    expect(paintOrder(withNodes(in1, outer))).toEqual(["o", "i1"]);
+  });
+});

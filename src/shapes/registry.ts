@@ -1,4 +1,4 @@
-import { type Point, type Rect, type Side, contains } from "../geometry/geom";
+import { type Point, type Rect, type Side, contains, intersects } from "../geometry/geom";
 import type { Node, NodeKind } from "../model/types";
 import type { CharGrid } from "../render/grid";
 import { box, frame } from "./box";
@@ -34,6 +34,9 @@ export interface ShapeDef {
   /** The opaque parts: blanked before drawing, they hide connectors passing behind and are routed
    * around (default: the whole rect). */
   footprint?(node: Node): Rect[];
+  /** Whether drawing this node would cover something at `r` inside it, so that thing must be
+   * drawn in front of it (default: its footprint overlaps `r`). */
+  covers?(node: Node, r: Rect): boolean;
   /** Whether a cell counts as on the node, for clicking (default: anywhere in its rect). */
   hitTest?(node: Node, cell: Point): boolean;
   /** Connectors attach here by row, on the left or right (sequence diagrams): a connector end
@@ -54,5 +57,7 @@ export const shapeOf = (node: Node): ShapeDef => SHAPES[node.kind] ?? box;
 export const shapeFor = (kind: NodeKind): ShapeDef => SHAPES[kind];
 
 export const footprint = (node: Node): Rect[] => shapeOf(node).footprint?.(node) ?? [node.rect];
+export const covers = (node: Node, r: Rect): boolean =>
+  shapeOf(node).covers?.(node, r) ?? footprint(node).some((f) => intersects(f, r));
 export const hits = (node: Node, cell: Point): boolean =>
   shapeOf(node).hitTest?.(node, cell) ?? contains(node.rect, cell);

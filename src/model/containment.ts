@@ -1,4 +1,5 @@
 import { type Point, type Rect, bottom, contains, right } from "../geometry/geom";
+import { covers } from "../shapes/registry";
 import type { Diagram, Endpoint, Id } from "./types";
 
 /**
@@ -23,20 +24,40 @@ export function contents(d: Diagram, id: Id): Id[] {
 const orderCache = new WeakMap<Diagram, Id[]>();
 
 /**
- * Paint order, back to front: a node is always drawn after (in front of) the nodes it's inside,
- * however deep, whichever was created first. Among nodes at the same depth, `order` decides
- * (what "to front" changes).
+ * Paint order, back to front: the stacking order (`order`, which "to front" / "to back" change),
+ * except that a node always comes after any container that would otherwise cover it
+ * (ShapeDef.covers: a box around it, a lifeline's header or line under it), however deep, so it
+ * stays visible. Containers that wouldn't cover it (a frame, whose inside is see-through) don't
+ * constrain it: a box in a frame, or an activation bar and a frame it overlaps, stack either way.
  */
 export function paintOrder(d: Diagram): Id[] {
   let out = orderCache.get(d);
   if (!out) {
-    const depth = new Map<Id, number>();
+    // A topological sort (containers before what they cover) that otherwise keeps `order`:
+    // of the nodes free to go next, the one earliest in the stacking order goes.
+    const index = new Map(d.order.map((id, i) => [id, i]));
+    const after = new Map<Id, Id[]>(d.order.map((id) => [id, []]));
+    const waiting = new Map<Id, number>();
     for (const id of d.order) {
       const r = d.nodes[id].rect;
-      depth.set(id, d.order.filter((o) => o !== id && within(r, d.nodes[o].rect)).length);
+      const cs = d.order.filter((o) => o !== id && within(r, d.nodes[o].rect) && covers(d.nodes[o], r));
+      waiting.set(id, cs.length);
+      for (const c of cs) after.get(c)!.push(id);
     }
-    const index = new Map(d.order.map((id, i) => [id, i]));
-    out = [...d.order].sort((a, b) => depth.get(a)! - depth.get(b)! || index.get(a)! - index.get(b)!);
+    const ready = d.order.filter((id) => waiting.get(id) === 0);
+    const order: Id[] = [];
+    while (ready.length) {
+      ready.sort((a, b) => index.get(a)! - index.get(b)!);
+      const id = ready.shift()!;
+      order.push(id);
+      for (const n of after.get(id)!) {
+        waiting.set(n, waiting.get(n)! - 1);
+        if (waiting.get(n) === 0) ready.push(n);
+      }
+    }
+    // (Containment can't loop, but just in case: anything left keeps its place at the end.)
+    for (const id of d.order) if (!order.includes(id)) order.push(id);
+    out = order;
     orderCache.set(d, out);
   }
   return out;
