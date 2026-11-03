@@ -311,3 +311,19 @@ a {
   border-top: var(--border-light);
   margin: 4px 0;
 }
+
+/* Zoom controls */
+.zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-raised);
+  border: var(--border);
+  padding: 2px 4px;
+}
+.zoom .pct {
+  min-width: 6ch;
+  text-align: center;
+}

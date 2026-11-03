@@ -1,4 +1,5 @@
-import { type Point, type Rect, bottom, contains, eq, rectFromCorners, right, sub } from "../geometry/geom";
+import { type Point, type Rect, bottom, contains, eq, rectFromCorners, right, sub, union } from "../geometry/geom";
+import { type Guide, snapMove, snapPoint, snapResize } from "./snap";
 import {
   addEdge, addNode, bringToFront, makeEdge, makeNode, moveObjects, resizeNode, setEndpoint, updateEdge, updateNode,
 } from "../model/ops";
@@ -17,6 +18,8 @@ export interface PointerInfo {
   cell: Point;
   shift: boolean;
   alt: boolean;
+  /** Ctrl (⌘ on Mac) held: no snapping. */
+  mod: boolean;
 }
 
 export interface Tool {
@@ -100,13 +103,32 @@ const selectTool: Tool = {
     if (!g) return;
     const d = getState().diagram;
     if (g.kind === "move") {
-      // What you drag comes to the front, so a box pulled partly out of a frame isn't hidden by it.
       const ids = p.alt ? g.ids : g.carried;
-      set(bringToFront(moveObjects(g.base, ids, sub(p.cell, g.start)), ids));
+      let delta = sub(p.cell, g.start);
+      let guides: Guide[] = [];
+      // Snap the moved boxes' outline to other boxes (not with Ctrl held).
+      const moved = union(ids.filter((id) => g.base.nodes[id]).map((id) => g.base.nodes[id].rect));
+      if (moved && !p.mod) {
+        const snapped = snapMove(g.base, ids, { ...moved, x: moved.x + delta.x, y: moved.y + delta.y });
+        delta = { x: delta.x + snapped.shift.x, y: delta.y + snapped.shift.y };
+        guides = snapped.guides;
+      }
+      // What you drag comes to the front, so a box pulled partly out of a frame isn't hidden by it.
+      set(bringToFront(moveObjects(g.base, ids, delta), ids));
+      setOverlay({ guides });
     } else if (g.kind === "resize") {
-      const rect = resizedRect(d, g.node, g.orig, g.handle, sub(p.cell, g.start));
+      let rect = resizedRect(d, g.node, g.orig, g.handle, sub(p.cell, g.start));
+      let guides: Guide[] = [];
+      if (!p.mod) {
+        const h = g.handle;
+        const snapped = snapResize(d, g.node, rect, {
+          left: h.includes("w"), right: h.includes("e"), top: h.includes("n"), bottom: h.includes("s"),
+        });
+        rect = snapped.rect;
+        guides = snapped.guides;
+      }
       set(resizeNode(d, g.node, rect));
-      setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect });
+      setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect, guides });
     } else if (g.kind === "bend") {
       const via = [...(d.edges[g.edge].via ?? [])];
       if (g.index === null) {
@@ -216,9 +238,10 @@ const boxTool: Tool = {
   },
   move(p) {
     if (!creating) return;
-    const rect = rectFromCorners(creating.start, p.cell);
+    const corner = p.mod ? { point: p.cell, guides: [] } : snapPoint(getState().diagram, [creating.id], p.cell);
+    const rect = rectFromCorners(creating.start, corner.point);
     set(updateNode(getState().diagram, creating.id, { rect }));
-    setOverlay({ sizeOf: getState().diagram.nodes[creating.id].rect });
+    setOverlay({ sizeOf: getState().diagram.nodes[creating.id].rect, guides: corner.guides });
   },
   up(p) {
     if (!creating) return;

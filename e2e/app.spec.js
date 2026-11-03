@@ -12,10 +12,13 @@ async function drag(page, from, to, opts = {}) {
   await page.mouse.down();
   // Alt held from after the press: the start attaches as usual, the end stays free.
   if (opts.alt) await page.keyboard.down("Alt");
+  // Ctrl: no snapping, for exact positions.
+  if (opts.ctrl) await page.keyboard.down("Control");
   await page.mouse.move((s.x + e.x) / 2, (s.y + e.y) / 2, { steps: 3 });
   await page.mouse.move(e.x, e.y, { steps: 3 });
   await page.mouse.up();
   if (opts.alt) await page.keyboard.up("Alt");
+  if (opts.ctrl) await page.keyboard.up("Control");
 }
 async function click(page, x, y) {
   const s = await at(page, x, y);
@@ -49,18 +52,19 @@ test("draw two boxes, connect them, and the connector follows a move", async ({ 
   // Drag B below A by its interior: the arrow re-routes to come in from the top.
   await page.keyboard.press("Escape");
   await drag(page, [28, 3], [8, 11]);
+  // B snaps into line under A (its left edge was 2 cells off A's).
   expect(await text(page)).toBe(block(`
 ┌─────────┐
 │    A    │
-└─────┬───┘
-      │
-      │
-      │
-      │
-      ▼
-  ┌─────────┐
-  │    B    │
-  └─────────┘
+└────┬────┘
+     │
+     │
+     │
+     │
+     ▼
+┌─────────┐
+│    B    │
+└─────────┘
 `));
 
   // Undo puts B back; the diagram survives a reload.
@@ -227,14 +231,14 @@ test("boxes inside a box move with it; alt-drag or 'stays put' moves it alone", 
   // Drag the frame by its border: everything inside comes along, arrow included.
   await page.keyboard.press("Escape");
   const before = await text(page);
-  await drag(page, [16, 2], [16, 12]);
+  await drag(page, [16, 2], [16, 12], { ctrl: true });
   expect(await text(page)).toBe(before); // same drawing, just lower (text is trimmed to the drawing)
   let d = (await state(page)).diagram;
   expect(d.nodes[frame.id].rect.y).toBe(12);
   expect(d.nodes[in1.id].rect.y).toBe(14);
 
   // Alt-drag: only the frame moves.
-  await drag(page, [16, 12], [16, 13], { alt: true });
+  await drag(page, [16, 12], [16, 13], { alt: true, ctrl: true });
   d = (await state(page)).diagram;
   expect(d.nodes[frame.id].rect.y).toBe(13);
   expect(d.nodes[in1.id].rect.y).toBe(14);
@@ -243,7 +247,7 @@ test("boxes inside a box move with it; alt-drag or 'stays put' moves it alone", 
   await page.keyboard.press("Control+z");
   await click(page, 16, 12);
   await page.getByRole("button", { name: "stays put" }).click();
-  await drag(page, [16, 12], [16, 11]);
+  await drag(page, [16, 12], [16, 11], { ctrl: true });
   d = (await state(page)).diagram;
   expect(d.nodes[frame.id].rect.y).toBe(11);
   expect(d.nodes[in1.id].rect.y).toBe(14);
@@ -510,4 +514,52 @@ test("connector labels and bend points", async ({ page }) => {
   await page.keyboard.type("uses");
   await page.keyboard.press("Enter");
   expect((await edge()).label).toBe("uses");
+});
+
+test("zoom controls and shortcuts", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  await box(page, [60, 30], [70, 32], "far");
+  const zoom = async () => (await state(page)).view.zoom;
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  expect(await zoom()).toBeCloseTo(1.25, 1);
+  await expect(page.getByTestId("zoom-level")).toHaveText("125%");
+  await page.keyboard.press("Control+-");
+  await page.keyboard.press("Control+-");
+  expect(await zoom()).toBeCloseTo(0.9, 1);
+  await page.getByRole("button", { name: "Reset zoom" }).click();
+  expect(await zoom()).toBe(1);
+  await expect(page.getByTestId("zoom-level")).toHaveText("100%");
+  // Fit: both boxes on screen.
+  await page.keyboard.press("Shift+1");
+  const far = await at(page, 70, 32);
+  const near = await at(page, 2, 2);
+  const vp = page.viewportSize();
+  expect(far.x).toBeLessThan(vp.width);
+  expect(far.y).toBeLessThan(vp.height);
+  expect(near.x).toBeGreaterThan(0);
+});
+
+test("moving a box snaps it into line with another, unless Ctrl is held", async ({ page }) => {
+  await box(page, [2, 2], [12, 8], "A"); // rows 2, 5 (middle), 8
+  await box(page, [20, 12], [30, 15], "B"); // 4 tall: no middle row
+  const b = Object.values((await state(page)).diagram.nodes).find((n) => n.text === "B");
+  // Drag B so its top lands one row below A's top: it snaps up to A's top.
+  await drag(page, [25, 13], [25, 4]);
+  expect((await state(page)).diagram.nodes[b.id].rect.y).toBe(2);
+  // With Ctrl held, no snapping.
+  await drag(page, [25, 3], [25, 4], { ctrl: true });
+  expect((await state(page)).diagram.nodes[b.id].rect.y).toBe(3);
+});
+
+test("undo history survives a reload", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  await box(page, [20, 2], [30, 4], "B");
+  await page.waitForTimeout(600); // autosave
+  await page.reload();
+  await page.waitForFunction(() => window.__asciigraph__.state().diagramId);
+  expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(2);
+  await page.keyboard.press("Control+z");
+  expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(1);
+  await page.keyboard.press("Control+Shift+z");
+  expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(2);
 });

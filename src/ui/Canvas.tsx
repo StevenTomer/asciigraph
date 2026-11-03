@@ -20,6 +20,7 @@ function colors() {
     highlight: v("--color-canvas-highlight"),
     accent: v("--color-accent"),
     selection: v("--color-canvas-selection"),
+    guide: v("--color-orange"),
   };
 }
 
@@ -177,6 +178,28 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
       sideLine(ctx, box, attach.side);
       ctx.lineWidth = 1.5;
     }
+  }
+
+  // Alignment guides while snapping: dashed lines through the matching borders/centres.
+  if (s.overlay.guides?.length) {
+    ctx.save();
+    ctx.strokeStyle = c.guide;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    for (const g of s.overlay.guides) {
+      if (g.axis === "x") {
+        const a = cellCenter({ x: g.at, y: g.from }), b = cellCenter({ x: g.at, y: g.to });
+        ctx.moveTo(Math.round(a.x) + 0.5, a.y - 12);
+        ctx.lineTo(Math.round(a.x) + 0.5, b.y + 12);
+      } else {
+        const a = cellCenter({ x: g.from, y: g.at }), b = cellCenter({ x: g.to, y: g.at });
+        ctx.moveTo(a.x - 12, Math.round(a.y) + 0.5);
+        ctx.lineTo(b.x + 12, Math.round(a.y) + 0.5);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   const marquee = s.overlay.marquee;

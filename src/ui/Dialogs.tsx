@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { exportText } from "../export/text";
-import { newDiagram, renameCurrent, repo } from "../editor/session";
+import { forgetHistory, newDiagram, renameCurrent, repo } from "../editor/session";
 import { useEditor } from "../editor/store";
 import type { DiagramMeta } from "../storage/repository";
 import { download, downloadDiagram, readDiagramFile, safeFilename } from "../storage/file";
@@ -82,6 +82,7 @@ export function DiagramsDialog({ onClose }: { onClose: () => void }) {
   };
   const remove = async (id: string) => {
     await repo.remove(id);
+    forgetHistory(id);
     setConfirming(null);
     if (id === currentId) {
       const next = (await repo.list())[0];
@@ -152,6 +153,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       <p>Drawing tools stay on, so you can draw several boxes or connectors in a row; <Kbd>space</Kbd>, <Kbd>esc</Kbd> or <Kbd>s</Kbd> goes back to select.</p>
       <dl className="help">
         <dt><Kbd>s</Kbd> or <Kbd>space</Kbd> select</dt><dd>click or drag a rectangle to select; drag to move; handles resize; double-click edits text (on a box's top border: its name)</dd>
+        <dt>snapping</dt><dd>moving, resizing or drawing a box lines its edges and centre up with other boxes nearby, with guides; hold <Kbd>ctrl</Kbd> to place it freely</dd>
         <dt>boxes in boxes</dt><dd>a box entirely inside another is part of it: it's drawn in front, and moves when the outer box moves. <Kbd>alt</Kbd>+drag moves just the outer box; or set "inside: stays put" on the box</dd>
         <dt><Kbd>b</Kbd> box</dt><dd>drag corner to corner, or click empty space for a default box; then type. Clicking an existing box selects it (and switches to select); dragging from inside a box draws one inside it</dd>
         <dt><Kbd>a</Kbd> arrow, <Kbd>l</Kbd> line</dt><dd>drag from one box to another. Start or end inside a box to attach to whichever side faces; on a border (or just outside it) to pin that spot. Hold <Kbd>alt</Kbd> to leave an end free. Clicking (not dragging) a box or connector selects it and switches to select</dd>
@@ -167,6 +169,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt><Kbd>ctrl+z</Kbd> / <Kbd>ctrl+shift+z</Kbd></dt><dd>undo / redo</dd>
         <dt><Kbd>ctrl+c</Kbd> <Kbd>ctrl+x</Kbd> <Kbd>ctrl+v</Kbd></dt><dd>copy, cut, paste (copies as text for other apps too)</dd>
         <dt>scroll, <Kbd>space</Kbd>+drag, middle-drag</dt><dd>pan; <Kbd>ctrl</Kbd>+scroll or pinch to zoom</dd>
+        <dt><Kbd>ctrl+=</Kbd> / <Kbd>ctrl+-</Kbd> / <Kbd>ctrl+0</Kbd> / <Kbd>shift+1</Kbd></dt><dd>zoom in / out / back to 100% / to fit the drawing (also the buttons at bottom right)</dd>
       </dl>
       <p className="muted">Text rendering, input handling and fonts are adapted from <a href="https://github.com/lewish/asciiflow" target="_blank" rel="noopener">ASCIIFlow</a> by Lewis Hemens (MIT).</p>
     </Dialog>

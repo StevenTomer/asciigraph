@@ -31,7 +31,7 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
   const info = (e: PointerEvent | MouseEvent): PointerInfo => {
     const r = canvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
-    return { sx, sy, cell: screenToCell(sx, sy), shift: e.shiftKey, alt: e.altKey };
+    return { sx, sy, cell: screenToCell(sx, sy), shift: e.shiftKey, alt: e.altKey, mod: e.ctrlKey || e.metaKey };
   };
   const tool = () => TOOL_IMPL[getState().tool];
   const startPan = (sx: number, sy: number) => {

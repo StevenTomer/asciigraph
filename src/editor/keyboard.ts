@@ -7,6 +7,7 @@ import {
   type ToolId, apply, getState, redo, select, setOverlay, setTool, startEditing, undo,
 } from "./store";
 import { TOOLS } from "./tools";
+import { zoomReset, zoomStep, zoomToFit } from "./view";
 
 const SHORTCUTS = new Map<string, ToolId>(TOOLS.map((t) => [t.label[0], t.id]));
 
@@ -32,6 +33,11 @@ export function attachKeyboard(): () => void {
       } else if (k === "a") {
         selectAll();
         e.preventDefault();
+      } else if (k === "=" || k === "+" || k === "-" || k === "0") {
+        // Zoom the drawing, not the page.
+        if (k === "0") zoomReset();
+        else zoomStep(k === "-" ? -1 : 1);
+        e.preventDefault();
       } else if (k === "d") {
         duplicateCommand();
         e.preventDefault();
@@ -43,6 +49,12 @@ export function attachKeyboard(): () => void {
         e.preventDefault();
       }
       return; // copy/cut/paste arrive as clipboard events (clipboard.ts)
+    }
+
+    if (e.shiftKey && e.code === "Digit1") {
+      zoomToFit();
+      e.preventDefault();
+      return;
     }
 
     // Tool shortcuts: plain letter or Alt+letter. Uses `code` so Alt+letter works on macOS too.

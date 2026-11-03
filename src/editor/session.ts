@@ -1,4 +1,4 @@
-import { emptyDiagram, newId } from "../model/ops";
+import { emptyDiagram, isDiagram, newId } from "../model/ops";
 import type { Diagram } from "../model/types";
 import { localRepository, readJson, writeJson } from "../storage/local";
 import type { DiagramRepository } from "../storage/repository";
@@ -12,6 +12,45 @@ import { getState, load, setPrefs, useEditor } from "./store";
 export const repo: DiagramRepository = localRepository;
 
 const AUTOSAVE_MS = 400;
+
+// Undo history survives a reload: saved per diagram (this browser only, not part of the
+// diagram itself), capped, and kept only for the few most recently edited diagrams.
+const HISTORY_STEPS = 50;
+const HISTORY_DIAGRAMS = 5;
+const historyKey = (id: string) => `asciigraph/history/${id}`;
+
+function saveHistory(id: string, past: Diagram[], future: Diagram[]) {
+  const recent = [id, ...readJson<string[]>("history-index", []).filter((x) => x !== id)];
+  for (const old of recent.slice(HISTORY_DIAGRAMS)) forgetHistory(old);
+  writeJson("history-index", recent.slice(0, HISTORY_DIAGRAMS));
+  // If storage is full, keep fewer steps rather than none.
+  for (let n = HISTORY_STEPS; n >= 1; n = Math.floor(n / 2)) {
+    try {
+      localStorage.setItem(historyKey(id), JSON.stringify({ past: past.slice(-n), future: future.slice(0, n) }));
+      return;
+    } catch {
+      // try smaller
+    }
+  }
+}
+
+function loadHistory(id: string): { past: Diagram[]; future: Diagram[] } | undefined {
+  try {
+    const h = JSON.parse(localStorage.getItem(historyKey(id)) ?? "null");
+    if (h && Array.isArray(h.past) && Array.isArray(h.future) && [...h.past, ...h.future].every(isDiagram)) return h;
+  } catch {
+    // unreadable: start without history
+  }
+  return undefined;
+}
+
+export function forgetHistory(id: string) {
+  try {
+    localStorage.removeItem(historyKey(id));
+  } catch {
+    // ignore
+  }
+}
 
 export async function openFromHash() {
   const hash = location.hash.replace(/^#\/?/, "");
@@ -27,7 +66,7 @@ export async function openFromHash() {
     const d = await repo.load(id);
     if (d) {
       const meta = (await repo.list()).find((m) => m.id === id);
-      load(d, id, meta?.name ?? "Untitled");
+      load(d, id, meta?.name ?? "Untitled", loadHistory(id));
       writeJson("last", id);
       if (!hash.startsWith("d/")) history.replaceState(null, "", `#/d/${encodeURIComponent(id)}`);
       return;
@@ -64,11 +103,14 @@ export async function renameCurrent(name: string) {
 export function startAutosave(): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const flush = () => {
-    const { diagramId, diagramName, diagram } = getState();
-    if (diagramId) void repo.save(diagramId, diagramName, diagram);
+    const { diagramId, diagramName, diagram, past, future, pending } = getState();
+    if (!diagramId) return;
+    void repo.save(diagramId, diagramName, diagram);
+    if (!pending) saveHistory(diagramId, past, future);
   };
   const unsub = useEditor.subscribe((s, prev) => {
-    if (s.diagram !== prev.diagram && s.diagramId && s.diagramId === prev.diagramId) {
+    const changed = s.diagram !== prev.diagram || s.past !== prev.past || s.future !== prev.future;
+    if (changed && s.diagramId && s.diagramId === prev.diagramId) {
       clearTimeout(timer);
       timer = setTimeout(flush, AUTOSAVE_MS);
     }

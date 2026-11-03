@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Rect, Side } from "../geometry/geom";
 import { emptyDiagram } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
+import type { Guide } from "./snap";
 
 export type ToolId = "select" | "box" | "arrow" | "line" | "text";
 
@@ -12,6 +13,8 @@ export interface Overlay {
   attach?: { node: Id; side: Side | null };
   /** Show a w×h label for this rect (creating or resizing a box). */
   sizeOf?: Rect;
+  /** Alignment guides while snapping (see snap.ts). */
+  guides?: Guide[];
 }
 
 export interface View {
@@ -120,11 +123,11 @@ export function redo() {
   pruneSelection();
 }
 
-/** Replace the whole diagram (opening a file), clearing history. */
-export function load(diagram: Diagram, id: string | null, name: string) {
+/** Replace the whole diagram (opening a file), with its saved undo history if there is one. */
+export function load(diagram: Diagram, id: string | null, name: string, history?: { past: Diagram[]; future: Diagram[] }) {
   setState({
-    diagram, past: [], future: [], pending: null, selection: [], editing: null, overlay: {},
-    diagramId: id, diagramName: name,
+    diagram, past: history?.past ?? [], future: history?.future ?? [], pending: null, selection: [],
+    editing: null, overlay: {}, diagramId: id, diagramName: name,
   });
 }
 
