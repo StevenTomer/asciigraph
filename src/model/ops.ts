@@ -85,7 +85,7 @@ export function setEndpoint(d: Diagram, id: Id, which: "from" | "to", ep: Endpoi
 
 /**
  * Move nodes and edges by `delta`. Attached edge ends follow their nodes by themselves; free ends
- * move only if their edge is among `ids`.
+ * and bend points move only if their edge is among `ids`.
  */
 export function moveObjects(d: Diagram, ids: Iterable<Id>, delta: Point): Diagram {
   if (delta.x === 0 && delta.y === 0) return d;
@@ -97,7 +97,8 @@ export function moveObjects(d: Diagram, ids: Iterable<Id>, delta: Point): Diagra
       const r = nodes[id].rect;
       nodes[id] = { ...nodes[id], rect: { ...r, x: r.x + delta.x, y: r.y + delta.y } };
     } else if (edges[id]) {
-      edges[id] = { ...edges[id], from: moveFree(edges[id].from), to: moveFree(edges[id].to) };
+      const e = edges[id];
+      edges[id] = { ...e, from: moveFree(e.from), to: moveFree(e.to), ...(e.via && { via: e.via.map((p) => add(p, delta)) }) };
     }
   }
   return { ...d, nodes, edges };

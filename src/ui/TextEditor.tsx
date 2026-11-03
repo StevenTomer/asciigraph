@@ -1,9 +1,9 @@
 import { type CSSProperties, useEffect, useRef } from "react";
-import { deleteObjects, setNodeText, updateNode } from "../model/ops";
+import { deleteObjects, setNodeText, updateEdge, updateNode } from "../model/ops";
 import { finishEditing, getState, onFinishEditing, set, useEditor } from "../editor/store";
-import { rectToScreen } from "../editor/view";
+import { rectToScreen, rendered } from "../editor/view";
 import { FONT_FAMILY, FONT_SIZE, metrics } from "../render/font";
-import { wrap } from "../render/textLayout";
+import { chars, wrap } from "../render/textLayout";
 import { shapeOf } from "../shapes/registry";
 
 /**
@@ -14,6 +14,8 @@ import { shapeOf } from "../shapes/registry";
 export function TextEditor() {
   const editing = useEditor((s) => s.editing);
   const node = useEditor((s) => (s.editing ? s.diagram.nodes[s.editing.id] : undefined));
+  const edge = useEditor((s) => (s.editing ? s.diagram.edges[s.editing.id] : undefined));
+  const diagram = useEditor((s) => s.diagram);
   const view = useEditor((s) => s.view);
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
 
@@ -34,7 +36,7 @@ export function TextEditor() {
     el.setSelectionRange(el.value.length, el.value.length);
   }, [editing?.id, editing?.field]);
 
-  if (!editing || !node) return null;
+  if (!editing || (!node && !edge)) return null;
 
   const { zoom } = view;
   const common: CSSProperties = {
@@ -46,11 +48,32 @@ export function TextEditor() {
   };
   const keyDown = (e: React.KeyboardEvent) => {
     e.stopPropagation();
-    if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey || editing.field === "name"))) {
+    if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey || editing.field !== "text"))) {
       e.preventDefault();
       finishEditing();
     }
   };
+
+  if (editing.field === "label" && edge) {
+    const at = rendered(diagram).edges.get(edge.id)?.label;
+    if (!at) return null;
+    const w = Math.max(chars(edge.label ?? "").length + 2, 10);
+    const box = rectToScreen({ x: at.x - 1, y: at.y, w, h: 1 });
+    return (
+      <input
+        ref={ref}
+        className="text-editor"
+        aria-label="Connector label"
+        style={{ ...common, left: box.x, top: box.y, width: box.w, height: box.h }}
+        value={edge.label ?? ""}
+        placeholder="label"
+        onChange={(e) => set(updateEdge(getState().diagram, edge.id, { label: e.target.value || undefined }))}
+        onKeyDown={keyDown}
+        onBlur={() => finishEditing()}
+      />
+    );
+  }
+  if (!node) return null;
 
   if (editing.field === "name") {
     const r = node.rect;

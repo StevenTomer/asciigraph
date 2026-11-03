@@ -47,6 +47,11 @@ export interface Edge {
   to: Endpoint;
   line: LineStyle;
   arrows: { start: boolean; end: boolean };
+  /** Text shown on (or beside) the line: `── yes ──►`. */
+  label?: string;
+  /** Bend points the route passes through, in order (absolute cells; they move only when the
+   * connector itself is moved). Without them the route is automatic. */
+  via?: Point[];
 }
 
 /**

@@ -157,6 +157,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt><Kbd>a</Kbd> arrow, <Kbd>l</Kbd> line</dt><dd>drag from one box to another. Start or end inside a box to attach to whichever side faces; on a border (or just outside it) to pin that spot. Hold <Kbd>alt</Kbd> to leave an end free. Clicking (not dragging) a box or connector selects it and switches to select</dd>
         <dt><Kbd>t</Kbd> text</dt><dd>click empty space to type a label without a border (double-click empty space does the same). Clicking a box or connector selects it and switches to select; <Kbd>alt</Kbd>+click places a label there instead, e.g. inside a box</dd>
         <dt>connector ends</dt><dd>select a connector, then drag an end handle onto or off a box to attach or detach it</dd>
+        <dt>bends</dt><dd>select a connector, then drag its line to add a bend point there; drag a bend point (square) to move it, double-click it to remove it. "Straighten" removes them all</dd>
+        <dt>labels</dt><dd>double-click a connector (or select it and press <Kbd>enter</Kbd>) to label it</dd>
         <dt><Kbd>enter</Kbd></dt><dd>edit the selected box's text; <Kbd>esc</Kbd> or click outside to finish</dd>
         <dt><Kbd>delete</Kbd>, arrows</dt><dd>delete or nudge the selection (<Kbd>shift</Kbd>: by 5)</dd>
         <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align and Distribute</dd>

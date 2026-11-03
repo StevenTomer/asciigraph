@@ -2,6 +2,8 @@ import { type Point, type Rect, type Side, OPPOSITE, contains, key, stepSide } f
 import { paintOrder, within } from "../model/containment";
 import type { Diagram } from "../model/types";
 import { type ResolvedEdge, resolveEdge } from "../routing/endpoints";
+import { Occupancy } from "../routing/occupancy";
+import { chars } from "./textLayout";
 import { shapeOf } from "../shapes/registry";
 import { CharGrid } from "./grid";
 
@@ -21,7 +23,7 @@ export interface Rendered {
  *     where a connector passes behind a node that contains neither of its ends. So a connector
  *     inside a container shows, and one crossing the container's border joins it (┼).
  */
-export function rasterize(d: Diagram): Rendered {
+export function rasterize(d: Diagram, quick = false): Rendered {
   const grid = new CharGrid();
   const edges = new Map<string, ResolvedEdge>();
   const edgeCells = new Map<string, string>();
@@ -32,8 +34,10 @@ export function rasterize(d: Diagram): Rendered {
     shapeOf(node).rasterize(node, grid);
   }
 
+  const occupancy = new Occupancy();
+  const labels: (() => void)[] = [];
   for (const edge of Object.values(d.edges)) {
-    const r = resolveEdge(d, edge);
+    const r = resolveEdge(d, edge, occupancy, quick);
     edges.set(edge.id, r);
     const { cells } = r;
     const style = edge.line;
@@ -69,9 +73,62 @@ export function rasterize(d: Diagram): Rendered {
         grid.stroke(end, ["left", "right"], style);
       }
     }
+    // Labels go on after every connector's lines, so a later one doesn't draw over them.
+    labels.push(() => {
+      const placed = placeLabel(r.cells, edge.label ?? "");
+      r.label = placed.rect;
+      for (const [p, ch] of placed.chars) {
+        if (hidden(p)) continue;
+        grid.setChar(p, ch);
+        edgeCells.set(key(p), edge.id);
+      }
+    });
   }
+  labels.forEach((f) => f());
 
   return { grid, edges, edgeCells };
+}
+
+/**
+ * Where a connector's label goes: inline on the longest horizontal run it fits on, with a space
+ * each side (`── yes ──►`); otherwise beside the middle of the longest vertical run. Without a
+ * label, `rect` is where one would go (for the editor). Labels are one line.
+ */
+export function placeLabel(cells: Point[], label: string): { rect: Rect; chars: [Point, string][] } {
+  const text = chars(label.replace(/\s*\n\s*/g, " "));
+  const len = Math.max(text.length, 1);
+  // Straight runs: [first index, last index].
+  const runs: { a: number; b: number; horizontal: boolean }[] = [];
+  for (let i = 0; i < cells.length; ) {
+    let j = i;
+    const horizontal = cells[i + 1]?.y === cells[i].y;
+    while (j + 1 < cells.length && (horizontal ? cells[j + 1].y === cells[i].y : cells[j + 1].x === cells[i].x)) j++;
+    runs.push({ a: i, b: j, horizontal: horizontal && j > i });
+    i = j === i ? i + 1 : j;
+  }
+  // Leave the ends alone (arrowheads, junctions): only inner cells take text.
+  const room = (r: { a: number; b: number }) => Math.min(r.b, cells.length - 2) - Math.max(r.a, 1) + 1;
+  const fits = runs.filter((r) => r.horizontal && room(r) >= len + 2).sort((p, q) => room(q) - room(p))[0];
+  if (fits) {
+    const lo = Math.max(fits.a, 1), hi = Math.min(fits.b, cells.length - 2);
+    const minX = Math.min(cells[lo].x, cells[hi].x), maxX = Math.max(cells[lo].x, cells[hi].x);
+    // Centred in the run, whichever way it's heading, with a space either side.
+    const x0 = Math.floor((minX + maxX + 1 - len) / 2);
+    const y = cells[lo].y;
+    const out: [Point, string][] = [];
+    if (text.length) {
+      out.push([{ x: x0 - 1, y }, " "], [{ x: x0 + len, y }, " "]);
+      text.forEach((c, i) => out.push([{ x: x0 + i, y }, c]));
+    }
+    return { rect: { x: x0, y, w: len, h: 1 }, chars: out };
+  }
+  const vertical = runs.filter((r) => !r.horizontal || r.a === r.b).sort((p, q) => q.b - q.a - (p.b - p.a))[0] ?? runs[0];
+  const at = cells[Math.floor((vertical.a + vertical.b) / 2)];
+  const x0 = at.x + 2;
+  return {
+    rect: { x: x0, y: at.y, w: len, h: 1 },
+    chars: text.map((c, i) => [{ x: x0 + i, y: at.y }, c] as [Point, string]),
+  };
 }
 
 /** Rects of the nodes that hide an edge: all but those containing one of its ends. */

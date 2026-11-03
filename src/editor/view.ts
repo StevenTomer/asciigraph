@@ -50,13 +50,20 @@ export function zoomAt(zoom: number, sx: number, sy: number) {
   };
 }
 
-/** The diagram's rendering, computed once per diagram version (diagrams are immutable). */
+/**
+ * The diagram's rendering, computed once per diagram version (diagrams are immutable). While a
+ * gesture is in progress (dragging), connectors are routed in quick mode; the full routing runs
+ * when it ends.
+ */
 const cache = new WeakMap<Diagram, Rendered>();
+const quickCache = new WeakMap<Diagram, Rendered>();
 export function rendered(d: Diagram): Rendered {
-  let r = cache.get(d);
+  const quick = getState().pending !== null && !getState().editing;
+  const c = quick ? quickCache : cache;
+  let r = c.get(d);
   if (!r) {
-    r = rasterize(d);
-    cache.set(d, r);
+    r = rasterize(d, quick);
+    c.set(d, r);
   }
   return r;
 }

@@ -30,7 +30,8 @@ export interface EditorState {
   pending: Diagram | null;
   selection: Id[];
   tool: ToolId;
-  editing: { id: Id; field: "text" | "name" } | null;
+  /** In-place editing: a node's text or name, or a connector's label. */
+  editing: { id: Id; field: "text" | "name" | "label" } | null;
   overlay: Overlay;
   view: View;
   dark: boolean;
@@ -156,7 +157,7 @@ export function onFinishEditing(hook: (() => void) | null) {
   finishHook = hook;
 }
 
-export function startEditing(id: Id, field: "text" | "name" = "text") {
+export function startEditing(id: Id, field: "text" | "name" | "label" = "text") {
   finishEditing();
   begin();
   setState({ editing: { id, field }, selection: [id] });

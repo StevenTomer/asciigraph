@@ -11,6 +11,7 @@ export const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 export type Hit =
   | { kind: "handle"; node: Id; handle: Handle }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
+  | { kind: "via"; edge: Id; index: number }
   | { kind: "node"; node: Id; nameRow: boolean }
   | { kind: "edge"; edge: Id }
   | { kind: "none" };
@@ -48,6 +49,8 @@ export function hitTest(sx: number, sy: number): Hit {
     if (edge) {
       if (near(p, cellCenter(edge.cells[0]))) return { kind: "endpoint", edge: id, which: "from" };
       if (near(p, cellCenter(edge.cells[edge.cells.length - 1]))) return { kind: "endpoint", edge: id, which: "to" };
+      const via = edge.edge.via ?? [];
+      for (let i = 0; i < via.length; i++) if (near(p, cellCenter(via[i]))) return { kind: "via", edge: id, index: i };
     }
   }
   if (selection.length === 1 && d.nodes[selection[0]]) {

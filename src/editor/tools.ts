@@ -1,13 +1,13 @@
 import { type Point, type Rect, bottom, contains, eq, rectFromCorners, right, sub } from "../geometry/geom";
 import {
-  addEdge, addNode, bringToFront, makeEdge, makeNode, moveObjects, resizeNode, setEndpoint, updateNode,
+  addEdge, addNode, bringToFront, makeEdge, makeNode, moveObjects, resizeNode, setEndpoint, updateEdge, updateNode,
 } from "../model/ops";
 import { withContents } from "../model/containment";
 import type { Diagram, Id } from "../model/types";
 import { shapeOf } from "../shapes/registry";
 import { type Handle, endpointAt, hitTest } from "./hitTest";
 import {
-  type ToolId, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, setTool, startEditing,
+  type ToolId, apply, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, setTool, startEditing,
 } from "./store";
 import { rendered } from "./view";
 
@@ -47,6 +47,8 @@ type Gesture =
   | { kind: "move"; start: Point; base: Diagram; ids: Id[]; carried: Id[] }
   | { kind: "resize"; node: Id; handle: Handle; start: Point; orig: Rect }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
+  /** Dragging a bend point; `index` null until the pointer moves (then a new bend is added). */
+  | { kind: "bend"; edge: Id; index: number | null; insertAt: number }
   | { kind: "marquee"; start: Point; base: Id[] };
 
 let gesture: Gesture | null = null;
@@ -66,6 +68,13 @@ const selectTool: Tool = {
     } else if (hit.kind === "endpoint") {
       begin();
       gesture = { kind: "endpoint", edge: hit.edge, which: hit.which };
+    } else if (hit.kind === "via") {
+      begin();
+      gesture = { kind: "bend", edge: hit.edge, index: hit.index, insertAt: hit.index };
+    } else if (hit.kind === "edge" && !p.shift && selection.length === 1 && selection[0] === hit.edge) {
+      // Dragging the line of the selected connector bends it there.
+      begin();
+      gesture = { kind: "bend", edge: hit.edge, index: null, insertAt: bendIndex(diagram, hit.edge, p.cell) };
     } else if (hit.kind === "node" || hit.kind === "edge") {
       const id = hit.kind === "node" ? hit.node : hit.edge;
       let ids = selection;
@@ -98,6 +107,15 @@ const selectTool: Tool = {
       const rect = resizedRect(d, g.node, g.orig, g.handle, sub(p.cell, g.start));
       set(resizeNode(d, g.node, rect));
       setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect });
+    } else if (g.kind === "bend") {
+      const via = [...(d.edges[g.edge].via ?? [])];
+      if (g.index === null) {
+        via.splice(g.insertAt, 0, p.cell);
+        g.index = g.insertAt;
+      } else {
+        via[g.index] = p.cell;
+      }
+      set(updateEdge(d, g.edge, { via }));
     } else if (g.kind === "endpoint") {
       const edge = d.edges[g.edge];
       const other = g.which === "from" ? edge.to : edge.from;
@@ -119,7 +137,15 @@ const selectTool: Tool = {
 
   dblclick(p) {
     const hit = hitTest(p.sx, p.sy);
-    if (hit.kind === "node") {
+    if (hit.kind === "via") {
+      // Double-click a bend point to remove it.
+      apply((d) => {
+        const via = (d.edges[hit.edge].via ?? []).filter((_, i) => i !== hit.index);
+        return updateEdge(d, hit.edge, { via: via.length ? via : undefined });
+      });
+    } else if (hit.kind === "edge") {
+      startEditing(hit.edge, "label");
+    } else if (hit.kind === "node") {
       startEditing(hit.node, hit.nameRow ? "name" : "text");
     } else if (hit.kind === "none") {
       createLabel(p.cell);
@@ -130,10 +156,21 @@ const selectTool: Tool = {
     const hit = hitTest(p.sx, p.sy);
     if (hit.kind === "handle") return RESIZE_CURSORS[hit.handle];
     if (hit.kind === "endpoint") return "crosshair";
+    if (hit.kind === "via") return "move";
+    if (hit.kind === "edge" && getState().selection.length === 1 && getState().selection[0] === hit.edge) return "copy";
     if (hit.kind === "node" || hit.kind === "edge") return "move";
     return "default";
   },
 };
+
+/** Where a new bend at `cell` goes among the existing ones: after those the path reaches first. */
+function bendIndex(d: Diagram, edgeId: Id, cell: Point): number {
+  const r = rendered(d).edges.get(edgeId);
+  const via = d.edges[edgeId].via ?? [];
+  if (!r) return via.length;
+  const at = r.cells.findIndex((c) => eq(c, cell));
+  return via.filter((v) => r.cells.findIndex((c) => eq(c, v)) < at).length;
+}
 
 function resizedRect(d: Diagram, id: Id, orig: Rect, handle: Handle, delta: Point): Rect {
   const min = shapeOf(d.nodes[id]).minSize(d.nodes[id]);
@@ -164,7 +201,9 @@ let creating: { id: Id; start: Point; over: Id | null } | null = null;
 /** The node or connector under the pointer, if any. */
 function objectAt(p: PointerInfo): Id | null {
   const hit = hitTest(p.sx, p.sy);
-  return hit.kind === "node" || hit.kind === "handle" ? hit.node : hit.kind === "edge" || hit.kind === "endpoint" ? hit.edge : null;
+  return hit.kind === "node" || hit.kind === "handle" ? hit.node
+    : hit.kind === "edge" || hit.kind === "endpoint" || hit.kind === "via" ? hit.edge
+    : null;
 }
 
 const boxTool: Tool = {

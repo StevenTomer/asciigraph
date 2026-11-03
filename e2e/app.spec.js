@@ -471,3 +471,43 @@ test("a connector inside a box can be clicked and selected", async ({ page }) =>
   const outer = (await state(page)).diagram.order[0];
   expect((await state(page)).selection).toEqual([outer]);
 });
+
+test("connector labels and bend points", async ({ page }) => {
+  await box(page, [2, 2], [10, 4], "A");
+  await box(page, [30, 2], [38, 4], "B");
+  await page.keyboard.press("a");
+  await drag(page, [6, 3], [34, 3]);
+  await page.keyboard.press("s");
+  const id = (await state(page)).selection[0];
+  const edge = async () => (await state(page)).diagram.edges[id];
+
+  // Double-click the line to label it.
+  const p = await at(page, 20, 3);
+  await page.mouse.dblclick(p.x, p.y);
+  await page.keyboard.type("calls");
+  await page.keyboard.press("Enter");
+  expect((await edge()).label).toBe("calls");
+  expect(await text(page)).toMatch(/├─+ calls ─+►│/);
+
+  // Drag the selected line down: a bend point; the route goes through it.
+  await click(page, 14, 3);
+  await drag(page, [14, 3], [14, 9]);
+  expect((await edge()).via).toEqual([{ x: 14, y: 9 }]);
+  expect((await text(page)).split("\n").length).toBeGreaterThan(5);
+
+  // Move it, then double-click it to remove it.
+  await drag(page, [14, 9], [20, 8]);
+  expect((await edge()).via).toEqual([{ x: 20, y: 8 }]);
+  const v = await at(page, 20, 8);
+  await page.mouse.dblclick(v.x, v.y);
+  expect((await edge()).via).toBeUndefined();
+
+  // A plain click on the selected line adds nothing; Enter edits the label.
+  await click(page, 14, 3);
+  expect((await edge()).via).toBeUndefined();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type("uses");
+  await page.keyboard.press("Enter");
+  expect((await edge()).label).toBe("uses");
+});

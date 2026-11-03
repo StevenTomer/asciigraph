@@ -139,7 +139,7 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
     const hit = hitTest(p.sx, p.sy);
     const id =
       hit.kind === "node" || hit.kind === "handle" ? hit.node
-      : hit.kind === "edge" || hit.kind === "endpoint" ? hit.edge
+      : hit.kind === "edge" || hit.kind === "endpoint" || hit.kind === "via" ? hit.edge
       : null;
     if (!id) select([]);
     else if (!getState().selection.includes(id)) select([id]);

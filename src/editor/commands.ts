@@ -2,7 +2,7 @@ import type { Point } from "../geometry/geom";
 import {
   type Alignment, align, bringForward, distribute, reverseEdge, sendBackward, sendToBack, topLevel,
 } from "../model/arrange";
-import { bringToFront } from "../model/ops";
+import { bringToFront, updateEdge } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
 import { apply, getState, select, startEditing } from "./store";
@@ -98,7 +98,12 @@ export function contextMenu(at: Point): MenuEntry[] {
     );
   }
   if (edges.length === 1 && !nodes.length) {
-    entries.push("separator", { label: "Reverse Direction", run: () => apply((dd) => reverseEdge(dd, edges[0])) });
+    const e = d.edges[edges[0]];
+    entries.unshift({ label: "Edit Label", shortcut: "Enter", run: () => startEditing(e.id, "label") }, "separator");
+    entries.push("separator", { label: "Reverse Direction", run: () => apply((dd) => reverseEdge(dd, e.id)) });
+    if (e.via?.length) {
+      entries.push({ label: "Straighten", hint: "remove bends", run: () => apply((dd) => updateEdge(dd, e.id, { via: undefined })) });
+    }
   }
   entries.push("separator", { label: "Select All", shortcut: `${mod}A`, run: selectAll });
   return entries;

@@ -123,6 +123,10 @@ html, body, #root {
   color: var(--color-text-muted);
   font-size: 12px;
 }
+.row-text {
+  font-size: 13px;
+  padding: 0 4px;
+}
 .row-items {
   display: flex;
   flex-wrap: wrap;

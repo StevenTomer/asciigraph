@@ -44,8 +44,8 @@ export function paintOrder(d: Diagram): Id[] {
 
 /**
  * What moving `ids` should take along: everything inside each selected box that carries its
- * contents (the default; `carry: false` turns it off), and connectors whose free ends are all
- * inside those boxes. (Connectors attached to the boxes follow them on their own.)
+ * contents (the default; `carry: false` turns it off), and connectors whose free ends and bend
+ * points are all inside those boxes. (Attached ends follow their boxes on their own.)
  */
 export function withContents(d: Diagram, ids: Id[]): Id[] {
   const out = new Set(ids);
@@ -54,8 +54,11 @@ export function withContents(d: Diagram, ids: Id[]): Id[] {
   const inCarrier = (p: Point) => carriers.some((n) => contains(n.rect, p));
   for (const e of Object.values(d.edges)) {
     if (out.has(e.id)) continue;
-    const free = [e.from, e.to].filter((ep): ep is Extract<Endpoint, { kind: "free" }> => ep.kind === "free");
-    if (free.length && free.every((ep) => inCarrier(ep.at))) out.add(e.id);
+    const points = [
+      ...[e.from, e.to].filter((ep): ep is Extract<Endpoint, { kind: "free" }> => ep.kind === "free").map((ep) => ep.at),
+      ...(e.via ?? []),
+    ];
+    if (points.length && points.every(inCarrier)) out.add(e.id);
   }
   return [...out];
 }

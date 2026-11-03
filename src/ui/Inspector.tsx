@@ -105,6 +105,26 @@ export function Inspector() {
             <Choice active={e0.arrows.end} onClick={() => eachEdge((e) => ({ arrows: { ...e.arrows, end: !e0.arrows.end } }))} title="arrow at end" label="arrow at end">─►</Choice>
           </Row>
           {edges.length === 1 && (
+            <Row label="label">
+              <input
+                className="field"
+                value={e0.label ?? ""}
+                placeholder="(none)"
+                onFocus={begin}
+                onBlur={commit}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                onChange={(e) => set(updateEdge(getState().diagram, e0.id, { label: e.target.value || undefined }))}
+                aria-label="Label"
+              />
+            </Row>
+          )}
+          {edges.length === 1 && e0.via?.length ? (
+            <Row label="bends">
+              <span className="row-text">{e0.via.length}</span>
+              <Choice active={false} onClick={() => apply((d) => updateEdge(d, e0.id, { via: undefined }))} title="Remove all bend points">straighten</Choice>
+            </Row>
+          ) : null}
+          {edges.length === 1 && (
             <Row label="ends">
               {(["from", "to"] as const).map((which) => (
                 <Choice

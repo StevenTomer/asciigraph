@@ -51,7 +51,7 @@ export function pasteInto(d: Diagram, part: Diagram, delta: Point): [Diagram, Id
   const end = (ep: Endpoint): Endpoint =>
     ep.kind === "free" ? { kind: "free", at: add(ep.at, delta) } : { ...ep, node: ids.get(ep.node) ?? ep.node };
   for (const e of Object.values(part.edges)) {
-    const copy = { ...e, id: newId("e"), from: end(e.from), to: end(e.to) };
+    const copy = { ...e, id: newId("e"), from: end(e.from), to: end(e.to), ...(e.via && { via: e.via.map((p) => add(p, delta)) }) };
     ids.set(e.id, copy.id);
     out = addEdge(out, copy);
   }

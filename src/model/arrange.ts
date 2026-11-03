@@ -101,5 +101,7 @@ export function distribute(d: Diagram, ids: Id[], axis: "horizontal" | "vertical
 export function reverseEdge(d: Diagram, id: Id): Diagram {
   const e = d.edges[id];
   if (!e) return d;
-  return { ...d, edges: { ...d.edges, [id]: { ...e, from: e.to, to: e.from, arrows: { start: e.arrows.end, end: e.arrows.start } } } };
+  const reversed = { ...e, from: e.to, to: e.from, arrows: { start: e.arrows.end, end: e.arrows.start } };
+  if (e.via) reversed.via = [...e.via].reverse();
+  return { ...d, edges: { ...d.edges, [id]: reversed } };
 }

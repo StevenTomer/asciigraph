@@ -1,9 +1,10 @@
 import {
-  type Point, type Rect, type Side, SIDES, STEP, add, bottom, right,
+  type Point, type Rect, type Side, SIDES, STEP, add, bottom, key, right,
 } from "../geometry/geom";
 import type { Diagram, Edge, Endpoint, Node } from "../model/types";
 import { shapeOf } from "../shapes/registry";
-import { route } from "./orthogonal";
+import type { Occupancy } from "./occupancy";
+import { type RouteEnd, route } from "./orthogonal";
 
 /** Where an edge end actually is, after following its node. */
 export interface Anchor {
@@ -21,6 +22,8 @@ export interface ResolvedEdge {
   from: Anchor;
   to: Anchor;
   cells: Point[];
+  /** Where the label is drawn (set by the rasterizer), or would go if it had one. */
+  label?: Rect;
 }
 
 /** The rect an end "looks at" when choosing sides: its node, or its cell. */
@@ -95,28 +98,55 @@ export function resolveEndpoint(d: Diagram, ep: Endpoint, other: Endpoint): Anch
 }
 
 /**
- * Anchor both ends and route between them. Auto-side ends start on the side facing the other end;
- * only if that route has to detour (something in the way) are the other sides tried, which keeps
- * the common case to a single route.
+ * Anchor both ends and route between them, through any bend points. Auto-side ends start on the
+ * side facing the other end (or the nearest bend point); only if that route has to detour
+ * (something in the way) are the other sides tried, which keeps the common case to one route.
+ * `occupancy` holds connectors routed before this one, to keep off them. `quick` skips trying
+ * other sides (used while dragging, for speed; the full routing runs when the drag ends).
  */
-export function resolveEdge(d: Diagram, edge: Edge): ResolvedEdge {
+export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick = false): ResolvedEdge {
   const obstacles = d.order.map((id) => d.nodes[id].rect);
+  const via = edge.via ?? [];
+  const towards = (p: Point): Endpoint => ({ kind: "free", at: p });
+  const fromOther = via.length ? towards(via[0]) : edge.to;
+  const toOther = via.length ? towards(via[via.length - 1]) : edge.from;
+
   // A line may turn right outside a node (┌─┴─┐), but an arrowhead must be approached head-on.
-  const routeEnds = (f: Anchor, t: Anchor) =>
-    route(
+  const routeEnds = (f: Anchor, t: Anchor) => {
+    const stops: RouteEnd[] = [
       { cell: f.cell, dir: f.dir, strict: edge.arrows.start },
+      ...via.map((p) => ({ cell: p, dir: null })),
       { cell: t.cell, dir: t.dir, strict: edge.arrows.end },
-      obstacles
-    );
-  let from = resolveEndpoint(d, edge.from, edge.to);
-  let to = resolveEndpoint(d, edge.to, edge.from);
+    ];
+    const groups = [key(f.cell), key(t.cell)];
+    let cells: Point[] = [];
+    let cost = 0, clean = true;
+    for (let i = 0; i + 1 < stops.length; i++) {
+      const r = route(stops[i], stops[i + 1], obstacles, occupancy, groups);
+      cells = i === 0 ? r.cells : [...cells, ...r.cells.slice(1)];
+      cost += r.cost;
+      clean &&= r.clean;
+    }
+    return { cells, cost, clean };
+  };
+
+  let from = resolveEndpoint(d, edge.from, fromOther);
+  let to = resolveEndpoint(d, edge.to, toOther);
   let best = routeEnds(from, to);
-  const direct = Math.abs(from.cell.x - to.cell.x) + Math.abs(from.cell.y - to.cell.y) + DETOUR_ALLOWANCE;
-  if (!best.clean || best.cost > direct) {
-    const fromOptions = sideOptions(d, edge.from, edge.to) ?? [from];
-    const toOptions = sideOptions(d, edge.to, edge.from) ?? [to];
-    for (const f of fromOptions) {
-      for (const t of toOptions) {
+  // Something in the way (a long detour, more bends than an S-shape needs, or no head-on
+  // approach): try other sides, first changing one end, then both if that didn't help.
+  const poor = (r: { cells: Point[]; clean: boolean }, f: Anchor, t: Anchor) =>
+    !r.clean || bends(r.cells) > 2 ||
+    r.cells.length - 1 > Math.abs(f.cell.x - t.cell.x) + Math.abs(f.cell.y - t.cell.y) + DETOUR_ALLOWANCE;
+  if (!quick && !via.length && poor(best, from, to)) {
+    const fromOptions = sideOptions(d, edge.from, fromOther) ?? [from];
+    const toOptions = sideOptions(d, edge.to, toOther) ?? [to];
+    const pairs = [
+      ...fromOptions.map((f) => [f, to] as const),
+      ...toOptions.map((t) => [from, t] as const),
+    ];
+    const tryPairs = (ps: readonly (readonly [Anchor, Anchor])[]) => {
+      for (const [f, t] of ps) {
         const r = routeEnds(f, t);
         if (r.cost < best.cost) {
           best = r;
@@ -124,13 +154,27 @@ export function resolveEdge(d: Diagram, edge: Edge): ResolvedEdge {
           to = t;
         }
       }
-    }
+    };
+    const before = best;
+    tryPairs(pairs);
+    if (best === before && poor(best, from, to)) tryPairs(fromOptions.flatMap((f) => toOptions.map((t) => [f, t] as const)));
   }
+  occupancy?.add(best.cells, [key(from.cell), key(to.cell)]);
   return { edge, from, to, cells: best.cells };
 }
 
-/** Route cost beyond the straight-line distance that still counts as direct (two bends' worth). */
-const DETOUR_ALLOWANCE = 10;
+function bends(cells: Point[]): number {
+  let n = 0;
+  for (let i = 2; i < cells.length; i++) {
+    const turnX = cells[i].x - cells[i - 1].x !== cells[i - 1].x - cells[i - 2].x;
+    const turnY = cells[i].y - cells[i - 1].y !== cells[i - 1].y - cells[i - 2].y;
+    if (turnX || turnY) n++;
+  }
+  return n;
+}
+
+/** How much longer than the straight-line distance a route may be before it counts as a detour. */
+const DETOUR_ALLOWANCE = 6;
 
 /** Every side an auto end could use, or null if the end is fixed. */
 function sideOptions(d: Diagram, ep: Endpoint, other: Endpoint): Anchor[] | null {

@@ -153,6 +153,17 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
     }
   }
 
+  // Bend points of selected connectors: small squares.
+  for (const id of s.selection) {
+    const e = r.edges.get(id);
+    for (const v of e?.edge.via ?? []) {
+      const p = cellCenter(v);
+      ctx.fillStyle = c.bg;
+      ctx.fillRect(p.x - 4, p.y - 4, 8, 8);
+      ctx.strokeRect(p.x - 4, p.y - 4, 8, 8);
+    }
+  }
+
   // Where a dragged end would attach: the node, and its side if pinned.
   const attach = s.overlay.attach;
   if (attach && s.diagram.nodes[attach.node]) {
