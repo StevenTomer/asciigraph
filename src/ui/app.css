@@ -337,3 +337,28 @@ a {
 .toolbar.sub {
   font-size: 13px;
 }
+
+/* Draw from text */
+.dialog.wide {
+  width: min(1100px, 100%);
+}
+.text-source {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.field.source {
+  flex: 1 1 320px;
+  min-height: 320px;
+  font-size: 13px;
+  line-height: 1.3;
+  resize: vertical;
+  white-space: pre;
+}
+.text-source .preview {
+  flex: 1 1 320px;
+  margin: 0;
+  max-height: 60vh;
+  min-height: 320px;
+}

@@ -653,3 +653,66 @@ test("activation bars sit on a lifeline and take messages at the row", async ({ 
   expect(act.rect.y + msg.to.offset).toBe(10);
   expect(await text(page)).toMatch(/├─+►│ │/);
 });
+
+test("draw a sequence from Mermaid text; edits redraw, keeping a moved lifeline", async ({ page }) => {
+  await page.getByRole("button", { name: "from text" }).click();
+  const dialog = page.getByRole("dialog", { name: "Draw from text" });
+  await dialog.getByLabel("Diagram text").fill("sequenceDiagram\nparticipant C as Client\nC->>API: GET /x\nAPI-->>C: 200");
+  await expect(dialog.getByRole("button", { name: /auto: message sequence/ })).toBeVisible();
+  await expect(dialog.getByTestId("source-preview")).toContainText("GET /x");
+  await dialog.getByRole("button", { name: "draw" }).click();
+  await expect(dialog).toHaveCount(0);
+  let s = await state(page);
+  expect(Object.values(s.diagram.nodes).map((n) => n.text).sort()).toEqual(["API", "Client"]);
+  expect(s.selection.length).toBe(4);
+
+  // Move the API lifeline right by its header, then edit the text.
+  const api = Object.values(s.diagram.nodes).find((n) => n.text === "API");
+  const hx = api.rect.x + 2, hy = api.rect.y + 1;
+  await page.keyboard.press("Escape");
+  await drag(page, [hx, hy], [hx + 8, hy], { ctrl: true });
+  const moved = (await state(page)).diagram.nodes[api.id].rect;
+  await click(page, hx + 8, hy);
+  await page.getByRole("button", { name: "edit text" }).click();
+  const edit = page.getByRole("dialog", { name: "Edit source text" });
+  await edit.getByLabel("Diagram text").fill("sequenceDiagram\nparticipant C as Client\nC->>API: GET /x\nAPI-->>C: 200\nC->>API: bye");
+  await edit.getByRole("button", { name: "update" }).click();
+  s = await state(page);
+  expect(s.diagram.nodes[api.id].rect.x).toBe(moved.x);
+  expect(Object.keys(s.diagram.edges)).toHaveLength(3);
+  expect(await text(page)).toContain("bye");
+});
+
+test("draw a graph from shorthand, left to right, and a folder tree as boxes", async ({ page }) => {
+  await page.getByRole("button", { name: "from text" }).click();
+  let dialog = page.getByRole("dialog", { name: "Draw from text" });
+  await dialog.getByLabel("Diagram text").fill("A -> B -> C\nA -> D -> C");
+  await dialog.getByRole("button", { name: "left to right" }).click();
+  await dialog.getByRole("button", { name: "draw" }).click();
+  const n = Object.values((await state(page)).diagram.nodes);
+  const x = (t) => n.find((v) => v.text === t).rect.x;
+  expect(x("A")).toBeLessThan(x("B"));
+  expect(x("B")).toBeLessThan(x("C"));
+
+  // Right-click empty space → Draw from Text…
+  await page.keyboard.press("Escape");
+  const p = await at(page, 5, 28);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Draw from Text…" }).click();
+  dialog = page.getByRole("dialog", { name: "Draw from text" });
+  await dialog.getByLabel("Diagram text").fill("app/src/main.ts\napp/README.md");
+  await expect(dialog.getByRole("button", { name: /auto: folder tree/ })).toBeVisible();
+  await dialog.getByRole("button", { name: "boxes" }).click();
+  await dialog.getByRole("button", { name: "draw" }).click();
+  expect(await text(page)).toContain("│ main.ts │");
+});
+
+test("markdown lists in a box", async ({ page }) => {
+  await page.keyboard.press("b");
+  await drag(page, [2, 2], [26, 4]);
+  await page.keyboard.type("Plan:\n- design\n- build\n  1. parse\n  1. draw");
+  await page.keyboard.press("Escape");
+  const t = await text(page);
+  expect(t).toContain("│ • design");
+  expect(t).toContain("│   2. draw");
+});

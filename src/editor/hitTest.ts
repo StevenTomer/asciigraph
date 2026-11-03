@@ -70,7 +70,7 @@ export function hitTest(sx: number, sy: number): Hit {
   const node = nodeAt(d, cell);
   if (node) {
     const n = d.nodes[node];
-    return { kind: "node", node, nameRow: n.kind === "box" && n.border !== "none" && cell.y === n.rect.y };
+    return { kind: "node", node, nameRow: (n.kind === "box" || n.kind === "frame") && n.border !== "none" && cell.y === n.rect.y };
   }
   return { kind: "none" };
 }

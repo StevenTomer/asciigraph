@@ -44,14 +44,14 @@ export function pasteInto(d: Diagram, part: Diagram, delta: Point): [Diagram, Id
   let out = d;
   for (const id of part.order) {
     const n = part.nodes[id];
-    const copy = { ...n, id: newId("n"), rect: { ...n.rect, x: n.rect.x + delta.x, y: n.rect.y + delta.y } };
+    const copy = { ...n, id: newId("n"), rect: { ...n.rect, x: n.rect.x + delta.x, y: n.rect.y + delta.y }, gen: undefined };
     ids.set(id, copy.id);
     out = addNode(out, copy);
   }
   const end = (ep: Endpoint): Endpoint =>
     ep.kind === "free" ? { kind: "free", at: add(ep.at, delta) } : { ...ep, node: ids.get(ep.node) ?? ep.node };
   for (const e of Object.values(part.edges)) {
-    const copy = { ...e, id: newId("e"), from: end(e.from), to: end(e.to), ...(e.via && { via: e.via.map((p) => add(p, delta)) }) };
+    const copy = { ...e, id: newId("e"), from: end(e.from), to: end(e.to), gen: undefined, ...(e.via && { via: e.via.map((p) => add(p, delta)) }) };
     ids.set(e.id, copy.id);
     out = addEdge(out, copy);
   }

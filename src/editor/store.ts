@@ -44,6 +44,8 @@ export interface EditorState {
   /** Which saved diagram is open, or null for a shared one that hasn't been saved. */
   diagramId: string | null;
   diagramName: string;
+  /** The "draw from text" dialog: open for a new drawing (sourceId null) or to edit one. */
+  textDialog: { sourceId: Id | null } | null;
   /** The right-click menu: where it opened (screen px) and the cell under it. */
   menu: { x: number; y: number; cell: { x: number; y: number } } | null;
 }
@@ -66,6 +68,7 @@ export const useEditor = create<EditorState>(() => ({
   diagramId: null,
   diagramName: "",
   menu: null,
+  textDialog: null,
 }));
 
 export const getState = useEditor.getState;
@@ -182,6 +185,14 @@ export function finishEditing() {
 
 export function setView(view: Partial<View>) {
   setState({ view: { ...getState().view, ...view } });
+}
+
+export function openTextDialog(sourceId: Id | null) {
+  setState({ textDialog: { sourceId }, menu: null });
+}
+
+export function closeTextDialog() {
+  setState({ textDialog: null });
 }
 
 export function setMenu(menu: EditorState["menu"]) {

@@ -11,6 +11,33 @@ export interface Diagram {
   edges: Record<Id, Edge>;
   /** Paint order of nodes, back to front. */
   order: Id[];
+  /** Text the diagram was (partly) drawn from; editing it redraws those parts (text/sync.ts). */
+  sources?: Record<Id, TextSource>;
+}
+
+export type SourceKind = "sequence" | "graph" | "tree";
+
+/** A text description drawn as part of the diagram: a message sequence, a graph, a folder tree. */
+export interface TextSource {
+  id: Id;
+  kind: SourceKind;
+  text: string;
+  options: { direction?: "down" | "right"; treeStyle?: "text" | "boxes" };
+  /** Top-left of where it's drawn. */
+  origin: Point;
+}
+
+/**
+ * On objects drawn from a text source: which source, and the stable key of the thing in the text
+ * they show (a participant's name, a graph node's id, a file path…). `at` is the rect last
+ * generated for a node: if it still matches, the user hasn't moved the node, so a redraw may.
+ */
+export interface Generated {
+  source: Id;
+  key: string;
+  at?: Rect;
+  /** The style last generated (JSON), to tell whether the user has restyled it since. */
+  style?: string;
 }
 
 export type Id = string;
@@ -22,7 +49,7 @@ export type HAlign = "left" | "center" | "right";
  * subroutine; notes; sequence-diagram lifelines and activation bars. */
 export type NodeKind =
   | "box" | "decision" | "io" | "terminal" | "database" | "document" | "subroutine" | "note"
-  | "lifeline" | "activation";
+  | "frame" | "lifeline" | "activation";
 export type VAlign = "top" | "middle" | "bottom";
 
 /**
@@ -43,6 +70,7 @@ export interface Node {
   autosize?: boolean;
   /** Moving this box takes along what's inside it (default true). See model/containment.ts. */
   carry?: boolean;
+  gen?: Generated;
 }
 
 /** A connector. Its path is computed (routing/orthogonal.ts), never stored. */
@@ -60,6 +88,7 @@ export interface Edge {
   /** Bend points the route passes through, in order (absolute cells; they move only when the
    * connector itself is moved). Without them the route is automatic. */
   via?: Point[];
+  gen?: Generated;
 }
 
 /**

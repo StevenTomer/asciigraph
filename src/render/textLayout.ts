@@ -1,5 +1,6 @@
 import type { Point, Rect } from "../geometry/geom";
 import type { HAlign, VAlign } from "../model/types";
+import { renderText } from "./markdown";
 
 /** Split into characters by code point (so emoji and astral characters aren't split in half). */
 export const chars = (s: string) => Array.from(s);
@@ -38,9 +39,15 @@ export function measure(text: string): { lines: string[]; w: number; h: number }
   return { lines, w: Math.max(1, ...lines.map((l) => chars(l).length)), h: lines.length };
 }
 
+/** The lines node text shows at `width` columns: wrapped, with Markdown lists rendered. */
+export function textLines(text: string, width: number): string[] {
+  return renderText(text, width).lines;
+}
+
 /**
- * Place text in `area`: wrap, align, and clip (marking the last visible line with … when lines are
- * cut off). Returns each character with its cell.
+ * Place text in `area`: wrap (rendering Markdown lists), align, and clip (marking the last visible
+ * line with … when lines are cut off). Returns each character with its cell. Text containing a
+ * list is laid out left-aligned, so bullets line up.
  */
 export function layoutText(
   text: string,
@@ -48,7 +55,9 @@ export function layoutText(
   align: { h: HAlign; v: VAlign }
 ): [Point, string][] {
   if (area.w < 1 || area.h < 1 || text === "") return [];
-  let lines = wrap(text, area.w);
+  const rendered = renderText(text, area.w);
+  let lines = rendered.lines;
+  if (rendered.list) align = { ...align, h: "left" };
   if (lines.length > area.h) {
     lines = lines.slice(0, area.h);
     const last = chars(lines[area.h - 1]);

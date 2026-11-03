@@ -1,7 +1,7 @@
 import { type Point, type Rect, bottom, right, stepSide, OPPOSITE } from "../geometry/geom";
 import type { BorderStyle, LineStyle, Node } from "../model/types";
 import type { CharGrid } from "../render/grid";
-import { layoutText, wrap } from "../render/textLayout";
+import { layoutText, textLines } from "../render/textLayout";
 import type { ShapeDef } from "./registry";
 
 /**
@@ -162,7 +162,7 @@ export const note: ShapeDef = {
   sideRange: flatSides,
   fitSize(n, text) {
     // Grows (never shrinks) to fit its wrapped text, like a box.
-    return { w: n.rect.w, h: Math.max(n.rect.h, wrap(text, this.contentRect(n).w).length + 2) };
+    return { w: n.rect.w, h: Math.max(n.rect.h, textLines(text, this.contentRect(n).w).length + 2) };
   },
   rasterize(n, grid) {
     const r = n.rect, style = lineStyle(n.border);

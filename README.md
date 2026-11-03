@@ -3,7 +3,9 @@
 A diagram editor whose output is plain text. Draw boxes, type in them, and connect them with
 arrows and lines; connectors attached to a box follow it when it moves. Flowchart shapes
 (decision, input/output, start/end), sequence diagrams (lifelines and messages), connector
-labels and bend points, auto layout, snapping. Export as text (Unicode box drawing or ASCII), a
+labels and bend points, auto layout, snapping. Draw from text, kept live: Mermaid sequence
+diagrams and flowcharts (or a shorthand like `Client -> API: GET /x`, `A -> B -> C`), and folder
+trees. Markdown lists in boxes. Export as text (Unicode box drawing or ASCII), a
 Markdown code block, a share link, or JSON.
 
 

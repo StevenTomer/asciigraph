@@ -1,4 +1,4 @@
-import { redo, setPrefs, setShape, setTool, undo, useEditor } from "../editor/store";
+import { openTextDialog, redo, setPrefs, setShape, setTool, undo, useEditor } from "../editor/store";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import { TOOLS } from "../editor/tools";
 import { saveCopy } from "../editor/session";
@@ -49,6 +49,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
         <button className="tb" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">undo</button>
         <button className="tb" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">redo</button>
         <Sep />
+        <button className="tb" onClick={() => openTextDialog(null)} title="Draw a sequence, graph or folder tree from text">from text</button>
         <button className="tb" onClick={() => openDialog("export")} data-testid="export">export</button>
         <button className="tb" onClick={() => setPrefs({ grid: !grid })} aria-pressed={grid}>grid</button>
         <button className="tb" onClick={() => setPrefs({ dark: !dark })} aria-pressed={dark}>{dark ? "light" : "dark"}</button>

@@ -153,7 +153,16 @@ export function deleteObjects(d: Diagram, ids: Iterable<Id>): Diagram {
     edges[e.id] = next;
   }
   const nodes = Object.fromEntries(Object.entries(d.nodes).filter(([id]) => !gone.has(id)));
-  return { ...d, nodes, edges, order: d.order.filter((id) => !gone.has(id)) };
+  return dropUnusedSources({ ...d, nodes, edges, order: d.order.filter((id) => !gone.has(id)) });
+}
+
+/** Text sources with nothing left drawn from them. */
+function dropUnusedSources(d: Diagram): Diagram {
+  if (!d.sources) return d;
+  const used = new Set([...Object.values(d.nodes), ...Object.values(d.edges)].map((o) => o.gen?.source));
+  const kept = Object.fromEntries(Object.entries(d.sources).filter(([id]) => used.has(id)));
+  if (Object.keys(kept).length === Object.keys(d.sources).length) return d;
+  return { ...d, sources: Object.keys(kept).length ? kept : undefined };
 }
 
 export function bringToFront(d: Diagram, ids: Iterable<Id>): Diagram {

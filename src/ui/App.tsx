@@ -8,6 +8,7 @@ import { ContextMenu } from "./ContextMenu";
 import { DiagramsDialog, ExportDialog, HelpDialog } from "./Dialogs";
 import { Inspector } from "./Inspector";
 import { TextEditor } from "./TextEditor";
+import { TextSourceDialog } from "./TextSourceDialog";
 import { ZoomControls } from "./ZoomControls";
 import { type DialogId, Toolbar } from "./Toolbar";
 
@@ -39,6 +40,7 @@ export function App() {
       <Inspector />
       <ZoomControls />
       <ContextMenu />
+      <TextSourceDialog />
       {dialog === "export" && <ExportDialog onClose={close} />}
       {dialog === "diagrams" && <DiagramsDialog onClose={close} />}
       {dialog === "help" && <HelpDialog onClose={close} />}

@@ -123,7 +123,7 @@ export function arrowGlyph(pointing: Side, style: LineStyle): string {
 
 /** ASCII stand-ins for the drawing characters shapes use, for ASCII-only output. (People's own
  * text is left as they typed it.) */
-const ASCII_CHARS: Record<string, string> = { "╱": "/", "╲": "\\", "…": "." };
+const ASCII_CHARS: Record<string, string> = { "╱": "/", "╲": "\\", "…": ".", "•": "*", "◦": "-", "▪": "+" };
 
 export function asciiChar(ch: string): string {
   return ASCII_CHARS[ch] ?? ch;

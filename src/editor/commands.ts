@@ -6,7 +6,8 @@ import { autoLayout } from "../model/layout";
 import { bringToFront, updateEdge } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
-import { apply, getState, select, startEditing } from "./store";
+import { unlinkSource } from "../text/sync";
+import { apply, getState, openTextDialog, select, startEditing } from "./store";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? "⌘" : "Ctrl+";
@@ -62,6 +63,8 @@ export function contextMenu(at: Point): MenuEntry[] {
 
   if (!selection.length) {
     return [
+      { label: "Draw from Text…", run: () => openTextDialog(null) },
+      "separator",
       paste,
       ...(d.order.length >= 2 ? (["separator", layoutMenu([])] as MenuEntry[]) : []),
       "separator",
@@ -122,6 +125,15 @@ export function contextMenu(at: Point): MenuEntry[] {
     if (e.label && e.labelAt !== undefined) {
       entries.push({ label: "Reset Label Position", run: () => apply((dd) => updateEdge(dd, e.id, { labelAt: undefined })) });
     }
+  }
+  const sourceIds = new Set(selection.map((id) => (d.nodes[id] ?? d.edges[id])?.gen?.source));
+  const sourceId = sourceIds.size === 1 ? [...sourceIds][0] : undefined;
+  if (sourceId) {
+    entries.push(
+      "separator",
+      { label: "Edit Source Text…", run: () => openTextDialog(sourceId) },
+      { label: "Unlink from Text", hint: "keep the drawing", run: () => apply((dd) => unlinkSource(dd, sourceId)) },
+    );
   }
   entries.push("separator", { label: "Select All", shortcut: `${mod}A`, run: selectAll });
   return entries;

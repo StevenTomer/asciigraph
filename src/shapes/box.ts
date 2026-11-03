@@ -1,7 +1,7 @@
 import { type Rect, type Side, bottom, inset, right } from "../geometry/geom";
 import type { Node } from "../model/types";
 import type { CharGrid } from "../render/grid";
-import { chars, layoutText, measure, wrap } from "../render/textLayout";
+import { chars, layoutText, textLines } from "../render/textLayout";
 import type { ShapeDef } from "./registry";
 
 /**
@@ -42,11 +42,11 @@ export const box: ShapeDef = {
     // Autosized labels size to their text; anything else grows (never shrinks) to fit its
     // wrapped text.
     if (node.autosize) {
-      const m = measure(text);
-      return { w: m.w, h: m.h };
+      const lines = textLines(text, 100000);
+      return { w: Math.max(1, ...lines.map((l) => chars(l).length)), h: lines.length };
     }
     const content = this.contentRect(node);
-    const lines = wrap(text, content.w).length;
+    const lines = textLines(text, content.w).length;
     return { w: node.rect.w, h: Math.max(node.rect.h, lines + (node.rect.h - content.h)) };
   },
 
@@ -93,3 +93,27 @@ function drawName(grid: CharGrid, r: Rect, name: string, align: Node["align"]["h
   cs.forEach((c, i) => grid.setChar({ x: start + i, y: r.y }, c));
   grid.setChar({ x: start + cs.length, y: r.y }, " ");
 }
+
+/**
+ * A frame: a named outline that groups things without hiding them (sequence-diagram loop/alt
+ * blocks, graph subgraphs). Only its border is opaque and clickable; what's inside shows through.
+ */
+export const frame: ShapeDef = {
+  ...box,
+  label: "frame",
+  defaultSize: { w: 30, h: 10 },
+  footprint(n) {
+    const r = n.rect;
+    return [
+      { x: r.x, y: r.y, w: r.w, h: 1 },
+      { x: r.x, y: bottom(r), w: r.w, h: 1 },
+      { x: r.x, y: r.y, w: 1, h: r.h },
+      { x: right(r), y: r.y, w: 1, h: r.h },
+    ];
+  },
+  hitTest(n, c) {
+    const r = n.rect;
+    const inside = c.x >= r.x && c.x <= right(r) && c.y >= r.y && c.y <= bottom(r);
+    return inside && (c.x === r.x || c.x === right(r) || c.y === r.y || c.y === bottom(r));
+  },
+};

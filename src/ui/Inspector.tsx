@@ -2,7 +2,8 @@ import { deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/op
 import { arrange } from "../editor/commands";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
-import { apply, begin, commit, getState, select, set, useEditor } from "../editor/store";
+import { apply, begin, commit, getState, openTextDialog, select, set, useEditor } from "../editor/store";
+import { unlinkSource } from "../text/sync";
 
 const BORDERS: [BorderStyle, string][] = [
   ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"],
@@ -27,6 +28,9 @@ export function Inspector() {
   const eachEdge = (patch: (e: Edge) => Partial<Edge>) =>
     apply((d) => edges.reduce((acc, e) => updateEdge(acc, e.id, patch(e)), d));
   const n0 = nodes[0], e0 = edges[0];
+  // Drawn from text? (Offer to edit that text when the whole selection comes from one source.)
+  const sources = new Set([...nodes, ...edges].map((o) => o.gen?.source));
+  const sourceOf = sources.size === 1 ? [...sources][0] : undefined;
 
   return (
     <aside className="inspector" aria-label="Properties">
@@ -65,7 +69,7 @@ export function Inspector() {
               </Choice>
             </Row>
           )}
-          {nodes.length === 1 && n0.kind === "box" && n0.border !== "none" && (
+          {nodes.length === 1 && (n0.kind === "box" || n0.kind === "frame") && n0.border !== "none" && (
             <>
               <Row label="name">
                 <input
@@ -145,6 +149,14 @@ export function Inspector() {
               ))}
             </Row>
           )}
+        </section>
+      )}
+      {sourceOf && (
+        <section>
+          <Row label="from text">
+            <Choice active={false} onClick={() => openTextDialog(sourceOf)} title="Edit the text this was drawn from">edit text</Choice>
+            <Choice active={false} onClick={() => apply((d) => unlinkSource(d, sourceOf))} title="Keep the drawing, forget the text">unlink</Choice>
+          </Row>
         </section>
       )}
       <section className="actions">

@@ -1,7 +1,8 @@
 import {
-  type Point, type Rect, type Side, SIDES, STEP, add, bottom, key, right,
+  type Point, type Rect, type Side, SIDES, STEP, add, bottom, contains, key, right,
 } from "../geometry/geom";
 import type { Diagram, Edge, Endpoint, Node } from "../model/types";
+import { within } from "../model/containment";
 import { footprint, shapeOf } from "../shapes/registry";
 import type { Occupancy } from "./occupancy";
 import { type RouteEnd, route } from "./orthogonal";
@@ -117,7 +118,13 @@ export function resolveEndpoint(d: Diagram, ep: Endpoint, other: Endpoint): Anch
  * other sides (used while dragging, for speed; the full routing runs when the drag ends).
  */
 export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick = false): ResolvedEdge {
-  const obstacles = d.order.flatMap((id) => footprint(d.nodes[id]));
+  // Boxes around either end (containers, frames) aren't in the way: the connector has to cross
+  // their border anyway.
+  const holds = (n: Node, ep: Endpoint) =>
+    ep.kind === "free" ? contains(n.rect, ep.at) : ep.node !== n.id && !!d.nodes[ep.node] && within(d.nodes[ep.node].rect, n.rect);
+  const obstacles = d.order
+    .filter((id) => !holds(d.nodes[id], edge.from) && !holds(d.nodes[id], edge.to))
+    .flatMap((id) => footprint(d.nodes[id]));
   const via = edge.via ?? [];
   const towards = (p: Point): Endpoint => ({ kind: "free", at: p });
   const fromOther = via.length ? towards(via[0]) : edge.to;
