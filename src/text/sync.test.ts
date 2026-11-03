@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withContents } from "../model/containment";
 import { emptyDiagram, moveObjects, updateEdge, updateNode } from "../model/ops";
 import type { Diagram } from "../model/types";
 import { diagramToText, rasterize } from "../render/rasterize";
@@ -294,5 +295,43 @@ describe("graph connectors follow the flow direction", () => {
     const s = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x: 0, y: 0 });
     const d = setDirection(s.diagram, s.id, "down").diagram;
     expect(sides(moveObjects(d, [byKey(d, "n:D").id], { x: -12, y: 0 }), "e:C>D#1")).toEqual(["bottom", "top"]);
+  });
+});
+
+describe("moving lifelines", () => {
+  const text = `sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant D as DB
+    C->>+A: GET
+    A-->>-C: 200
+    loop every minute
+      C->>A: ping
+    end`;
+  const rows = (d: Diagram) => Object.values(d.edges).map((e) => rasterize(d).edges.get(e.id)!.from.cell.y).sort((a, b) => a - b);
+
+  it("keeps messages and activation bars on their rows when a lifeline moves up or down", () => {
+    const s = drawSource(emptyDiagram(), { kind: "sequence", options: {}, text }, { x: 0, y: 0 });
+    const api = byKey(s.diagram, "p:A"), bar = byKey(s.diagram, "a:A#1");
+    const d = moveObjects(s.diagram, withContents(s.diagram, [api.id]), { x: 3, y: 2 });
+    expect(byKey(d, "p:A").rect).toMatchObject({ x: api.rect.x + 3, y: api.rect.y + 2 });
+    expect(byKey(d, "a:A#1").rect).toMatchObject({ x: bar.rect.x + 3, y: bar.rect.y });
+    expect(rows(d)).toEqual(rows(s.diagram));
+    // And redrawn from edited text, they still do.
+    const r = updateSource(d, s.id, { text: text + "\n    C->>D: later" }).diagram;
+    expect(rows(r).slice(0, 3)).toEqual(rows(s.diagram));
+  });
+
+  it("stretches a loop frame with the lifelines at its edges", () => {
+    const s = drawSource(emptyDiagram(), { kind: "sequence", options: {}, text }, { x: 0, y: 0 });
+    const f = byKey(s.diagram, "f:0").rect;
+    // API is the frame's right-hand lifeline: moving it right widens the frame.
+    let d = moveObjects(s.diagram, [byKey(s.diagram, "p:A").id], { x: 6, y: 0 });
+    expect(byKey(d, "f:0").rect).toMatchObject({ x: f.x, w: f.w + 6 });
+    // Client is its left-hand one: moving it right moves the frame's left edge in.
+    d = moveObjects(d, [byKey(d, "p:C").id], { x: 2, y: 0 });
+    expect(byKey(d, "f:0").rect).toMatchObject({ x: f.x + 2, w: f.w + 4 });
+    // DB isn't spanned: moving it leaves the frame alone.
+    expect(byKey(moveObjects(d, [byKey(d, "p:D").id], { x: 5, y: 0 }), "f:0").rect).toEqual(byKey(d, "f:0").rect);
   });
 });

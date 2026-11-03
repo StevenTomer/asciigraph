@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { type Rect, type Side, bottom, right } from "../geometry/geom";
 import { HANDLES, handlePositions } from "../editor/hitTest";
+import { lockMates } from "../model/locks";
 import { attachInput } from "../editor/input";
 import { type EditorState, useEditor } from "../editor/store";
 import { borderToScreen, cellCenter, cellToScreen, rectToScreen, rendered, screenToCell } from "../editor/view";
@@ -152,6 +153,21 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
       ctx.fill();
       ctx.stroke();
     }
+  }
+
+  // What the selection is locked to: dotted outlines.
+  const mates = lockMates(s.diagram, selectedNodes);
+  if (mates.size) {
+    ctx.save();
+    ctx.strokeStyle = c.guide;
+    ctx.setLineDash([2, 3]);
+    for (const id of mates.keys()) {
+      const n = s.diagram.nodes[id];
+      if (!n) continue;
+      const box = borderToScreen(n.rect);
+      ctx.strokeRect(box.x - 4, box.y - 4, box.w + 8, box.h + 8);
+    }
+    ctx.restore();
   }
 
   // Bend points of selected connectors: small squares.

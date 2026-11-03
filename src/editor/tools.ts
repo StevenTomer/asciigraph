@@ -4,6 +4,7 @@ import {
   addEdge, addNode, bringToFront, makeEdge, makeNode, moveObjects, resizeNode, setEndpoint, updateEdge, updateNode,
 } from "../model/ops";
 import { withContents } from "../model/containment";
+import { lockMates, moveWithLocks } from "../model/locks";
 import type { Diagram, Id } from "../model/types";
 import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
@@ -118,12 +119,15 @@ const selectTool: Tool = {
       // Snap the moved boxes' outline to other boxes (not with Ctrl held).
       const moved = union(ids.filter((id) => g.base.nodes[id]).map((id) => g.base.nodes[id].rect));
       if (moved && snapping(p)) {
-        const snapped = snapMove(g.base, ids, { ...moved, x: moved.x + delta.x, y: moved.y + delta.y });
+        // Lock-mates move too: they're not snap targets.
+        const alongside = p.alt ? ids : [...ids, ...lockMates(g.base, ids).keys()];
+        const snapped = snapMove(g.base, alongside, { ...moved, x: moved.x + delta.x, y: moved.y + delta.y });
         delta = { x: delta.x + snapped.shift.x, y: delta.y + snapped.shift.y };
         guides = snapped.guides;
       }
       // What you drag comes to the front, so a box pulled partly out of a frame isn't hidden by it.
-      set(bringToFront(moveObjects(g.base, ids, delta), ids));
+      // Alt moves just what's selected: no contents, no lock-mates.
+      set(bringToFront(p.alt ? moveObjects(g.base, ids, delta) : moveWithLocks(g.base, ids, delta), ids));
       setOverlay({ guides });
     } else if (g.kind === "resize") {
       let rect = resizedRect(d, g.node, g.orig, g.handle, sub(p.cell, g.start));

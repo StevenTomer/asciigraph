@@ -128,9 +128,12 @@ function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
 
   let out = d;
   const idOf = new Map<string, Id>();
+  /** Where each node was generated (before any position the user set). */
+  const generatedAt = new Map<string, Rect>();
   for (const dn of desired.nodes) {
     const abs = { ...dn.node.rect, x: dn.node.rect.x + origin.x, y: dn.node.rect.y + origin.y };
     const fresh = normalized(dn.node, abs);
+    generatedAt.set(dn.key, fresh);
     const style = nodeStyle(dn.node);
     const ex = nodes.get(dn.key);
     if (ex) {
@@ -166,6 +169,12 @@ function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
   const end = (es: EndSpec): Endpoint | null => {
     if ("at" in es) return { kind: "free", at: { x: es.at.x + origin.x, y: es.at.y + origin.y } };
     const node = idOf.get(es.key);
+    // Messages keep their rows: on a lifeline (or bar) the user moved up or down, the offset is
+    // from where it actually is, not where it was generated.
+    const n = node ? out.nodes[node] : undefined;
+    if (n && es.offset !== undefined && es.side !== "top" && es.side !== "bottom" && shapeOf(n).attachByRow) {
+      es = { ...es, offset: es.offset + generatedAt.get(es.key)!.y - n.rect.y };
+    }
     return node
       ? { kind: "attached", node, side: es.side, ...(es.offset !== undefined && { offset: es.offset }), ...(es.prefer && { prefer: es.prefer }) }
       : null;

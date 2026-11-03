@@ -852,3 +852,31 @@ test("switch a drawn graph between top-to-bottom and left-to-right", async ({ pa
   p = await pos();
   expect(p.A.y).toBeLessThan(p.B.y);
 });
+
+test("lock boxes together horizontally; Alt moves one alone; unlock", async ({ page }) => {
+  await box(page, [2, 2], [10, 4], "A");
+  await box(page, [2, 12], [10, 14], "B");
+  const ids = Object.fromEntries(Object.values((await state(page)).diagram.nodes).map((n) => [n.text, n.id]));
+  const rect = async (t) => (await state(page)).diagram.nodes[ids[t]].rect;
+  await page.keyboard.press("Control+a");
+  const p = await at(page, 6, 3);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Lock Together" }).hover();
+  await page.getByRole("menuitem", { name: /^Horizontally/ }).click();
+  await expect(page.getByText("2 together, left–right")).toBeVisible();
+
+  // Drag A right and down: B follows left–right only.
+  await page.keyboard.press("Escape");
+  await drag(page, [6, 3], [14, 5], { ctrl: true });
+  expect(await rect("A")).toMatchObject({ x: 10, y: 4 });
+  expect(await rect("B")).toMatchObject({ x: 10, y: 12 });
+  // Alt: A alone.
+  await drag(page, [14, 5], [18, 5], { alt: true });
+  expect((await rect("A")).x).toBe(14);
+  expect((await rect("B")).x).toBe(10);
+  // Unlock from the properties panel: A moves alone.
+  await click(page, 18, 5);
+  await page.getByRole("button", { name: "unlock" }).click();
+  await drag(page, [18, 5], [20, 5], { ctrl: true });
+  expect((await rect("B")).x).toBe(10);
+});

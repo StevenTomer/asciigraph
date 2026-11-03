@@ -1,5 +1,6 @@
 import { deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/ops";
 import { arrange } from "../editor/commands";
+import { locksOf, unlock } from "../model/locks";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
 import { apply, begin, commit, getState, openTextDialog, select, set, useEditor } from "../editor/store";
@@ -31,6 +32,11 @@ export function Inspector() {
   // Drawn from text? (Offer to edit that text when the whole selection comes from one source.)
   const sources = new Set([...nodes, ...edges].map((o) => o.gen?.source));
   const sourceOf = sources.size === 1 ? [...sources][0] : undefined;
+  // Locked to other things? Say with how many, and which way.
+  const locks = [...new Map(nodes.flatMap((n) => locksOf(diagram, n.id)).map((l) => [l.id, l])).values()];
+  const together = new Set(locks.flatMap((l) => l.members)).size;
+  const ways = [...new Set(locks.map((l) => (l.x && l.y ? "both ways" : l.x ? "left–right" : "up–down")))];
+  const lockInfo = locks.length ? `${together} together, ${ways.join(", ")}` : null;
   const source = sourceOf ? diagram.sources?.[sourceOf] : undefined;
   const direction = source ? directionOf(source) : null;
 
@@ -158,6 +164,14 @@ export function Inspector() {
               ))}
             </Row>
           )}
+        </section>
+      )}
+      {lockInfo && (
+        <section>
+          <Row label="locked">
+            <span className="row-text">{lockInfo}</span>
+            <Choice active={false} onClick={() => apply((d) => unlock(d, nodes.map((n) => n.id)))} title="Stop moving together">unlock</Choice>
+          </Row>
         </section>
       )}
       {!sourceOf && nodes.length > 0 && (

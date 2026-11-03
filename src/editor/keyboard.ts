@@ -1,5 +1,5 @@
 import { withContents } from "../model/containment";
-import { moveObjects } from "../model/ops";
+import { moveWithLocks } from "../model/locks";
 import { deleteSelection, duplicateCommand } from "./clipboard";
 import { arrange, selectAll } from "./commands";
 import { keys } from "./input";
@@ -102,7 +102,7 @@ export function attachKeyboard(): () => void {
           x: k === "ArrowLeft" ? -n : k === "ArrowRight" ? n : 0,
           y: k === "ArrowUp" ? -n : k === "ArrowDown" ? n : 0,
         };
-        apply((d) => moveObjects(d, withContents(d, selection), delta));
+        apply((d) => moveWithLocks(d, withContents(d, selection), delta));
         e.preventDefault();
         return;
       }

@@ -3,6 +3,7 @@ import {
   type Alignment, align, bringForward, distribute, reverseEdge, sendBackward, sendToBack, topLevel,
 } from "../model/arrange";
 import { autoLayout } from "../model/layout";
+import { lockTogether, locksOf, unlock } from "../model/locks";
 import { bringToFront, updateEdge } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
@@ -118,6 +119,22 @@ export function contextMenu(at: Point): MenuEntry[] {
       // A graph drawn from text gets "Layout" (below), which lays it out from its text instead.
       ...(linkedLayout ? [] : [layoutMenu(nodes)]),
     );
+  }
+  // Locks: move together left–right, up–down, or both.
+  const locked = nodes.some((id) => locksOf(d, id).length);
+  if (nodes.length >= 2 || locked) {
+    entries.push("separator");
+    if (nodes.length >= 2) {
+      entries.push({
+        label: "Lock Together",
+        submenu: [
+          { label: "Horizontally", hint: "move left–right together", run: () => apply((dd) => lockTogether(dd, nodes, { x: true, y: false })) },
+          { label: "Vertically", hint: "move up–down together", run: () => apply((dd) => lockTogether(dd, nodes, { x: false, y: true })) },
+          { label: "Both", hint: "move together", run: () => apply((dd) => lockTogether(dd, nodes, { x: true, y: true })) },
+        ],
+      });
+    }
+    if (locked) entries.push({ label: "Unlock", run: () => apply((dd) => unlock(dd, nodes)) });
   }
   if (edges.length === 1 && !nodes.length) {
     const e = d.edges[edges[0]];

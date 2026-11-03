@@ -1,4 +1,5 @@
-import { type Point, type Rect, add } from "../geometry/geom";
+import { type Point, type Rect, add, contains, right } from "../geometry/geom";
+import { within } from "./containment";
 import { resolveEndpoint } from "../routing/endpoints";
 import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
@@ -115,20 +116,57 @@ export function setEndpoint(d: Diagram, id: Id, which: "from" | "to", ep: Endpoi
  */
 export function moveObjects(d: Diagram, ids: Iterable<Id>, delta: Point): Diagram {
   if (delta.x === 0 && delta.y === 0) return d;
-  ids = [...ids];
+  const list = [...ids];
+  const moving = new Set(list);
   const nodes = { ...d.nodes };
   const edges = { ...d.edges };
   const moveFree = (ep: Endpoint): Endpoint => (ep.kind === "free" ? { ...ep, at: add(ep.at, delta) } : ep);
-  for (const id of ids) {
+  // Sequence diagrams keep their rows: moving a lifeline up or down moves its header, not the
+  // messages on it or the activation bars it carries.
+  const lifelines = list.filter((id) => nodes[id]?.kind === "lifeline");
+  const barOwner = (id: Id) => {
+    const b = d.nodes[id];
+    return lifelines.find((l) => b.rect.x + 1 === lifelineColumn(d.nodes[l].rect) && within(b.rect, d.nodes[l].rect));
+  };
+  for (const id of list) {
     if (nodes[id]) {
       const r = nodes[id].rect;
-      nodes[id] = { ...nodes[id], rect: { ...r, x: r.x + delta.x, y: r.y + delta.y } };
+      const keepRow = nodes[id].kind === "activation" && barOwner(id) !== undefined;
+      nodes[id] = { ...nodes[id], rect: { ...r, x: r.x + delta.x, y: r.y + (keepRow ? 0 : delta.y) } };
     } else if (edges[id]) {
       const e = edges[id];
       edges[id] = { ...e, from: moveFree(e.from), to: moveFree(e.to), ...(e.via && { via: e.via.map((p) => add(p, delta)) }) };
     }
   }
-  return seatActivations({ ...d, nodes, edges }, ids);
+  if (lifelines.length && delta.y) {
+    const moved = new Set(lifelines);
+    const keep = (ep: Endpoint): Endpoint =>
+      ep.kind === "attached" && moved.has(ep.node) && ep.offset !== undefined && ep.side !== "top" && ep.side !== "bottom"
+        ? { ...ep, offset: ep.offset - delta.y }
+        : ep;
+    for (const [id, e] of Object.entries(edges)) {
+      const from = keep(e.from), to = keep(e.to);
+      if (from !== e.from || to !== e.to) edges[id] = { ...e, from, to };
+    }
+  }
+  // Frames (loop / alt blocks) spanning lifelines stretch with the outermost ones they span.
+  if (lifelines.length && delta.x) {
+    for (const f of Object.values(d.nodes)) {
+      if (f.kind !== "frame" || moving.has(f.id)) continue;
+      const spanned = Object.values(d.nodes)
+        .filter((l) => l.kind === "lifeline" && contains(f.rect, { x: lifelineColumn(l.rect), y: Math.max(f.rect.y, l.rect.y) })
+          && l.rect.y + l.rect.h - 1 >= f.rect.y)
+        .sort((a, b) => lifelineColumn(a.rect) - lifelineColumn(b.rect));
+      if (!spanned.length) continue;
+      let x0 = f.rect.x, x1 = right(f.rect);
+      if (moving.has(spanned[0].id)) x0 += delta.x;
+      if (moving.has(spanned[spanned.length - 1].id)) x1 += delta.x;
+      if (x0 === f.rect.x && x1 === right(f.rect)) continue;
+      if (x1 - x0 + 1 < 4) x1 = x0 + 3;
+      nodes[f.id] = { ...nodes[f.id], rect: { ...f.rect, x: x0, w: x1 - x0 + 1 } };
+    }
+  }
+  return seatActivations({ ...d, nodes, edges }, list);
 }
 
 /** Free an end where it currently is (used when its node is deleted, or on detach). */
@@ -153,7 +191,15 @@ export function deleteObjects(d: Diagram, ids: Iterable<Id>): Diagram {
     edges[e.id] = next;
   }
   const nodes = Object.fromEntries(Object.entries(d.nodes).filter(([id]) => !gone.has(id)));
-  return dropUnusedSources({ ...d, nodes, edges, order: d.order.filter((id) => !gone.has(id)) });
+  const kept = dropUnusedSources({ ...d, nodes, edges, order: d.order.filter((id) => !gone.has(id)) });
+  if (!kept.locks) return kept;
+  const locks = Object.fromEntries(
+    Object.values(kept.locks)
+      .map((l) => ({ ...l, members: l.members.filter((m) => !gone.has(m)) }))
+      .filter((l) => l.members.length >= 2)
+      .map((l) => [l.id, l])
+  );
+  return { ...kept, locks: Object.keys(locks).length ? locks : undefined };
 }
 
 /** Text sources with nothing left drawn from them. */

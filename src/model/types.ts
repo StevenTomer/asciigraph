@@ -13,6 +13,16 @@ export interface Diagram {
   order: Id[];
   /** Text the diagram was (partly) drawn from; editing it redraws those parts (text/sync.ts). */
   sources?: Record<Id, TextSource>;
+  /** Groups of nodes locked together (model/locks.ts). */
+  locks?: Record<Id, Lock>;
+}
+
+/** Nodes that move together: left–right (`x`), up–down (`y`), or both. */
+export interface Lock {
+  id: Id;
+  members: Id[];
+  x: boolean;
+  y: boolean;
 }
 
 export type SourceKind = "sequence" | "graph" | "tree";
