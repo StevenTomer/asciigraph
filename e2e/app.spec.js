@@ -313,3 +313,25 @@ test("text mode: click-drag on a box moves it; clicking empty space still makes 
   expect(s.tool).toBe("text");
   expect(await text(page)).toContain("label");
 });
+
+test("text mode: alt-click places a label inside a box, which then moves with it", async ({ page }) => {
+  await box(page, [2, 2], [20, 8], "");
+  await page.keyboard.press("t");
+  const p = await at(page, 5, 4);
+  await page.keyboard.down("Alt");
+  await page.mouse.click(p.x, p.y);
+  await page.keyboard.up("Alt");
+  await page.keyboard.type("inside");
+  await page.keyboard.press("Escape");
+  let s = await state(page);
+  expect(s.tool).toBe("text");
+  const label = Object.values(s.diagram.nodes).find((n) => n.text === "inside");
+  expect(label.rect).toMatchObject({ x: 5, y: 4 });
+  expect(await text(page)).toContain("│  inside");
+
+  // Move the box: the label goes with it.
+  await page.keyboard.press("Escape");
+  await drag(page, [12, 2], [12, 12]);
+  s = await state(page);
+  expect(s.diagram.nodes[label.id].rect).toMatchObject({ x: 5, y: 14 });
+});
