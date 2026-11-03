@@ -238,3 +238,25 @@ describe("switching a drawn graph between TB and LR", () => {
 `);
   });
 });
+
+it("keeps labels on a shared trunk apart (the sample flowchart, left to right)", () => {
+  const text = `flowchart TD
+    A([Start]) --> B[Read order]
+    B --> C{In stock?}
+    C -->|yes| D[[Ship it]]
+    C -->|no| E[(Backorders)]
+    D --> F([Done])
+    E --> F`;
+  const s = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x: 0, y: 0 });
+  expect(show(setDirection(s.diagram, s.id, "right").diagram)).toBe(`
+                                                                    ┌─┬─────────┬─┐
+                                                                  ┌►│ │ Ship it │ ├────────┐
+                                                                  │ └─┴─────────┴─┘        │
+╭───────╮          ┌────────────┐           ╱───────────╲         │ yes                    │ ╭──────╮
+( Start )─────────►│ Read order ├─────────►<  In stock?  >────────┤                        ├►( Done )
+╰───────╯          └────────────┘           ╲───────────╱      no │ ╭────────────╮         │ ╰──────╯
+                                                                  │ ├────────────┤         │
+                                                                  └►│ Backorders ├─────────┘
+                                                                    ╰────────────╯
+`);
+});

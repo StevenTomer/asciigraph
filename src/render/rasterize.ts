@@ -6,7 +6,7 @@ import { Occupancy } from "../routing/occupancy";
 import { renderText } from "./markdown";
 import { chars } from "./textLayout";
 import { footprint, shapeOf } from "../shapes/registry";
-import { CharGrid } from "./grid";
+import { CharGrid, cellGlyph } from "./grid";
 
 export interface Rendered {
   grid: CharGrid;
@@ -74,9 +74,23 @@ export function rasterize(d: Diagram, quick = false): Rendered {
         grid.stroke(end, ["left", "right"], style);
       }
     }
-    // Labels go on after every connector's lines, so a later one doesn't draw over them.
+    // Labels go on after every connector's lines, so a later one doesn't draw over them; each
+    // keeps clear of other labels, boxes and other connectors (not on a trunk it shares).
     labels.push(() => {
-      const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt);
+      const mine = new Set(r.cells.map(key));
+      const canUse = (p: Point, onLine: boolean) => {
+        const k = key(p);
+        if (labelCells.has(k)) return false;
+        const c = grid.get(p);
+        if (!c || cellGlyph(c, false) === "") return true;
+        return onLine && mine.has(k) && pathUse.get(k) === 1 && c.ch === undefined;
+      };
+      const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt, canUse);
+      if (edge.label) {
+        for (let y = placed.rect.y; y < placed.rect.y + placed.rect.h; y++) {
+          for (let x = placed.rect.x - 1; x <= placed.rect.x + placed.rect.w; x++) labelCells.add(`${x},${y}`);
+        }
+      }
       r.label = placed.rect;
       for (const [p, ch] of placed.chars) {
         if (hidden(p)) continue;
@@ -91,6 +105,10 @@ export function rasterize(d: Diagram, quick = false): Rendered {
       }
     });
   }
+  // How many connectors run through each cell (a shared trunk has more than one).
+  const pathUse = new Map<string, number>();
+  for (const r of edges.values()) for (const k of new Set(r.cells.map(key))) pathUse.set(k, (pathUse.get(k) ?? 0) + 1);
+  const labelCells = new Set<string>();
   labels.forEach((f) => f());
 
   return { grid, edges, edgeCells };
@@ -102,12 +120,18 @@ export function rasterize(d: Diagram, quick = false): Rendered {
  * that point; without it, the longest horizontal run that fits (or the middle of the longest
  * vertical one). Without a label, `rect` is where one would go (for the editor). One line.
  */
-export function placeLabel(cells: Point[], label: string, at?: number): { rect: Rect; chars: [Point, string][] } {
+export function placeLabel(
+  cells: Point[], label: string, at?: number,
+  /** Whether label text may go in a cell; `onLine`: the cell is on the label's own row of an
+   * inline label, where covering this connector's own line is fine. */
+  canUse: (p: Point, onLine: boolean) => boolean = () => true,
+): { rect: Rect; chars: [Point, string][] } {
   // Lines as shown (Markdown lists rendered). A block of several lines is centred on the line.
   const rendered = label ? renderText(label, 1000) : { lines: [], list: false };
   const lines = rendered.lines.map((l) => chars(l.replace(/\s+$/, "")));
   const len = Math.max(1, ...lines.map((l) => l.length));
   const n = Math.max(1, lines.length);
+  type Placed = { rect: Rect; chars: [Point, string][]; line?: number };
   /** Each line's characters from `x0`: centred in the block, or left-aligned for lists. */
   const place = (x0: number, top: number, out: [Point, string][]) => {
     lines.forEach((l, i) => {
@@ -126,7 +150,7 @@ export function placeLabel(cells: Point[], label: string, at?: number): { rect: 
   }
   // Leave the ends alone (arrowheads, junctions): only inner cells take text.
   const room = (r: { a: number; b: number }) => Math.min(r.b, cells.length - 2) - Math.max(r.a, 1) + 1;
-  const inline = (run: { a: number; b: number }, centre?: number) => {
+  const inline = (run: { a: number; b: number }, centre?: number): Placed => {
     const lo = Math.max(run.a, 1), hi = Math.min(run.b, cells.length - 2);
     const minX = Math.min(cells[lo].x, cells[hi].x), maxX = Math.max(cells[lo].x, cells[hi].x);
     // Centred on `centre` (or the run), whichever way the run heads, with a space either side.
@@ -142,24 +166,59 @@ export function placeLabel(cells: Point[], label: string, at?: number): { rect: 
       for (let x = left - 1; x <= left + mid.length; x++) out.push([{ x, y }, " "]);
       place(x0, top, out);
     }
-    return { rect: { x: x0, y: top, w: len, h: n }, chars: out };
+    return { rect: { x: x0, y: top, w: len, h: n }, chars: out, line: y };
   };
-  const beside = (cell: Point) => {
-    const x0 = cell.x + 2, top = cell.y - Math.floor((n - 1) / 2);
+  /** Beside a cell of a vertical stretch: to its right, or to its left. */
+  const beside = (cell: Point, side: "right" | "left" = "right"): Placed => {
+    const x0 = side === "right" ? cell.x + 2 : cell.x - 1 - len, top = cell.y - Math.floor((n - 1) / 2);
     const out: [Point, string][] = [];
     place(x0, top, out);
     return { rect: { x: x0, y: top, w: len, h: n }, chars: out };
   };
+  /** Clear of other labels, boxes and connectors (and, inline, only on its own line). */
+  const fine = (pl: Placed) => pl.chars.every(([p]) => canUse(p, p.y === pl.line));
+  /** Positions along a run, from its middle outwards. */
+  const outward = (lo: number, hi: number) => {
+    const mid = Math.floor((lo + hi) / 2), out: number[] = [];
+    for (let k = 0; mid - k >= lo || mid + k <= hi; k++) {
+      if (mid + k <= hi) out.push(mid + k);
+      if (k && mid - k >= lo) out.push(mid - k);
+    }
+    return out;
+  };
 
   if (at !== undefined && cells.length > 2) {
+    // Dragged here: as near that spot as it fits cleanly, else right there anyway.
     const k = Math.max(1, Math.min(cells.length - 2, Math.round(at * (cells.length - 1))));
     const run = runs.find((r) => r.horizontal && r.a <= k && k <= r.b && room(r) >= len + 2);
-    return run ? inline(run, cells[k].x) : beside(cells[k]);
+    const options = run ? [inline(run, cells[k].x)] : [beside(cells[k]), beside(cells[k], "left")];
+    return options.find(fine) ?? options[0];
   }
-  const fits = runs.filter((r) => r.horizontal && room(r) >= len + 2).sort((p, q) => room(q) - room(p))[0];
-  if (fits) return inline(fits);
-  const vertical = runs.filter((r) => !r.horizontal || r.a === r.b).sort((p, q) => q.b - q.a - (p.b - p.a))[0] ?? runs[0];
-  return beside(cells[Math.floor((vertical.a + vertical.b) / 2)]);
+  // Inline on a horizontal stretch (the roomiest first, middle outwards)…
+  const horizontal = runs.filter((r) => r.horizontal && room(r) >= len + 2).sort((p, q) => room(q) - room(p));
+  for (const r of horizontal) {
+    const centred = inline(r);
+    if (fine(centred)) return centred;
+    const lo = Math.max(r.a, 1), hi = Math.min(r.b, cells.length - 2);
+    for (const k of outward(lo, hi)) {
+      const pl = inline(r, cells[k].x);
+      if (fine(pl)) return pl;
+    }
+  }
+  // …else beside a vertical stretch (the longest first, middle outwards, right then left)…
+  const vertical = runs.filter((r) => !r.horizontal || r.a === r.b).sort((p, q) => q.b - q.a - (p.b - p.a));
+  for (const r of vertical) {
+    for (const k of outward(Math.max(r.a, 1), Math.min(r.b, cells.length - 2))) {
+      for (const side of ["right", "left"] as const) {
+        const pl = beside(cells[k], side);
+        if (fine(pl)) return pl;
+      }
+    }
+  }
+  // …else where it would have gone regardless.
+  if (horizontal[0]) return inline(horizontal[0]);
+  const v = vertical[0] ?? runs[0];
+  return beside(cells[Math.floor((v.a + v.b) / 2)]);
 }
 
 /** Rects of the nodes that hide an edge: all but those containing one of its ends. */
