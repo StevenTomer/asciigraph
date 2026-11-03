@@ -52,7 +52,7 @@ export function generate(source: Pick<TextSource, "kind" | "text" | "options">):
   const out =
     kind === "sequence" ? sequence(parseSequence(source.text))
     : kind === "graph" ? graph(parseGraph(source.text), source.options.direction)
-    : tree(parseTree(source.text).roots, source.options.treeStyle ?? "text");
+    : tree(parseTree(source.text).roots, source.options.treeStyle ?? "text", source.options.direction ?? "down");
   return normalize({ kind, ...out });
 }
 
@@ -366,7 +366,7 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
 // Folder trees
 // ---------------------------------------------------------------------------------------------
 
-function tree(roots: TreeEntry[], style: "text" | "boxes"): Omit<Desired, "kind"> {
+function tree(roots: TreeEntry[], style: "text" | "boxes", direction: "down" | "right"): Omit<Desired, "kind"> {
   if (!roots.length) return { nodes: [], edges: [], warnings: ["nothing to draw"] };
   if (style === "text") {
     const text = treeText(roots);
@@ -394,16 +394,17 @@ function tree(roots: TreeEntry[], style: "text" | "boxes"): Omit<Desired, "kind"
   for (const e of all) {
     for (const c of e.children) {
       scratch = addEdge(scratch, makeEdge({ kind: "attached", node: e.path, side: "auto" }, { kind: "attached", node: c.path, side: "auto" }));
-      // From the middle of the parent's bottom, so children branch off one trunk.
+      // From the middle of the parent's bottom (or right side), so children branch off one trunk.
+      const down = direction === "down";
       edges.push({
         key: `t:${e.path}>${c.path}`,
-        from: { key: `t:${e.path}`, side: "bottom", offset: Math.floor((width(label(e)) + 4 - 1) / 2) },
-        to: { key: `t:${c.path}`, side: "top" },
+        from: { key: `t:${e.path}`, side: down ? "bottom" : "right", offset: down ? Math.floor((width(label(e)) + 4 - 1) / 2) : 1 },
+        to: { key: `t:${c.path}`, side: down ? "top" : "left" },
         line: "single", arrows: { start: false, end: false },
       });
     }
   }
-  scratch = autoLayout(scratch, [], "down");
+  scratch = autoLayout(scratch, [], direction);
   return {
     nodes: all.map((e) => ({ key: `t:${e.path}`, node: spec(scratch.nodes[e.path].rect, { text: label(e) }) })),
     edges,

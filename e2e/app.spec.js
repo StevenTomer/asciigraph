@@ -600,7 +600,7 @@ test("right-click Auto Layout arranges the diagram", async ({ page }) => {
   const p = await at(page, 20, 30);
   await page.mouse.click(p.x, p.y, { button: "right" });
   await page.getByRole("menuitem", { name: "Auto Layout" }).hover();
-  await page.getByRole("menuitem", { name: "Top to Bottom" }).click();
+  await page.getByRole("menuitem", { name: "Top to Bottom (TB)" }).click();
   const n = Object.values((await state(page)).diagram.nodes);
   const y = (t) => n.find((x) => x.text === t).rect.y;
   expect(y("a")).toBeLessThan(y("b"));
@@ -825,4 +825,30 @@ test("export as comment blocks for source code, and a custom style", async ({ pa
   await page.keyboard.press("Escape");
   await page.getByTestId("export").click();
   await expect(page.getByTestId("export-text")).toHaveText(/^<!--/);
+});
+
+test("switch a drawn graph between top-to-bottom and left-to-right", async ({ page }) => {
+  await page.getByRole("button", { name: "from text" }).click();
+  const dialog = page.getByRole("dialog", { name: "Draw from text" });
+  await dialog.getByLabel("Diagram text").fill("flowchart TD\n  A --> B --> C");
+  await dialog.getByRole("button", { name: "draw" }).click();
+  const pos = async () => {
+    const n = Object.values((await state(page)).diagram.nodes);
+    return Object.fromEntries(n.map((v) => [v.text, v.rect]));
+  };
+  let p = await pos();
+  expect(p.A.y).toBeLessThan(p.B.y);
+  // Everything drawn is selected: the panel offers the layout direction.
+  await page.getByRole("button", { name: "left to right (LR)" }).click();
+  p = await pos();
+  expect(p.A.x).toBeLessThan(p.B.x);
+  expect(p.A.y).toBe(p.C.y);
+  expect(Object.values((await state(page)).diagram.sources)[0].text).toMatch(/^flowchart LR/);
+  // And back from the right-click menu.
+  const c = await at(page, p.B.x + 2, p.B.y + 1);
+  await page.mouse.click(c.x, c.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Layout", exact: true }).hover();
+  await page.getByRole("menuitem", { name: "Top to Bottom (TB)" }).click();
+  p = await pos();
+  expect(p.A.y).toBeLessThan(p.B.y);
 });

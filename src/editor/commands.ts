@@ -6,7 +6,7 @@ import { autoLayout } from "../model/layout";
 import { bringToFront, updateEdge } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
-import { unlinkSource } from "../text/sync";
+import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { apply, getState, openTextDialog, select, startEditing } from "./store";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -56,8 +56,8 @@ export function contextMenu(at: Point): MenuEntry[] {
   const layoutMenu = (ids: Id[]): MenuItem => ({
     label: "Auto Layout",
     submenu: [
-      { label: "Top to Bottom", run: () => apply((dd) => autoLayout(dd, ids, "down")) },
-      { label: "Left to Right", run: () => apply((dd) => autoLayout(dd, ids, "right")) },
+      { label: "Top to Bottom (TB)", run: () => apply((dd) => autoLayout(dd, ids, "down")) },
+      { label: "Left to Right (LR)", run: () => apply((dd) => autoLayout(dd, ids, "right")) },
     ],
   });
 
@@ -73,6 +73,9 @@ export function contextMenu(at: Point): MenuEntry[] {
   }
 
   const arrangeable = topLevel(d, nodes).length;
+  const linkedSources = new Set(selection.map((id) => (d.nodes[id] ?? d.edges[id])?.gen?.source));
+  const linkedId = linkedSources.size === 1 ? [...linkedSources][0] : undefined;
+  const linkedLayout = !!linkedId && !!d.sources?.[linkedId] && directionOf(d.sources[linkedId]) !== null;
   const entries: MenuEntry[] = [];
   if (nodes.length === 1 && !edges.length) {
     entries.push({ label: "Edit Text", shortcut: "Enter", run: () => startEditing(nodes[0]) }, "separator");
@@ -112,7 +115,8 @@ export function contextMenu(at: Point): MenuEntry[] {
           hint: arrangeable < 3 ? "3+ boxes" : undefined,
         })),
       },
-      layoutMenu(nodes),
+      // A graph drawn from text gets "Layout" (below), which lays it out from its text instead.
+      ...(linkedLayout ? [] : [layoutMenu(nodes)]),
     );
   }
   if (edges.length === 1 && !nodes.length) {
@@ -132,9 +136,22 @@ export function contextMenu(at: Point): MenuEntry[] {
     entries.push("separator", { label: "Edit as Text…", hint: "Mermaid", run: () => openTextDialog(null, selection) });
   }
   if (sourceId) {
+    const src = d.sources?.[sourceId];
+    const dir = src ? directionOf(src) : null;
     entries.push(
       "separator",
       { label: "Edit Source Text…", run: () => openTextDialog(sourceId) },
+      ...(dir
+        ? [{
+            label: "Layout",
+            submenu: (["down", "right"] as const).map((v) => ({
+              label: v === "down" ? "Top to Bottom (TB)" : "Left to Right (LR)",
+              hint: dir === v ? "current" : undefined,
+              disabled: dir === v,
+              run: () => apply((dd) => setDirection(dd, sourceId, v).diagram),
+            })),
+          }]
+        : []),
       { label: "Unlink from Text", hint: "keep the drawing", run: () => apply((dd) => unlinkSource(dd, sourceId)) },
     );
   }

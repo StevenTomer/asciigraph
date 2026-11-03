@@ -66,7 +66,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
 
   const actual: SourceKind = kind === "auto" ? detectKind(text) : kind;
   const options: TextSource["options"] = {
-    ...(actual === "graph" && direction !== "auto" && { direction }),
+    ...((actual === "graph" || (actual === "tree" && treeStyle === "boxes")) && direction !== "auto" && { direction }),
     ...(actual === "tree" && { treeStyle }),
   };
   const preview = useMemo(() => {
@@ -140,7 +140,19 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
             <span className="row-items">
               {(["auto", "down", "right"] as const).map((v) => (
                 <button key={v} className={"choice" + (direction === v ? " active" : "")} aria-pressed={direction === v} onClick={() => setDirection(v)}>
-                  {v === "auto" ? "from text" : v === "down" ? "top to bottom" : "left to right"}
+                  {v === "auto" ? "from text" : v === "down" ? "top to bottom (TB)" : "left to right (LR)"}
+                </button>
+              ))}
+            </span>
+          </div>
+        )}
+        {actual === "tree" && treeStyle === "boxes" && (
+          <div className="row">
+            <span className="row-label">direction</span>
+            <span className="row-items">
+              {(["down", "right"] as const).map((v) => (
+                <button key={v} className={"choice" + ((direction === "auto" ? "down" : direction) === v ? " active" : "")} aria-pressed={(direction === "auto" ? "down" : direction) === v} onClick={() => setDirection(v)}>
+                  {v === "down" ? "top to bottom (TB)" : "left to right (LR)"}
                 </button>
               ))}
             </span>

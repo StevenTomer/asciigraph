@@ -3,7 +3,7 @@ import { arrange } from "../editor/commands";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
 import { apply, begin, commit, getState, openTextDialog, select, set, useEditor } from "../editor/store";
-import { unlinkSource } from "../text/sync";
+import { directionOf, setDirection, unlinkSource } from "../text/sync";
 
 const BORDERS: [BorderStyle, string][] = [
   ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"],
@@ -31,6 +31,8 @@ export function Inspector() {
   // Drawn from text? (Offer to edit that text when the whole selection comes from one source.)
   const sources = new Set([...nodes, ...edges].map((o) => o.gen?.source));
   const sourceOf = sources.size === 1 ? [...sources][0] : undefined;
+  const source = sourceOf ? diagram.sources?.[sourceOf] : undefined;
+  const direction = source ? directionOf(source) : null;
 
   return (
     <aside className="inspector" aria-label="Properties">
@@ -171,6 +173,20 @@ export function Inspector() {
             <Choice active={false} onClick={() => openTextDialog(sourceOf)} title="Edit the text this was drawn from">edit text</Choice>
             <Choice active={false} onClick={() => apply((d) => unlinkSource(d, sourceOf))} title="Keep the drawing, forget the text">unlink</Choice>
           </Row>
+          {direction && (
+            <Row label="layout">
+              {(["down", "right"] as const).map((v) => (
+                <Choice
+                  key={v}
+                  active={direction === v}
+                  onClick={() => direction !== v && apply((d) => setDirection(d, sourceOf, v).diagram)}
+                  title={v === "down" ? "Lay it out top to bottom (re-lays out everything)" : "Lay it out left to right (re-lays out everything)"}
+                >
+                  {v === "down" ? "top to bottom (TB)" : "left to right (LR)"}
+                </Choice>
+              ))}
+            </Row>
+          )}
         </section>
       )}
       <section className="actions">

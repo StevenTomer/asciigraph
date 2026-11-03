@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { emptyDiagram, moveObjects, updateEdge, updateNode } from "../model/ops";
 import type { Diagram } from "../model/types";
 import { diagramToText } from "../render/rasterize";
-import { drawSource, membersOf, unlinkSource, updateSource } from "./sync";
+import { directionOf, drawSource, membersOf, setDirection, unlinkSource, updateSource } from "./sync";
 
 const show = (d: Diagram) => "\n" + diagramToText(d) + "\n";
 const byKey = (d: Diagram, key: string) => Object.values(d.nodes).find((n) => n.gen?.key === key)!;
@@ -202,6 +202,39 @@ project/
 └── tests/
     ├── main.test.ts
     └── README.md
+`);
+  });
+});
+
+describe("switching a drawn graph between TB and LR", () => {
+  const text = "flowchart TD\n  A --> B --> C";
+  it("re-lays it out the other way, header included, hand moves too", () => {
+    const s = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x: 0, y: 0 });
+    const x = (d: Diagram, k: string) => byKey(d, k).rect.x, y = (d: Diagram, k: string) => byKey(d, k).rect.y;
+    expect(y(s.diagram, "n:A")).toBeLessThan(y(s.diagram, "n:B"));
+    let d = moveObjects(s.diagram, [byKey(s.diagram, "n:B").id], { x: 9, y: 0 });
+    d = setDirection(d, s.id, "right").diagram;
+    expect(x(d, "n:A")).toBeLessThan(x(d, "n:B"));
+    expect(x(d, "n:B")).toBeLessThan(x(d, "n:C"));
+    expect(y(d, "n:A")).toBe(y(d, "n:C"));
+    expect(d.sources![s.id].text).toBe("flowchart LR\n  A --> B --> C");
+    expect(directionOf(d.sources![s.id])).toBe("right");
+    d = setDirection(d, s.id, "down").diagram;
+    expect(d.sources![s.id].text).toBe(text);
+    expect(y(d, "n:A")).toBeLessThan(y(d, "n:B"));
+  });
+
+  it("lays folder trees drawn as boxes out left to right too", () => {
+    const s = drawSource(emptyDiagram(), { kind: "tree", options: { treeStyle: "boxes" }, text: "app/\n  src/\n    main.ts\n  docs/" }, { x: 0, y: 0 });
+    expect(show(setDirection(s.diagram, s.id, "right").diagram)).toBe(`
+                  ┌──────┐
+                 ┌┤ src/ ├──────────┐
+┌──────┐         │└──────┘          │┌─────────┐
+│ app/ ├─────────┤                  └┤ main.ts │
+└──────┘         │                   └─────────┘
+                 │┌───────┐
+                 └┤ docs/ │
+                  └───────┘
 `);
   });
 });

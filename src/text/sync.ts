@@ -30,10 +30,27 @@ export function drawSource(d: Diagram, src: Pick<TextSource, "kind" | "text" | "
 }
 
 /** Redraw a source after its text or options changed. */
-export function updateSource(d: Diagram, id: Id, patch: Partial<Pick<TextSource, "kind" | "text" | "options">>): SyncResult {
+export function updateSource(
+  d: Diagram, id: Id, patch: Partial<Pick<TextSource, "kind" | "text" | "options">>, opts: { relayout?: boolean } = {}
+): SyncResult {
   const src = d.sources?.[id];
   if (!src) return { diagram: d, warnings: ["that drawing's text is gone"] };
-  return sync(d, { ...src, ...patch, options: { ...src.options, ...patch.options } });
+  return sync(d, { ...src, ...patch, options: { ...src.options, ...patch.options } }, !!opts.relayout);
+}
+
+/**
+ * Lay a drawn graph (or boxes-style folder tree) out the other way: top to bottom (TB) or left to
+ * right (LR). Everything is laid out afresh, positions set by hand included (keeping them would
+ * leave it half one way and half the other); the text's `flowchart TD/LR` header follows.
+ */
+export function setDirection(d: Diagram, id: Id, direction: "down" | "right"): SyncResult {
+  const src = d.sources?.[id];
+  if (!src) return { diagram: d, warnings: [] };
+  const code = direction === "right" ? "LR" : "TD";
+  const text = src.kind === "graph"
+    ? src.text.replace(/^(\s*)(flowchart|graph)\b[ \t]*(TD|TB|BT|LR|RL)?/m, `$1$2 ${code}`)
+    : src.text;
+  return updateSource(d, id, { text, options: { direction } }, { relayout: true });
 }
 
 /** Keep what was drawn, but forget the text: everything becomes ordinary objects. */
@@ -92,7 +109,7 @@ function normalized(spec: DesiredNode["node"], rect: Rect): Rect {
   return tmp.nodes.tmp.rect;
 }
 
-function sync(d: Diagram, source: TextSource): SyncResult {
+function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
   const desired = generate(source);
   const nodes = new Map<string, Node>(), edges = new Map<string, Edge>();
   for (const n of Object.values(d.nodes)) if (n.gen?.source === source.id) nodes.set(n.gen.key, n);
@@ -118,8 +135,10 @@ function sync(d: Diagram, source: TextSource): SyncResult {
     const ex = nodes.get(dn.key);
     if (ex) {
       const last = ex.gen!.at ? { ...ex.gen!.at, x: ex.gen!.at.x + sx, y: ex.gen!.at.y + sy } : ex.rect;
-      const placed = !!ex.gen!.placed;
-      const moved = placed || !sameXY(ex.rect, last), resized = !ex.autosize && (placed || !sameSize(ex.rect, last));
+      // A re-layout (new direction) takes every position and size from the layout.
+      const placed = !relayout && !!ex.gen!.placed;
+      const moved = !relayout && (placed || !sameXY(ex.rect, last));
+      const resized = !relayout && !ex.autosize && (placed || !sameSize(ex.rect, last));
       const rect = {
         x: moved ? ex.rect.x : fresh.x, y: moved ? ex.rect.y : fresh.y,
         w: resized ? ex.rect.w : fresh.w, h: resized ? ex.rect.h : fresh.h,
@@ -171,12 +190,12 @@ function sync(d: Diagram, source: TextSource): SyncResult {
       const restyled = ex.gen!.style !== undefined && ex.gen!.style !== edgeStyle(ex);
       // Ends the user placed (by hand, or dragged since) stay, while they join the same nodes.
       const sameNodes = (a: Endpoint, b: Endpoint) => a.kind === "attached" && b.kind === "attached" && a.node === b.node;
-      const ownEnds = (ex.gen!.placed || (ex.gen!.ends !== undefined && ex.gen!.ends !== JSON.stringify({ from: ex.from, to: ex.to })))
+      const ownEnds = !relayout && (ex.gen!.placed || (ex.gen!.ends !== undefined && ex.gen!.ends !== JSON.stringify({ from: ex.from, to: ex.to })))
         && sameNodes(ex.from, from) && sameNodes(ex.to, to);
       out = updateEdge(out, ex.id, {
         ...(ownEnds ? {} : { from, to }), label: de.label,
         ...(restyled ? {} : { line: de.line, arrows: de.arrows }),
-        gen: { source: source.id, key: de.key, style, ends, ...(ex.gen!.placed && { placed: true }) },
+        gen: { source: source.id, key: de.key, style, ends, ...(!relayout && ex.gen!.placed && { placed: true }) },
       });
     } else {
       out = addEdge(out, makeEdge(from, to, { label: de.label, line: de.line, arrows: de.arrows, gen: { source: source.id, key: de.key, style, ends } }));
@@ -192,4 +211,11 @@ function sync(d: Diagram, source: TextSource): SyncResult {
   if (gone.length) out = deleteObjects(out, gone);
   out = { ...out, sources: { ...out.sources, [source.id]: { ...source, origin } } };
   return { diagram: out, warnings };
+}
+
+/** Which way a source is laid out, or null if it doesn't have a direction (sequences, tree text). */
+export function directionOf(src: TextSource): "down" | "right" | null {
+  if (src.kind === "graph") return src.options.direction ?? (/^\s*(flowchart|graph)\b[ \t]*(LR|RL)/im.test(src.text) ? "right" : "down");
+  if (src.kind === "tree" && src.options.treeStyle === "boxes") return src.options.direction ?? "down";
+  return null;
 }
