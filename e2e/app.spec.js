@@ -52,19 +52,19 @@ test("draw two boxes, connect them, and the connector follows a move", async ({ 
   // Drag B below A by its interior: the arrow re-routes to come in from the top.
   await page.keyboard.press("Escape");
   await drag(page, [28, 3], [8, 11]);
-  // B snaps into line under A (its left edge was 2 cells off A's).
+  // Two cells off A's edge is too far to snap: B stays where it's dropped.
   expect(await text(page)).toBe(block(`
 ┌─────────┐
 │    A    │
-└────┬────┘
-     │
-     │
-     │
-     │
-     ▼
-┌─────────┐
-│    B    │
-└─────────┘
+└─────┬───┘
+      │
+      │
+      │
+      │
+      ▼
+  ┌─────────┐
+  │    B    │
+  └─────────┘
 `));
 
   // Undo puts B back; the diagram survives a reload.
@@ -783,4 +783,24 @@ test("multi-line connector labels: Shift+Enter for a new line", async ({ page })
   const lines = (await text(page)).split("\n");
   expect(lines[1]).toContain(" first ");
   expect(lines[2]).toContain("second");
+});
+
+test("Alt, Ctrl or the snap toggle place a box freely", async ({ page }) => {
+  await box(page, [2, 2], [12, 8], "A"); // rows 2, 5 (middle), 8
+  await box(page, [20, 12], [30, 15], "B"); // 4 tall: no middle row
+  const b = Object.values((await state(page)).diagram.nodes).find((n) => n.text === "B");
+  const y = async () => (await state(page)).diagram.nodes[b.id].rect.y;
+  // Dropped one row below A's top, it snaps up to it…
+  await drag(page, [25, 13], [25, 4]);
+  expect(await y()).toBe(2);
+  // …but not with Alt held…
+  await drag(page, [25, 3], [25, 4], { alt: true });
+  expect(await y()).toBe(3);
+  // …nor with snapping turned off.
+  await drag(page, [25, 4], [25, 2]);
+  expect(await y()).toBe(2);
+  await page.getByRole("button", { name: "snap" }).click();
+  await drag(page, [25, 3], [25, 4]);
+  expect(await y()).toBe(3);
+  expect((await state(page)).snap).toBe(false);
 });

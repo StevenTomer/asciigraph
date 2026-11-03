@@ -11,6 +11,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
   const canRedo = useEditor((s) => s.future.length > 0);
   const dark = useEditor((s) => s.dark);
   const grid = useEditor((s) => s.grid);
+  const snap = useEditor((s) => s.snap);
   const name = useEditor((s) => s.diagramName);
   const shared = useEditor((s) => s.diagramId === null);
   const shape = useEditor((s) => s.shape);
@@ -52,6 +53,14 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
         <button className="tb" onClick={() => openTextDialog(null)} title="Draw a sequence, graph or folder tree from text">from text</button>
         <button className="tb" onClick={() => openDialog("export")} data-testid="export">export</button>
         <button className="tb" onClick={() => setPrefs({ grid: !grid })} aria-pressed={grid}>grid</button>
+        <button
+          className={"tb" + (snap ? "" : " off")}
+          onClick={() => setPrefs({ snap: !snap })}
+          aria-pressed={snap}
+          title={snap ? "Snapping on: boxes line up with their neighbours (hold Alt or Ctrl while dragging to place freely)" : "Snapping off"}
+        >
+          snap
+        </button>
         <button className="tb" onClick={() => setPrefs({ dark: !dark })} aria-pressed={dark}>{dark ? "light" : "dark"}</button>
         <button className="tb" onClick={() => openDialog("help")}>help</button>
       </div>

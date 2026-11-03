@@ -114,7 +114,7 @@ export function startAutosave(): () => void {
       clearTimeout(timer);
       timer = setTimeout(flush, AUTOSAVE_MS);
     }
-    if (s.dark !== prev.dark || s.grid !== prev.grid) writeJson("prefs", { dark: s.dark, grid: s.grid });
+    if (s.dark !== prev.dark || s.grid !== prev.grid || s.snap !== prev.snap) writeJson("prefs", { dark: s.dark, grid: s.grid, snap: s.snap });
   });
   const onHide = () => {
     clearTimeout(timer);
@@ -129,6 +129,6 @@ export function startAutosave(): () => void {
 
 export function loadPrefs() {
   const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-  const prefs = readJson("prefs", { dark: prefersDark, grid: true });
-  setPrefs({ dark: !!prefs.dark, grid: prefs.grid !== false });
+  const prefs = readJson<{ dark?: boolean; grid?: boolean; snap?: boolean }>("prefs", { dark: prefersDark, grid: true });
+  setPrefs({ dark: !!prefs.dark, grid: prefs.grid !== false, snap: prefs.snap !== false });
 }

@@ -58,6 +58,9 @@ type Gesture =
 
 let gesture: Gesture | null = null;
 
+/** Snapping is on (the toolbar's "snap"), and not held off with Alt or Ctrl/⌘. */
+const snapping = (p: PointerInfo) => getState().snap && !p.alt && !p.mod;
+
 const RESIZE_CURSORS: Record<Handle, string> = {
   nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize",
   n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize",
@@ -114,7 +117,7 @@ const selectTool: Tool = {
       let guides: Guide[] = [];
       // Snap the moved boxes' outline to other boxes (not with Ctrl held).
       const moved = union(ids.filter((id) => g.base.nodes[id]).map((id) => g.base.nodes[id].rect));
-      if (moved && !p.mod) {
+      if (moved && snapping(p)) {
         const snapped = snapMove(g.base, ids, { ...moved, x: moved.x + delta.x, y: moved.y + delta.y });
         delta = { x: delta.x + snapped.shift.x, y: delta.y + snapped.shift.y };
         guides = snapped.guides;
@@ -125,7 +128,7 @@ const selectTool: Tool = {
     } else if (g.kind === "resize") {
       let rect = resizedRect(d, g.node, g.orig, g.handle, sub(p.cell, g.start));
       let guides: Guide[] = [];
-      if (!p.mod) {
+      if (snapping(p)) {
         const h = g.handle;
         const snapped = snapResize(d, g.node, rect, {
           left: h.includes("w"), right: h.includes("e"), top: h.includes("n"), bottom: h.includes("s"),
@@ -271,7 +274,7 @@ const boxTool: Tool = {
   },
   move(p) {
     if (!creating) return;
-    const corner = p.mod || creating.column !== null ? { point: p.cell, guides: [] } : snapPoint(getState().diagram, [creating.id], p.cell);
+    const corner = !snapping(p) || creating.column !== null ? { point: p.cell, guides: [] } : snapPoint(getState().diagram, [creating.id], p.cell);
     let rect = rectFromCorners(creating.start, corner.point);
     if (creating.column !== null) rect = { ...rect, x: creating.column, w: 3 };
     set(updateNode(getState().diagram, creating.id, { rect }));

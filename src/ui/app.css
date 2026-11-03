@@ -362,3 +362,9 @@ a {
   max-height: 60vh;
   min-height: 320px;
 }
+
+/* A toggle that's switched off. */
+.tb.off {
+  text-decoration: line-through;
+  opacity: 0.6;
+}

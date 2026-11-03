@@ -153,7 +153,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       <p>Drawing tools stay on, so you can draw several boxes or connectors in a row; <Kbd>space</Kbd>, <Kbd>esc</Kbd> or <Kbd>s</Kbd> goes back to select.</p>
       <dl className="help">
         <dt><Kbd>s</Kbd> or <Kbd>space</Kbd> select</dt><dd>click or drag a rectangle to select; drag to move; handles resize; double-click edits text (on a box's top border: its name)</dd>
-        <dt>snapping</dt><dd>moving, resizing or drawing a box lines its edges and centre up with other boxes nearby, with guides; hold <Kbd>ctrl</Kbd> to place it freely</dd>
+        <dt>snapping</dt><dd>moving, resizing or drawing a box lines its edges and centre up with neighbouring boxes (beside it for rows, above or below it for columns), with guides. Hold <Kbd>alt</Kbd> or <Kbd>ctrl</Kbd> while dragging to place it freely, or turn "snap" off in the toolbar</dd>
         <dt>boxes in boxes</dt><dd>a box entirely inside another is part of it: it's drawn in front, and moves when the outer box moves. <Kbd>alt</Kbd>+drag moves just the outer box; or set "inside: stays put" on the box</dd>
         <dt><Kbd>b</Kbd> box</dt><dd>drag corner to corner, or click empty space for a default box; then type. Pick the shape under the toolbar: box; flowchart decision, input/output, start/end, database, document or subroutine; a note; or for sequence diagrams, a lifeline or an activation bar (draw one on a lifeline and it centres on the line). Draw messages between lifelines and activation bars with the arrow tool: they stay horizontal.
          Clicking an existing box selects it (and switches to select); dragging from inside a box draws one inside it</dd>
