@@ -149,8 +149,10 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog title="help" onClose={onClose}>
       <p>Draw boxes, type in them, and connect them. Connectors attached to a box follow it when it moves. Export the result as plain text.</p>
+      <p>Drawing tools stay on, so you can draw several boxes or connectors in a row; <Kbd>esc</Kbd> or <Kbd>s</Kbd> goes back to select.</p>
       <dl className="help">
         <dt><Kbd>s</Kbd> select</dt><dd>click or drag a rectangle to select; drag to move; handles resize; double-click edits text (on a box's top border: its name)</dd>
+        <dt>boxes in boxes</dt><dd>a box entirely inside another is part of it: it's drawn in front, and moves when the outer box moves. <Kbd>alt</Kbd>+drag moves just the outer box; or set "inside: stays put" on the box</dd>
         <dt><Kbd>b</Kbd> box</dt><dd>drag corner to corner, or click for a default box; then type</dd>
         <dt><Kbd>a</Kbd> arrow, <Kbd>l</Kbd> line</dt><dd>drag from one box to another. Start or end inside a box to attach to whichever side faces; on a border (or just outside it) to pin that spot. Hold <Kbd>alt</Kbd> to leave an end free</dd>
         <dt><Kbd>t</Kbd> text</dt><dd>click to type a label without a border (double-click empty space does the same)</dd>

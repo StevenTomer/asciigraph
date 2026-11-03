@@ -1,4 +1,5 @@
 import { type Point, type Rect, type Side, bottom, contains, key, right } from "../geometry/geom";
+import { paintOrder } from "../model/containment";
 import type { Diagram, Endpoint, Id } from "../model/types";
 import { shapeOf } from "../shapes/registry";
 import { getState } from "./store";
@@ -28,10 +29,11 @@ export function handlePositions(r: Rect): Record<Handle, Point> {
 
 const near = (a: Point, b: Point) => Math.abs(a.x - b.x) <= HANDLE_RADIUS && Math.abs(a.y - b.y) <= HANDLE_RADIUS;
 
-/** Topmost node covering a cell. */
+/** Topmost node covering a cell (in paint order: an inner box before the box around it). */
 export function nodeAt(d: Diagram, cell: Point): Id | null {
-  for (let i = d.order.length - 1; i >= 0; i--) {
-    if (contains(d.nodes[d.order[i]].rect, cell)) return d.order[i];
+  const order = paintOrder(d);
+  for (let i = order.length - 1; i >= 0; i--) {
+    if (contains(d.nodes[order[i]].rect, cell)) return order[i];
   }
   return null;
 }
@@ -84,8 +86,9 @@ export function endpointAt(d: Diagram, cell: Point, free: boolean, exclude?: Id)
     return { kind: "attached", node: id, side: "auto" };
   }
   // Just outside a node: pin to the side it's next to.
-  for (let i = d.order.length - 1; i >= 0; i--) {
-    const nid = d.order[i];
+  const order = paintOrder(d);
+  for (let i = order.length - 1; i >= 0; i--) {
+    const nid = order[i];
     if (nid === exclude) continue;
     const r = d.nodes[nid].rect;
     const side = outsideSide(r, cell);

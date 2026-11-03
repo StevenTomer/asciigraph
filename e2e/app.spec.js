@@ -79,6 +79,7 @@ test("drag an end off a box to detach it, and onto another to attach", async ({ 
   await page.keyboard.press("a");
   await drag(page, [6, 3], [28, 3]);
   const edgeId = (await state(page)).selection[0];
+  await page.keyboard.press("s"); // the arrow tool stays on; switch to select (keeps the selection)
 
   // The arrow is selected; its end handle is in the cell left of B. Drag it to empty space.
   await drag(page, [23, 3], [18, 7]);
@@ -190,4 +191,58 @@ test("tool shortcuts and text editing keys", async ({ page }) => {
   expect((await state(page)).tool).toBe("select");
   await page.keyboard.press("Escape");
   expect(await text(page)).toContain("bad");
+});
+
+test("the box tool stays on: draw several boxes in a row", async ({ page }) => {
+  await page.keyboard.press("b");
+  for (const x of [2, 14, 26]) {
+    await drag(page, [x, 2], [x + 8, 4]);
+    await page.keyboard.type(`b${x}`);
+  }
+  await page.keyboard.press("Escape"); // finish typing
+  expect((await state(page)).tool).toBe("box");
+  expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(3);
+  expect(await text(page)).toContain("b26");
+  await page.keyboard.press("Escape"); // back to select
+  expect((await state(page)).tool).toBe("select");
+});
+
+test("boxes inside a box move with it; alt-drag or 'stays put' moves it alone", async ({ page }) => {
+  // Draw the inner boxes first, then a frame around them: they must stay visible and clickable.
+  await box(page, [4, 4], [12, 6], "in1");
+  await box(page, [18, 4], [26, 6], "in2");
+  await page.keyboard.press("a");
+  await drag(page, [8, 5], [22, 5]);
+  await page.keyboard.press("Escape");
+  await box(page, [2, 2], [30, 8], "");
+  expect(await text(page)).toContain("│  in1  ├────►│  in2  │");
+  await click(page, 8, 5);
+  const nodes = (await state(page)).diagram.nodes;
+  const in1 = Object.values(nodes).find((n) => n.text === "in1");
+  const frame = Object.values(nodes).find((n) => n.rect.w === 29);
+  expect((await state(page)).selection).toEqual([in1.id]);
+
+  // Drag the frame by its border: everything inside comes along, arrow included.
+  await page.keyboard.press("Escape");
+  const before = await text(page);
+  await drag(page, [16, 2], [16, 12]);
+  expect(await text(page)).toBe(before); // same drawing, just lower (text is trimmed to the drawing)
+  let d = (await state(page)).diagram;
+  expect(d.nodes[frame.id].rect.y).toBe(12);
+  expect(d.nodes[in1.id].rect.y).toBe(14);
+
+  // Alt-drag: only the frame moves.
+  await drag(page, [16, 12], [16, 13], { alt: true });
+  d = (await state(page)).diagram;
+  expect(d.nodes[frame.id].rect.y).toBe(13);
+  expect(d.nodes[in1.id].rect.y).toBe(14);
+
+  // "inside: stays put" makes that the box's default.
+  await page.keyboard.press("Control+z");
+  await click(page, 16, 12);
+  await page.getByRole("button", { name: "stays put" }).click();
+  await drag(page, [16, 12], [16, 11]);
+  d = (await state(page)).diagram;
+  expect(d.nodes[frame.id].rect.y).toBe(11);
+  expect(d.nodes[in1.id].rect.y).toBe(14);
 });

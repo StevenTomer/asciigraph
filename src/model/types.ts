@@ -36,6 +36,8 @@ export interface Node {
   nameAlign?: HAlign;
   /** Size follows the text (text labels); resizing by hand turns it off. */
   autosize?: boolean;
+  /** Moving this box takes along what's inside it (default true). See model/containment.ts. */
+  carry?: boolean;
 }
 
 /** A connector. Its path is computed (routing/orthogonal.ts), never stored. */

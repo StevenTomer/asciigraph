@@ -1,12 +1,13 @@
 import { type Point, type Rect, bottom, contains, eq, rectFromCorners, right, sub } from "../geometry/geom";
 import {
-  addEdge, addNode, makeEdge, makeNode, moveObjects, resizeNode, setEndpoint, updateNode,
+  addEdge, addNode, bringToFront, makeEdge, makeNode, moveObjects, resizeNode, setEndpoint, updateNode,
 } from "../model/ops";
+import { withContents } from "../model/containment";
 import type { Diagram, Id } from "../model/types";
 import { shapeOf } from "../shapes/registry";
 import { type Handle, endpointAt, hitTest } from "./hitTest";
 import {
-  type ToolId, begin, cancel, commit, getState, select, set, setOverlay, setTool, startEditing,
+  type ToolId, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, startEditing,
 } from "./store";
 import { rendered } from "./view";
 
@@ -42,7 +43,8 @@ const DEFAULT_BOX = { w: 16, h: 3 };
 // ---------------------------------------------------------------------------------------------
 
 type Gesture =
-  | { kind: "move"; start: Point; base: Diagram; ids: Id[] }
+  /** `carried` adds what's inside the selected boxes; Alt moves just `ids`. */
+  | { kind: "move"; start: Point; base: Diagram; ids: Id[]; carried: Id[] }
   | { kind: "resize"; node: Id; handle: Handle; start: Point; orig: Rect }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
   | { kind: "marquee"; start: Point; base: Id[] };
@@ -76,7 +78,8 @@ const selectTool: Tool = {
         select(ids);
       }
       begin();
-      gesture = { kind: "move", start: p.cell, base: getState().diagram, ids };
+      const base = getState().diagram;
+      gesture = { kind: "move", start: p.cell, base, ids, carried: withContents(base, ids) };
     } else {
       gesture = { kind: "marquee", start: p.cell, base: p.shift ? selection : [] };
       if (!p.shift) select([]);
@@ -88,7 +91,9 @@ const selectTool: Tool = {
     if (!g) return;
     const d = getState().diagram;
     if (g.kind === "move") {
-      set(moveObjects(g.base, g.ids, sub(p.cell, g.start)));
+      // What you drag comes to the front, so a box pulled partly out of a frame isn't hidden by it.
+      const ids = p.alt ? g.ids : g.carried;
+      set(bringToFront(moveObjects(g.base, ids, sub(p.cell, g.start)), ids));
     } else if (g.kind === "resize") {
       const rect = resizedRect(d, g.node, g.orig, g.handle, sub(p.cell, g.start));
       set(resizeNode(d, g.node, rect));
@@ -173,8 +178,7 @@ const boxTool: Tool = {
     creating = null;
     if (eq(start, p.cell)) set(updateNode(getState().diagram, id, { rect: { ...start, ...DEFAULT_BOX } }));
     setOverlay({});
-    setTool("select");
-    startEditing(id); // continues the same undo step
+    startEditing(id); // continues the same undo step; the box tool stays active for the next one
   },
   cursor: () => "crosshair",
 };
@@ -216,7 +220,6 @@ function connectorTool(arrow: boolean): Tool {
         return;
       }
       commit();
-      setTool("select");
       select([id]);
     },
     cursor: () => "crosshair",
@@ -228,7 +231,7 @@ function connectorTool(arrow: boolean): Tool {
 // ---------------------------------------------------------------------------------------------
 
 function createLabel(cell: Point) {
-  setTool("select");
+  finishEditing();
   begin();
   const node = makeNode({ ...cell, w: 1, h: 1 }, {
     border: "none", autosize: true, align: { h: "left", v: "top" },

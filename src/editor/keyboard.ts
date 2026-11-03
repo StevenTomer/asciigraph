@@ -1,3 +1,4 @@
+import { withContents } from "../model/containment";
 import { deleteObjects, moveObjects } from "../model/ops";
 import { keys } from "./input";
 import {
@@ -78,7 +79,7 @@ export function attachKeyboard(): () => void {
           x: k === "ArrowLeft" ? -n : k === "ArrowRight" ? n : 0,
           y: k === "ArrowUp" ? -n : k === "ArrowDown" ? n : 0,
         };
-        apply((d) => moveObjects(d, selection, delta));
+        apply((d) => moveObjects(d, withContents(d, selection), delta));
         e.preventDefault();
         return;
       }

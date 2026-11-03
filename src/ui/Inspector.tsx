@@ -45,6 +45,16 @@ export function Inspector() {
               <Choice key={v} active={n0.align.v === v} onClick={() => eachNode((n) => ({ align: { ...n.align, v } }))}>{l}</Choice>
             ))}
           </Row>
+          {n0.border !== "none" && (
+            <Row label="inside">
+              <Choice active={n0.carry !== false} onClick={() => eachNode(() => ({ carry: undefined }))} title="Moving this box moves what's inside it (Alt-drag moves just the box)">
+                moves with it
+              </Choice>
+              <Choice active={n0.carry === false} onClick={() => eachNode(() => ({ carry: false }))} title="Moving this box leaves what's inside where it is">
+                stays put
+              </Choice>
+            </Row>
+          )}
           {nodes.length === 1 && n0.border !== "none" && (
             <>
               <Row label="name">
