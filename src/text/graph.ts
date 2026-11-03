@@ -199,12 +199,12 @@ export function parseGraph(text: string): ParsedGraph {
     const readEdge = (): Omit<GraphEdge, "from" | "to"> | null => {
       rest = rest.trimStart();
       // -- label -->, == label ==>, -. label .->
-      const labelled = /^(--|==|-\.)\s*([^-=.>|][^>]*?)\s*(-->|==>|\.->|---|===|\.-)\s*/.exec(rest);
+      const labelled = /^(--|==|-\.)\s*([^-=.>|][\s\S]*?)\s*(-->|==>|\.->|---|===|\.-)\s*/.exec(rest);
       if (labelled) {
         rest = rest.slice(labelled[0].length);
         const op = labelled[3];
         const line: LineStyle = labelled[1] === "==" ? "heavy" : labelled[1] === "-." ? "dotted" : "single";
-        return { label: labelled[2].trim(), line, arrows: { start: false, end: op.endsWith(">") } };
+        return { label: unquote(labelled[2]), line, arrows: { start: false, end: op.endsWith(">") } };
       }
       for (const [re, line, start, end] of EDGES) {
         const m = re.exec(rest);

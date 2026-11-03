@@ -189,3 +189,19 @@ describe("live redraw", () => {
     expect(Object.keys(d.nodes)).toHaveLength(3);
   });
 });
+
+describe("folder trees from indentation, as drawn", () => {
+  it("keeps the children of the last folder under it", () => {
+    const text = "project/\n  src/\n    main.ts\n    util/\n      format.ts\n  tests/\n    main.test.ts\n    README.md";
+    expect(show(drawSource(emptyDiagram(), { kind: "tree", options: { treeStyle: "text" }, text }, { x: 0, y: 0 }).diagram)).toBe(`
+project/
+├── src/
+│   ├── main.ts
+│   └── util/
+│       └── format.ts
+└── tests/
+    ├── main.test.ts
+    └── README.md
+`);
+  });
+});

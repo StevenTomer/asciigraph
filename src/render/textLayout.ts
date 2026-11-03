@@ -6,29 +6,35 @@ import { renderText } from "./markdown";
 export const chars = (s: string) => Array.from(s);
 
 /**
- * Greedy word wrap to `width` columns. Explicit newlines are kept; words longer than a line are
- * broken. Always returns at least one line.
+ * Greedy word wrap to `width` columns. Explicit newlines are kept, and so is each line's leading
+ * indentation (its wrapped continuation lines are indented the same, when there's room); words
+ * longer than a line are broken. Always returns at least one line.
  */
 export function wrap(text: string, width: number): string[] {
   const w = Math.max(1, width);
   const out: string[] = [];
   for (const paragraph of text.split("\n")) {
+    const lead = paragraph.match(/^[ \t]*/)![0].replace(/\t/g, "  ");
+    const indent = lead.length < w ? lead : "";
+    const room = w - indent.length;
+    const lines: string[] = [];
     let line: string[] = [];
-    for (const word of paragraph.split(" ")) {
+    for (const word of paragraph.trimStart().split(" ")) {
       let wc = chars(word);
       const needed = line.length === 0 ? wc.length : line.length + 1 + wc.length;
-      if (needed <= w) {
+      if (needed <= room) {
         line = line.length === 0 ? wc : [...line, " ", ...wc];
         continue;
       }
-      if (line.length > 0) out.push(line.join(""));
-      while (wc.length > w) {
-        out.push(wc.slice(0, w).join(""));
-        wc = wc.slice(w);
+      if (line.length > 0) lines.push(line.join(""));
+      while (wc.length > room) {
+        lines.push(wc.slice(0, room).join(""));
+        wc = wc.slice(room);
       }
       line = wc;
     }
-    out.push(line.join(""));
+    lines.push(line.join(""));
+    out.push(...lines.map((l) => (l ? indent + l : l)));
   }
   return out;
 }

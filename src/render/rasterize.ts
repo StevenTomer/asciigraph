@@ -3,6 +3,7 @@ import { paintOrder, within } from "../model/containment";
 import type { Diagram } from "../model/types";
 import { type ResolvedEdge, resolveEdge } from "../routing/endpoints";
 import { Occupancy } from "../routing/occupancy";
+import { renderText } from "./markdown";
 import { chars } from "./textLayout";
 import { footprint, shapeOf } from "../shapes/registry";
 import { CharGrid } from "./grid";
@@ -80,7 +81,13 @@ export function rasterize(d: Diagram, quick = false): Rendered {
       for (const [p, ch] of placed.chars) {
         if (hidden(p)) continue;
         grid.setChar(p, ch);
-        edgeCells.set(key(p), edge.id);
+      }
+      // The whole label block is the connector's, for clicking (gaps between words too).
+      if (edge.label) {
+        const b = placed.rect;
+        for (let y = b.y; y < b.y + b.h; y++) {
+          for (let x = b.x; x < b.x + b.w; x++) if (!hidden({ x, y })) edgeCells.set(`${x},${y}`, edge.id);
+        }
       }
     });
   }
@@ -96,8 +103,18 @@ export function rasterize(d: Diagram, quick = false): Rendered {
  * vertical one). Without a label, `rect` is where one would go (for the editor). One line.
  */
 export function placeLabel(cells: Point[], label: string, at?: number): { rect: Rect; chars: [Point, string][] } {
-  const text = chars(label.replace(/\s*\n\s*/g, " "));
-  const len = Math.max(text.length, 1);
+  // Lines as shown (Markdown lists rendered). A block of several lines is centred on the line.
+  const rendered = label ? renderText(label, 1000) : { lines: [], list: false };
+  const lines = rendered.lines.map((l) => chars(l.replace(/\s+$/, "")));
+  const len = Math.max(1, ...lines.map((l) => l.length));
+  const n = Math.max(1, lines.length);
+  /** Each line's characters from `x0`: centred in the block, or left-aligned for lists. */
+  const place = (x0: number, top: number, out: [Point, string][]) => {
+    lines.forEach((l, i) => {
+      const left = rendered.list ? x0 : x0 + Math.floor((len - l.length) / 2);
+      l.forEach((c, j) => out.push([{ x: left + j, y: top + i }, c]));
+    });
+  };
   // Straight runs: [first index, last index].
   const runs: { a: number; b: number; horizontal: boolean }[] = [];
   for (let i = 0; i < cells.length; ) {
@@ -116,20 +133,22 @@ export function placeLabel(cells: Point[], label: string, at?: number): { rect: 
     const x0 = centre === undefined
       ? Math.floor((minX + maxX + 1 - len) / 2)
       : Math.max(minX + 1, Math.min(maxX - len, centre - Math.floor((len - 1) / 2)));
-    const y = cells[lo].y;
+    const y = cells[lo].y, top = y - Math.floor((n - 1) / 2);
     const out: [Point, string][] = [];
-    if (text.length) {
-      out.push([{ x: x0 - 1, y }, " "], [{ x: x0 + len, y }, " "]);
-      text.forEach((c, i) => out.push([{ x: x0 + i, y }, c]));
+    if (lines.length) {
+      // Blank the connector under the text on its row (a space each side), then the text.
+      const mid = lines[y - top];
+      const left = rendered.list ? x0 : x0 + Math.floor((len - mid.length) / 2);
+      for (let x = left - 1; x <= left + mid.length; x++) out.push([{ x, y }, " "]);
+      place(x0, top, out);
     }
-    return { rect: { x: x0, y, w: len, h: 1 }, chars: out };
+    return { rect: { x: x0, y: top, w: len, h: n }, chars: out };
   };
   const beside = (cell: Point) => {
-    const x0 = cell.x + 2;
-    return {
-      rect: { x: x0, y: cell.y, w: len, h: 1 },
-      chars: text.map((c, i) => [{ x: x0 + i, y: cell.y }, c] as [Point, string]),
-    };
+    const x0 = cell.x + 2, top = cell.y - Math.floor((n - 1) / 2);
+    const out: [Point, string][] = [];
+    place(x0, top, out);
+    return { rect: { x: x0, y: top, w: len, h: n }, chars: out };
   };
 
   if (at !== undefined && cells.length > 2) {

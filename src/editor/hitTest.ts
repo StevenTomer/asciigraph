@@ -64,7 +64,7 @@ export function hitTest(sx: number, sy: number): Hit {
   const edge = r.edgeCells.get(key(cell));
   if (edge) {
     const label = d.edges[edge]?.label && r.edges.get(edge)?.label;
-    if (label && cell.y === label.y && cell.x >= label.x && cell.x < label.x + label.w) return { kind: "label", edge };
+    if (label && cell.y >= label.y && cell.y < label.y + label.h && cell.x >= label.x && cell.x < label.x + label.w) return { kind: "label", edge };
     return { kind: "edge", edge };
   }
   const node = nodeAt(d, cell);

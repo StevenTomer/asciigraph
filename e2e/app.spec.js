@@ -767,3 +767,20 @@ test("edit a hand-drawn sequence diagram as text", async ({ page }) => {
   expect(await text(page)).toContain("hi back");
   expect(Object.keys((await state(page)).diagram.edges)).toHaveLength(2);
 });
+
+test("multi-line connector labels: Shift+Enter for a new line", async ({ page }) => {
+  await box(page, [2, 2], [8, 4], "A");
+  await box(page, [40, 2], [46, 4], "B");
+  await page.keyboard.press("a");
+  await drag(page, [5, 3], [43, 3]);
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("first");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("second");
+  await page.keyboard.press("Enter");
+  const edge = Object.values((await state(page)).diagram.edges)[0];
+  expect(edge.label).toBe("first\nsecond");
+  const lines = (await text(page)).split("\n");
+  expect(lines[1]).toContain(" first ");
+  expect(lines[2]).toContain("second");
+});

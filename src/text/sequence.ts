@@ -102,7 +102,7 @@ export function parseSequence(text: string): ParsedSequence {
       // In Mermaid, -> and --> are lines without arrowheads; in the shorthand they're arrows.
       const arrow = mermaid ? !/^--?>$/.test(op) : true;
       seq.events.push({
-        type: "message", from: participant(a.trim()), to: participant(b.trim()), label: unquote(label ?? "").replace(/\n/g, " "),
+        type: "message", from: participant(a.trim()), to: participant(b.trim()), label: unquote(label ?? ""),
         dashed, arrow, activate: mod === "+", deactivate: mod === "-",
       });
       return;

@@ -109,13 +109,16 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       const from = index.get(e.from)!, to = index.get(e.to)!;
       count++;
       const label = s.autonumber ? `${count}. ${e.label}`.trim() : e.label;
+      // A label of several lines is centred on the arrow: leave room above and below it.
+      const extra = label.split("\n").length - 1;
+      row += Math.floor(extra / 2);
       msgs.push({ from, to, row, label, dashed: e.dashed, arrow: e.arrow, n: count });
       touch(from, to);
       if (e.activate) start(to, row);
       if (e.deactivate) stop(from, row);
       prevMsgRow = row;
-      lastRow = row + (from === to ? 2 : 0);
-      row += from === to ? 4 : 2;
+      lastRow = row + (from === to ? 2 : 0) + Math.ceil(extra / 2);
+      row += (from === to ? 4 : 2) + Math.ceil(extra / 2);
     } else if (e.type === "note") {
       const who = e.who.map((k) => index.get(k)!);
       const w = Math.min(Math.max(width(e.text) + 5, 10), 36);
@@ -160,8 +163,8 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
   const need: [number, number, number][] = []; // [left, right, minimum distance]
   for (let i = 0; i + 1 < P.length; i++) need.push([i, i + 1, half(i) + (pw[i + 1] - half(i + 1)) + 3]);
   for (const m of msgs) {
-    if (m.from !== m.to) need.push([Math.min(m.from, m.to), Math.max(m.from, m.to), chars(m.label).length + 8]);
-    else if (m.from + 1 < P.length) need.push([m.from, m.from + 1, chars(m.label).length + 7]);
+    if (m.from !== m.to) need.push([Math.min(m.from, m.to), Math.max(m.from, m.to), width(m.label) + 8]);
+    else if (m.from + 1 < P.length) need.push([m.from, m.from + 1, width(m.label) + 7]);
   }
   for (const n of notes) {
     const i = n.who[0];

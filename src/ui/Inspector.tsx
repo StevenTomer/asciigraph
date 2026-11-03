@@ -116,13 +116,20 @@ export function Inspector() {
           </Row>
           {edges.length === 1 && (
             <Row label="label">
-              <input
+              <textarea
                 className="field"
+                rows={Math.min(6, (e0.label ?? "").split("\n").length)}
                 value={e0.label ?? ""}
                 placeholder="(none)"
+                title="Enter: done · Shift+Enter: new line"
                 onFocus={begin}
                 onBlur={commit}
-                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    (e.target as HTMLTextAreaElement).blur();
+                  }
+                }}
                 onChange={(e) => set(updateEdge(getState().diagram, e0.id, { label: e.target.value || undefined }))}
                 aria-label="Label"
               />

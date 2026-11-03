@@ -48,7 +48,9 @@ export function TextEditor() {
   };
   const keyDown = (e: React.KeyboardEvent) => {
     e.stopPropagation();
-    if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey || editing.field !== "text"))) {
+    // Text: Enter adds a line. Labels: Enter finishes, Shift+Enter adds a line. Names: one line.
+    const newline = editing.field === "text" ? !(e.ctrlKey || e.metaKey) : editing.field === "label" && e.shiftKey;
+    if (e.key === "Escape" || (e.key === "Enter" && !newline)) {
       e.preventDefault();
       finishEditing();
     }
@@ -57,14 +59,17 @@ export function TextEditor() {
   if (editing.field === "label" && edge) {
     const at = rendered(diagram).edges.get(edge.id)?.label;
     if (!at) return null;
-    const w = Math.max(chars(edge.label ?? "").length + 2, 10);
-    const box = rectToScreen({ x: at.x - 1, y: at.y, w, h: 1 });
+    const lines = (edge.label ?? "").split("\n");
+    const w = Math.max(...lines.map((l) => chars(l).length + 2), 10);
+    const box = rectToScreen({ x: at.x - 1, y: at.y, w, h: Math.max(at.h, lines.length) });
     return (
-      <input
+      <textarea
         ref={ref}
         className="text-editor"
         aria-label="Connector label"
-        style={{ ...common, left: box.x, top: box.y, width: box.w, height: box.h }}
+        title="Enter: done · Shift+Enter: new line"
+        spellCheck={false}
+        style={{ ...common, left: box.x, top: box.y, width: box.w, height: box.h, whiteSpace: "pre", textAlign: "center" }}
         value={edge.label ?? ""}
         placeholder="label"
         onChange={(e) => set(updateEdge(getState().diagram, edge.id, { label: e.target.value || undefined }))}

@@ -124,3 +124,12 @@ describe("tree parser", () => {
     expect(treeText(t.roots)).toBe(".\n├── a/\n│   └── b\n└── c");
   });
 });
+
+describe("multi-line labels in text", () => {
+  it("reads <br> and markdown strings in message and connector labels", () => {
+    expect(parseSequence("sequenceDiagram\nA->>B: GET /x<br>with auth").events[0]).toMatchObject({ label: "GET /x\nwith auth" });
+    expect(parseGraph("flowchart LR\nA -->|one<br>two| B").edges[0].label).toBe("one\ntwo");
+    expect(parseGraph('flowchart LR\nA -->|"`checks:\n  - stock\n  - price`"| B').edges[0].label).toBe("checks:\n- stock\n- price");
+    expect(parseGraph("flowchart LR\nA -- yes<br>please --> B").edges[0].label).toBe("yes\nplease");
+  });
+});

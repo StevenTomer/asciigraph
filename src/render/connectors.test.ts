@@ -101,3 +101,29 @@ describe("routing around other connectors", () => {
 `);
   });
 });
+
+describe("multi-line labels", () => {
+  it("centres a block on a horizontal connector, and lists beside a vertical one", () => {
+    let d = [box("A", 0, 3), box("B", 30, 3), box("C", 0, 16)].reduce(addNode, emptyDiagram());
+    d = addEdge(d, makeEdge(att("A"), att("B"), { label: "two\nlines" }));
+    d = addEdge(d, makeEdge(att("A"), att("C"), { label: "checks:\n- stock\n- price" }));
+    expect(show(d)).toBe(`
+┌─────┐                       ┌─────┐
+│  A  ├───────── two ────────►│  B  │
+└──┬──┘         lines         └─────┘
+   │
+   │
+   │
+   │ checks:
+   │ • stock
+   │ • price
+   │
+   │
+   │
+   ▼
+┌─────┐
+│  C  │
+└─────┘
+`);
+  });
+});

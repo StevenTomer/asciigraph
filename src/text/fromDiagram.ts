@@ -134,7 +134,8 @@ function graph(d: Diagram, ids: Id[]): Described {
     const n = (pairCount.get(pair) ?? 0) + 1;
     pairCount.set(pair, n);
     keys.set(e.id, `e:${pair}#${n}`);
-    const label = e.label ? `|${/[|"]/.test(e.label) ? `"${e.label.replace(/"/g, "#quot;")}"` : e.label}|` : "";
+    const text = e.label && inline(e.label);
+    const label = text ? `|${/[|"]/.test(text) ? `"${text.replace(/"/g, "#quot;")}"` : text}|` : "";
     lines.push(`  ${a} ${arrow(e, swap)}${label} ${b}`);
   }
   const all = [...boxes, ...frames];
