@@ -251,8 +251,11 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
 // Graphs
 // ---------------------------------------------------------------------------------------------
 
-function nodeSize(kind: Node["kind"], text: string): { w: number; h: number } {
-  const tw = width(text), lines = height(text);
+function nodeSize(kind: Node["kind"], text: string, plain?: boolean): { w: number; h: number } {
+  // Measured as drawn (Markdown lists render with their bullets and numbers).
+  const shown = textLines(text, 1000);
+  const tw = Math.max(1, ...shown.map((l) => chars(l).length)), lines = shown.length;
+  if (plain) return { w: tw, h: lines };
   switch (kind) {
     case "decision": {
       const h = lines + 2 + ((lines + 2) % 2 === 0 ? 1 : 0);
@@ -260,6 +263,8 @@ function nodeSize(kind: Node["kind"], text: string): { w: number; h: number } {
     }
     case "io": return { w: tw + 2 * (lines + 2) + 2, h: lines + 2 };
     case "database": return { w: tw + 4, h: lines + 3 };
+    case "document": return { w: tw + 4, h: lines + 3 };
+    case "note": return { w: tw + 5, h: lines + 2 };
     case "subroutine": return { w: tw + 8, h: lines + 2 };
     default: return { w: tw + 4, h: lines + 2 };
   }
@@ -269,7 +274,7 @@ const PAD = 2;
 
 function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kind"> {
   const dir = direction ?? g.direction;
-  const sizes = new Map(g.nodes.map((n) => [n.id, nodeSize(n.kind, n.text)]));
+  const sizes = new Map(g.nodes.map((n) => [n.id, nodeSize(n.kind, n.text, n.plain)]));
   const subs = new Map(g.subgraphs.map((s) => [s.id, s]));
   const parentOf = new Map<string, string>();
   for (const s of g.subgraphs) for (const m of s.members) parentOf.set(m, s.id);
@@ -331,7 +336,9 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
     ...g.subgraphs.map((s) => ({ key: `g:${s.id}`, node: spec(absolute.get(s.id)!, { kind: "frame", name: s.title }) })),
     ...g.nodes.map((n) => ({
       key: `n:${n.id}`,
-      node: spec(absolute.get(n.id)!, { kind: n.kind, text: n.text, border: n.rounded ? "rounded" : "single" }),
+      node: n.plain
+        ? spec(absolute.get(n.id)!, { text: n.text, border: "none", align: { h: "left", v: "top" } })
+        : spec(absolute.get(n.id)!, { kind: n.kind, text: n.text, border: n.rounded ? "rounded" : "single" }),
     })),
   ];
   const keyOf = (id: string) => (subs.has(id) ? `g:${id}` : `n:${id}`);

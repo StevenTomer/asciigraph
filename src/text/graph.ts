@@ -1,4 +1,5 @@
 import type { LineStyle, NodeKind } from "../model/types";
+import { logicalLines, unquote } from "./mermaid";
 
 /**
  * Graphs from text: Mermaid flowcharts (`flowchart TD`, `graph LR`) and a looser shorthand
@@ -15,7 +16,23 @@ export interface GraphNode {
   text: string;
   kind: NodeKind;
   rounded: boolean;
+  /** Mermaid's `text` shape: no outline. */
+  plain?: boolean;
 }
+
+/** Mermaid's expanded shape names (`A@{ shape: doc }`), and their aliases, to our shapes. */
+const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolean }?]> = {
+  rect: ["box"], process: ["box"], proc: ["box"], rectangle: ["box"],
+  rounded: ["box", { rounded: true }], event: ["box", { rounded: true }],
+  stadium: ["terminal"], terminal: ["terminal"], pill: ["terminal"], circle: ["terminal"], circ: ["terminal"],
+  diam: ["decision"], decision: ["decision"], diamond: ["decision"], question: ["decision"], hex: ["decision"], hexagon: ["decision"],
+  "lean-r": ["io"], "lean-l": ["io"], "in-out": ["io"], "lean-right": ["io"], "lean-left": ["io"],
+  cyl: ["database"], cylinder: ["database"], database: ["database"], db: ["database"],
+  "fr-rect": ["subroutine"], subproc: ["subroutine"], subroutine: ["subroutine"], subprocess: ["subroutine"],
+  doc: ["document"], document: ["document"],
+  brace: ["note"], comment: ["note"], "brace-r": ["note"], braces: ["note"], note: ["note"],
+  text: ["box", { plain: true }],
+};
 
 export interface GraphEdge {
   from: string;
@@ -81,7 +98,7 @@ export function parseGraph(text: string): ParsedGraph {
   const byId = new Map<string, GraphNode>();
   const stack: Subgraph[] = [];
 
-  const node = (id: string, label?: string, kind?: NodeKind, rounded = false) => {
+  const node = (id: string, label?: string, kind?: NodeKind, rounded = false, plain = false) => {
     let n = byId.get(id);
     if (!n) {
       n = { id, text: id, kind: "box", rounded: false };
@@ -98,13 +115,13 @@ export function parseGraph(text: string): ParsedGraph {
       n.text = label;
       n.kind = kind ?? "box";
       n.rounded = rounded;
+      n.plain = plain || undefined;
     }
     return n;
   };
 
-  text.split("\n").forEach((raw, i) => {
-    const lineNo = i + 1;
-    const line = raw.replace(/%%.*$/, "").trim().replace(/;$/, "");
+  logicalLines(text).forEach(({ line: raw, lineNo }) => {
+    const line = raw.replace(/%%.*$/gm, "").trim().replace(/;$/, "");
     if (!line) return;
     const header = /^(flowchart|graph)\b\s*(TD|TB|BT|LR|RL)?/i.exec(line);
     if (header) {
@@ -145,9 +162,26 @@ export function parseGraph(text: string): ParsedGraph {
         const id = m[0];
         rest = rest.slice(id.length);
         let shaped = false;
-        for (const [open, close, kind, rounded] of SHAPES) {
+        // Mermaid's expanded syntax: A@{ shape: doc, label: "text" }
+        const expanded = /^@\{([^}]*)\}/.exec(rest);
+        if (expanded) {
+          const props: Record<string, string> = {};
+          for (const m of expanded[1].matchAll(/(\w+)\s*:\s*("(?:[^"\\]|\\.)*"|[^,]+)/g)) props[m[1]] = m[2].trim();
+          const [kind, extra] = SHAPE_NAMES[(props.shape ?? "rect").toLowerCase()] ?? ["box"];
+          if (!SHAPE_NAMES[(props.shape ?? "rect").toLowerCase()]) g.warnings.push(`line ${lineNo}: unknown shape "${props.shape}", drawn as a box`);
+          node(id, props.label !== undefined ? unquote(props.label) : byId.get(id)?.text ?? id, kind, !!extra?.rounded, !!extra?.plain);
+          rest = rest.slice(expanded[0].length);
+          shaped = true;
+        }
+        for (const [open, close, kind, rounded] of shaped ? [] : SHAPES) {
           if (!rest.startsWith(open)) continue;
-          const end = rest.indexOf(close, open.length);
+          // A quoted label may contain the closing bracket: look past the quotes.
+          let from = open.length;
+          if (rest[from] === '"') {
+            const q = rest.startsWith('"`', from) ? rest.indexOf('`"', from + 2) + 2 : rest.indexOf('"', from + 1) + 1;
+            if (q > 0) from = q;
+          }
+          const end = rest.indexOf(close, from);
           if (end < 0) continue;
           node(id, unquote(rest.slice(open.length, end)), kind, rounded);
           rest = rest.slice(end + close.length);
@@ -214,6 +248,4 @@ export function parseGraph(text: string): ParsedGraph {
   return g;
 }
 
-function unquote(s: string): string {
-  return s.trim().replace(/^"(.*)"$/s, "$1").replace(/<br\s*\/?>/gi, "\n");
-}
+

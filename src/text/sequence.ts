@@ -1,3 +1,5 @@
+import { logicalLines, unquote } from "./mermaid";
+
 /**
  * Message sequences from text: Mermaid `sequenceDiagram`, and a looser shorthand.
  *
@@ -49,17 +51,16 @@ export function parseSequence(text: string): ParsedSequence {
   };
   let depth = 0;
 
-  text.split("\n").forEach((raw, i) => {
-    const lineNo = i + 1;
-    const line = raw.replace(/%%.*$/, "").trim();
+  logicalLines(text).forEach(({ line: raw, lineNo }) => {
+    const line = raw.replace(/%%.*$/gm, "").trim();
     if (!line || /^sequenceDiagram\b/.test(line) || /^title\b/i.test(line)) return;
     if (/^autonumber\b/i.test(line)) {
       seq.autonumber = true;
       return;
     }
-    const decl = /^(participant|actor)\s+(.+?)(?:\s+as\s+(.+))?$/i.exec(line);
+    const decl = /^(participant|actor)\s+(.+?)(?:\s+as\s+(.+))?$/is.exec(line);
     if (decl) {
-      participant(decl[2].trim(), decl[3]?.trim());
+      participant(decl[2].trim(), decl[3] !== undefined ? unquote(decl[3]).replace(/\n/g, " ") : undefined);
       return;
     }
     const act = /^(activate|deactivate)\s+(.+)$/i.exec(line);
@@ -67,11 +68,11 @@ export function parseSequence(text: string): ParsedSequence {
       seq.events.push({ type: act[1].toLowerCase() as "activate" | "deactivate", who: participant(act[2].trim()) });
       return;
     }
-    const note = /^note\s+(left of|right of|over)\s+([^:]+):\s*(.*)$/i.exec(line);
+    const note = /^note\s+(left of|right of|over)\s+([^:]+):\s*(.*)$/is.exec(line);
     if (note) {
       const side = note[1].toLowerCase().startsWith("left") ? "left" : note[1].toLowerCase().startsWith("right") ? "right" : "over";
       const who = note[2].split(",").map((s) => participant(s.trim()));
-      seq.events.push({ type: "note", side, who, text: note[3].replace(/<br\s*\/?>/gi, "\n") });
+      seq.events.push({ type: "note", side, who, text: unquote(note[3]) });
       return;
     }
     const frame = FRAMES.exec(line);
@@ -101,7 +102,7 @@ export function parseSequence(text: string): ParsedSequence {
       // In Mermaid, -> and --> are lines without arrowheads; in the shorthand they're arrows.
       const arrow = mermaid ? !/^--?>$/.test(op) : true;
       seq.events.push({
-        type: "message", from: participant(a.trim()), to: participant(b.trim()), label: (label ?? "").trim(),
+        type: "message", from: participant(a.trim()), to: participant(b.trim()), label: unquote(label ?? "").replace(/\n/g, " "),
         dashed, arrow, activate: mod === "+", deactivate: mod === "-",
       });
       return;

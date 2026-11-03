@@ -15,6 +15,19 @@ describe("detect", () => {
     expect(detectKind("src\n  main.ts\n  util.ts")).toBe("tree");
     expect(detectKind("src/main.ts\nsrc/util.ts")).toBe("tree");
   });
+
+  it("takes indented names as a tree, even when names look like arrows", () => {
+    for (const text of [
+      "project\n  src\n    main.ts\n  README.md",
+      "project\n    src\n        main.ts",
+      "project\n\tsrc\n\t\tmain.ts",
+      "    project\n        src\n            main.ts",
+      "project\r\n  src\r\n    main.ts\r\n",
+      "my-app\n  node-modules\n    left-pad\n  src->old\n  a => b\n  x---y",
+      "My Project\n  Design Docs\n    v1.0 draft.docx",
+    ]) expect(detectKind(text)).toBe("tree");
+    expect(treeText(parseTree("my-app\n  src->old\n    a => b").roots)).toBe("my-app/\n└── src->old/\n    └── a => b");
+  });
 });
 
 describe("sequence parser", () => {
