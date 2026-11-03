@@ -1,7 +1,7 @@
 import { type Rect, union } from "../geometry/geom";
 import { topLevel } from "./arrange";
 import { within, withContents } from "./containment";
-import { moveObjects } from "./ops";
+import { moveWithLocks } from "./locks";
 import type { Diagram, Id } from "./types";
 
 /**
@@ -12,6 +12,10 @@ import type { Diagram, Id } from "./types";
  *  4. place layers one after another, each centred on the widest.
  * Boxes move with what's inside them; connectors re-route themselves. Bend points on the
  * connectors between laid-out boxes are dropped (they'd be in the wrong place).
+ *
+ * Locks: boxes locked together both ways are laid out as one unit, keeping their arrangement.
+ * What's locked to a laid-out box but not laid out itself follows it along the locked axes, as
+ * with Align. Boxes locked on one axis only are still placed individually.
  */
 export type LayoutDirection = "down" | "right";
 
@@ -21,13 +25,34 @@ const SWEEPS = 4;
 export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): Diagram {
   // The selected boxes, or every box that isn't inside another.
   const pool = ids.length ? ids : d.order;
-  const nodes = topLevel(d, pool);
+  const boxes = topLevel(d, pool);
+  const boxSet = new Set(boxes);
+  // Units: boxes locked both ways to each other (directly or in a chain) go together, led by the
+  // first of them.
+  const lead = new Map<Id, Id>(boxes.map((n) => [n, n]));
+  const find = (n: Id): Id => (lead.get(n) === n ? n : find(lead.get(n)!));
+  for (const l of Object.values(d.locks ?? {})) {
+    if (!l.x || !l.y) continue;
+    const ms = l.members.filter((m) => boxSet.has(m));
+    for (const m of ms.slice(1)) {
+      const [a, b] = [find(ms[0]), find(m)];
+      if (a === b) continue;
+      const [keep, drop] = boxes.indexOf(a) < boxes.indexOf(b) ? [a, b] : [b, a];
+      lead.set(drop, keep);
+    }
+  }
+  const members = new Map<Id, Id[]>();
+  for (const n of boxes) members.set(find(n), [...(members.get(find(n)) ?? []), n]);
+  const nodes = [...members.keys()];
   if (nodes.length < 2) return d;
-  const rect = (id: Id) => d.nodes[id].rect;
-  const inSet = new Set(nodes);
-  // A connector attached to something inside a laid-out box counts for that box.
-  const owner = (id: Id): Id | null =>
-    inSet.has(id) ? id : nodes.find((n) => d.nodes[id] && within(rect(id), rect(n))) ?? null;
+  const unitRect = new Map(nodes.map((n) => [n, union(members.get(n)!.map((m) => d.nodes[m].rect))!]));
+  const rect = (id: Id) => unitRect.get(id) ?? d.nodes[id].rect;
+  // A connector attached to a box in a unit, or to something inside one, counts for its unit.
+  const owner = (id: Id): Id | null => {
+    if (boxSet.has(id)) return find(id);
+    const box = boxes.find((n) => d.nodes[id] && within(d.nodes[id].rect, d.nodes[n].rect));
+    return box ? find(box) : null;
+  };
 
   const down = direction === "down";
   const cross = (r: Rect) => (down ? r.x + r.w / 2 : r.y + r.h / 2);
@@ -107,6 +132,8 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
   const span = (layer: Id[]) => layer.reduce((s, n) => s + crossSize(rect(n)), 0) + gap.cross * (layer.length - 1);
   const widest = Math.max(...layers.map(span));
   let result = d;
+  // Everything laid out is placed by the layout; lock-mates outside it follow, each once.
+  const settled = new Set(boxes);
   let main = down ? origin.y : origin.x;
   for (const layer of layers) {
     let c = (down ? origin.x : origin.y) + Math.floor((widest - span(layer)) / 2);
@@ -116,8 +143,9 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
       // Centre each node in its layer's band.
       const m = main + Math.floor((depth - mainSize(r)) / 2);
       const [x, y] = down ? [c, m] : [m, c];
-      const now = result.nodes[n].rect;
-      result = moveObjects(result, withContents(result, [n]), { x: x - now.x, y: y - now.y });
+      const group = members.get(n)!;
+      const now = union(group.map((m) => result.nodes[m].rect))!;
+      result = moveWithLocks(result, withContents(result, group), { x: x - now.x, y: y - now.y }, settled);
       c += crossSize(r) + gap.cross;
     }
     main += depth + gap.main;
