@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Rect, Side } from "../geometry/geom";
 import { emptyDiagram } from "../model/ops";
-import type { Diagram, Id } from "../model/types";
+import type { Diagram, Id, NodeKind } from "../model/types";
 import type { Guide } from "./snap";
 
 export type ToolId = "select" | "box" | "arrow" | "line" | "text";
@@ -33,6 +33,8 @@ export interface EditorState {
   pending: Diagram | null;
   selection: Id[];
   tool: ToolId;
+  /** The shape the box tool draws. */
+  shape: NodeKind;
   /** In-place editing: a node's text or name, or a connector's label. */
   editing: { id: Id; field: "text" | "name" | "label" } | null;
   overlay: Overlay;
@@ -55,6 +57,7 @@ export const useEditor = create<EditorState>(() => ({
   pending: null,
   selection: [],
   tool: "select",
+  shape: "box",
   editing: null,
   overlay: {},
   view: { zoom: 1, x: -40, y: -70 },
@@ -148,6 +151,10 @@ function pruneSelection() {
 export function setTool(tool: ToolId) {
   finishEditing();
   setState({ tool, overlay: {} });
+}
+
+export function setShape(shape: NodeKind) {
+  setState({ shape });
 }
 
 export function setOverlay(overlay: Overlay) {

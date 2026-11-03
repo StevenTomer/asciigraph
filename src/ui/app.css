@@ -24,13 +24,19 @@ html, body, #root {
 }
 
 /* Toolbar */
-.toolbar {
+.toolbar-wrap {
   position: absolute;
   top: 8px;
   left: 8px;
-  right: 8px;
-  width: max-content;
   max-width: calc(100% - 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.toolbar {
+  width: max-content;
+  max-width: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -326,4 +332,8 @@ a {
 .zoom .pct {
   min-width: 6ch;
   text-align: center;
+}
+
+.toolbar.sub {
+  font-size: 13px;
 }

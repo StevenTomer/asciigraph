@@ -41,6 +41,10 @@ function normalizeNode(node: Node): Node {
   if (rect.w < min.w || rect.h < min.h) {
     rect = { ...rect, w: Math.max(rect.w, min.w), h: Math.max(rect.h, min.h) };
   }
+  if (shape.normalize) {
+    const n = shape.normalize(rect);
+    if (n.w !== rect.w || n.h !== rect.h || n.x !== rect.x || n.y !== rect.y) rect = n;
+  }
   return rect === node.rect ? node : { ...node, rect };
 }
 

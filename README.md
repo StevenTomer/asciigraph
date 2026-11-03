@@ -1,8 +1,10 @@
 # asciigraph
 
 A diagram editor whose output is plain text. Draw boxes, type in them, and connect them with
-arrows and lines; connectors attached to a box follow it when it moves. Export as text (Unicode
-box drawing or ASCII), a Markdown code block, a share link, or JSON.
+arrows and lines; connectors attached to a box follow it when it moves. Flowchart shapes
+(decision, input/output, start/end), sequence diagrams (lifelines and messages), connector
+labels and bend points, auto layout, snapping. Export as text (Unicode box drawing or ASCII), a
+Markdown code block, a share link, or JSON.
 
 
 ```

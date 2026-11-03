@@ -19,6 +19,17 @@ export class Occupancy {
   private v = new Map<number, string[]>();
   readonly xs = new Set<number>();
   readonly ys = new Set<number>();
+  /** Cells where connector ends are, and whether they leave ("out") or arrive ("in") there. */
+  private ends = new Map<number, "out" | "in">();
+
+  endRole(p: Point): "out" | "in" | undefined {
+    return this.ends.get(cellKey(p.x, p.y));
+  }
+
+  markEnd(p: Point, role: "out" | "in") {
+    const k = cellKey(p.x, p.y);
+    if (!this.ends.has(k)) this.ends.set(k, role);
+  }
 
   add(cells: Point[], groups: string[]) {
     cells.forEach((c, i) => {

@@ -155,7 +155,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt><Kbd>s</Kbd> or <Kbd>space</Kbd> select</dt><dd>click or drag a rectangle to select; drag to move; handles resize; double-click edits text (on a box's top border: its name)</dd>
         <dt>snapping</dt><dd>moving, resizing or drawing a box lines its edges and centre up with other boxes nearby, with guides; hold <Kbd>ctrl</Kbd> to place it freely</dd>
         <dt>boxes in boxes</dt><dd>a box entirely inside another is part of it: it's drawn in front, and moves when the outer box moves. <Kbd>alt</Kbd>+drag moves just the outer box; or set "inside: stays put" on the box</dd>
-        <dt><Kbd>b</Kbd> box</dt><dd>drag corner to corner, or click empty space for a default box; then type. Clicking an existing box selects it (and switches to select); dragging from inside a box draws one inside it</dd>
+        <dt><Kbd>b</Kbd> box</dt><dd>drag corner to corner, or click empty space for a default box; then type. Pick the shape under the toolbar: box, flowchart decision, input/output or start/end, or a sequence-diagram lifeline (draw messages between lifelines with the arrow tool).
+         Clicking an existing box selects it (and switches to select); dragging from inside a box draws one inside it</dd>
         <dt><Kbd>a</Kbd> arrow, <Kbd>l</Kbd> line</dt><dd>drag from one box to another. Start or end inside a box to attach to whichever side faces; on a border (or just outside it) to pin that spot. Hold <Kbd>alt</Kbd> to leave an end free. Clicking (not dragging) a box or connector selects it and switches to select</dd>
         <dt><Kbd>t</Kbd> text</dt><dd>click empty space to type a label without a border (double-click empty space does the same). Clicking a box or connector selects it and switches to select; <Kbd>alt</Kbd>+click places a label there instead, e.g. inside a box</dd>
         <dt>connector ends</dt><dd>select a connector, then drag an end handle onto or off a box to attach or detach it</dd>
@@ -163,7 +164,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt>labels</dt><dd>double-click a connector (or select it and press <Kbd>enter</Kbd>) to label it</dd>
         <dt><Kbd>enter</Kbd></dt><dd>edit the selected box's text; <Kbd>esc</Kbd> or click outside to finish</dd>
         <dt><Kbd>delete</Kbd>, arrows</dt><dd>delete or nudge the selection (<Kbd>shift</Kbd>: by 5)</dd>
-        <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align and Distribute</dd>
+        <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align, Distribute and Auto Layout (arranges boxes in layers following their connectors; on empty space it lays out the whole diagram)</dd>
         <dt><Kbd>ctrl+]</Kbd> / <Kbd>ctrl+[</Kbd></dt><dd>bring forward / send backward (with <Kbd>shift</Kbd>: to front / to back)</dd>
         <dt><Kbd>ctrl+d</Kbd></dt><dd>duplicate</dd>
         <dt><Kbd>ctrl+z</Kbd> / <Kbd>ctrl+shift+z</Kbd></dt><dd>undo / redo</dd>

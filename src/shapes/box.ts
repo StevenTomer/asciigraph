@@ -12,6 +12,9 @@ import type { ShapeDef } from "./registry";
  *   └─────────────┘
  */
 export const box: ShapeDef = {
+  label: "box",
+  defaultSize: { w: 16, h: 3 },
+
   minSize(node) {
     return node.border === "none" ? { w: 1, h: 1 } : { w: 2, h: 2 };
   },

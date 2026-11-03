@@ -39,7 +39,6 @@ export const TOOLS: { id: ToolId; label: string }[] = [
   { id: "text", label: "text" },
 ];
 
-const DEFAULT_BOX = { w: 16, h: 3 };
 
 // ---------------------------------------------------------------------------------------------
 // Select: pick, move, resize, re-attach edge ends, rubber-band select, double-click to edit.
@@ -232,7 +231,7 @@ const boxTool: Tool = {
   down(p) {
     const over = objectAt(p);
     begin();
-    const node = makeNode(rectFromCorners(p.cell, p.cell));
+    const node = makeNode(rectFromCorners(p.cell, p.cell), { kind: getState().shape });
     set(addNode(getState().diagram, node));
     creating = { id: node.id, start: p.cell, over };
   },
@@ -254,7 +253,10 @@ const boxTool: Tool = {
       select([over]);
       return;
     }
-    if (eq(start, p.cell)) set(updateNode(getState().diagram, id, { rect: { ...start, ...DEFAULT_BOX } }));
+    if (eq(start, p.cell)) {
+      const size = shapeOf(getState().diagram.nodes[id]).defaultSize;
+      set(updateNode(getState().diagram, id, { rect: { ...start, ...size } }));
+    }
     startEditing(id); // continues the same undo step; the box tool stays active for the next one
   },
   cursor: () => "crosshair",
@@ -283,8 +285,23 @@ function connectorTool(arrow: boolean): Tool {
       if (!drawing) return;
       const d = getState().diagram;
       const from = d.edges[drawing.id].from;
-      const to = endpointAt(d, p.cell, p.alt, from.kind === "attached" ? from.node : undefined);
-      set(setEndpoint(d, drawing.id, "to", to));
+      const fromNode = from.kind === "attached" ? d.nodes[from.node] : undefined;
+      const lifelines = fromNode?.kind === "lifeline" && from.kind === "attached" && from.offset !== undefined;
+      // A lifeline may message itself; other nodes don't connect to themselves.
+      let to = endpointAt(d, p.cell, p.alt, lifelines ? undefined : fromNode?.id);
+      let fromEnd = from;
+      if (lifelines && to.kind === "attached" && to.offset !== undefined && d.nodes[to.node]?.kind === "lifeline") {
+        if (to.node === fromNode!.id) {
+          // A message to itself loops out to the right and back, at least two rows down.
+          to = { ...to, side: "right", offset: Math.max(to.offset, from.offset! + 2) };
+          fromEnd = { ...from, side: "right" };
+        } else {
+          // Messages between lifelines are horizontal: same row as where it started.
+          to = { ...to, offset: from.offset };
+          fromEnd = { ...from, side: "auto" };
+        }
+      }
+      set(setEndpoint(setEndpoint(d, drawing.id, "from", fromEnd), drawing.id, "to", to));
       setOverlay(to.kind === "attached" ? { attach: { node: to.node, side: to.side === "auto" ? null : to.side } } : {});
     },
     up(p) {
@@ -294,7 +311,9 @@ function connectorTool(arrow: boolean): Tool {
       setOverlay({});
       const e = getState().diagram.edges[id];
       // A click that didn't go anywhere: nothing to draw (but select what was clicked).
-      if (eq(start, p.cell) || (e.from.kind === "attached" && e.to.kind === "attached" && e.from.node === e.to.node)) {
+      const selfLoop = e.from.kind === "attached" && e.to.kind === "attached" && e.from.node === e.to.node;
+      const lifeline = e.from.kind === "attached" && getState().diagram.nodes[e.from.node]?.kind === "lifeline";
+      if (eq(start, p.cell) || (selfLoop && !lifeline)) {
         cancel();
         if (eq(start, p.cell) && over) {
           setTool("select");

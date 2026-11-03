@@ -2,7 +2,7 @@ import {
   type Point, type Rect, type Side, SIDES, STEP, add, bottom, key, right,
 } from "../geometry/geom";
 import type { Diagram, Edge, Endpoint, Node } from "../model/types";
-import { shapeOf } from "../shapes/registry";
+import { footprint, shapeOf } from "../shapes/registry";
 import type { Occupancy } from "./occupancy";
 import { type RouteEnd, route } from "./orthogonal";
 
@@ -60,6 +60,18 @@ export function facingSide(r: Rect, other: Rect): Side {
   return dx >= 0 ? "right" : "left";
 }
 
+/** A shape that only takes connectors on some sides (a lifeline: left/right) gets the allowed
+ * side nearest to facing the other end. */
+function allowedSide(node: Node, side: Side, other: Rect | null): Side {
+  const sides = shapeOf(node).sides;
+  if (!sides || sides.includes(side)) return side;
+  if (sides.includes("left") && sides.includes("right")) {
+    const mid = node.rect.x + node.rect.w / 2;
+    return other && other.x + other.w / 2 < mid ? "left" : "right";
+  }
+  return sides[0];
+}
+
 export function anchorFor(node: Node, side: Side, offset: number | undefined, other: Rect | null): Anchor {
   const shape = shapeOf(node);
   const r = node.rect;
@@ -76,9 +88,9 @@ export function anchorFor(node: Node, side: Side, offset: number | undefined, ot
     const a = Math.max(lo, olo), b = Math.min(hi, ohi);
     along = a <= b ? Math.floor((a + b) / 2) : Math.floor((lo + hi) / 2);
   }
-  const edgeCell: Point = horizontal
+  const edgeCell: Point = shape.anchor?.(node, side, along) ?? (horizontal
     ? { x: along, y: side === "top" ? r.y : bottom(r) }
-    : { x: side === "left" ? r.x : right(r), y: along };
+    : { x: side === "left" ? r.x : right(r), y: along });
   return {
     cell: add(edgeCell, STEP[side]),
     dir: side,
@@ -92,7 +104,7 @@ export function resolveEndpoint(d: Diagram, ep: Endpoint, other: Endpoint): Anch
   const node = d.nodes[ep.node];
   if (!node) return { cell: { x: 0, y: 0 }, dir: null, border: null, node: null };
   const side = ep.side === "auto"
-    ? facingSide(node.rect, refRect(d, other) ?? node.rect)
+    ? allowedSide(node, facingSide(node.rect, refRect(d, other) ?? node.rect), refRect(d, other))
     : ep.side;
   return anchorFor(node, side, ep.offset, alignRect(d, other));
 }
@@ -105,20 +117,50 @@ export function resolveEndpoint(d: Diagram, ep: Endpoint, other: Endpoint): Anch
  * other sides (used while dragging, for speed; the full routing runs when the drag ends).
  */
 export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick = false): ResolvedEdge {
-  const obstacles = d.order.map((id) => d.nodes[id].rect);
+  const obstacles = d.order.flatMap((id) => footprint(d.nodes[id]));
   const via = edge.via ?? [];
   const towards = (p: Point): Endpoint => ({ kind: "free", at: p });
   const fromOther = via.length ? towards(via[0]) : edge.to;
   const toOther = via.length ? towards(via[via.length - 1]) : edge.from;
 
+  // Two connectors may share an end cell only going the same way (several leaving one spot fan
+  // out; several arriving merge). An automatic end that would land where another connector goes
+  // the other way moves along the side to a free cell.
+  // Returns null when the side has no free cell (so another side gets tried).
+  const settle = (a: Anchor, ep: Endpoint, role: "out" | "in"): Anchor | null => {
+    if (!occupancy || ep.kind !== "attached" || !a.node || !a.dir) return a;
+    const taken = (p: Point) => {
+      const r = occupancy.endRole(p);
+      return r !== undefined && r !== role;
+    };
+    if (!taken(a.cell)) return a;
+    if (ep.offset !== undefined) return a; // pinned by hand: leave it
+    const node = d.nodes[a.node];
+    const horizontal = a.dir === "top" || a.dir === "bottom";
+    const [lo, hi] = shapeOf(node).sideRange(node, a.dir);
+    const at = horizontal ? a.cell.x : a.cell.y;
+    const base = horizontal ? node.rect.x : node.rect.y;
+    for (let k = 2; k <= hi - lo + 2; k += 2) {
+      for (const along of [at + k, at - k]) {
+        if (along < lo || along > hi) continue;
+        const moved = anchorFor(node, a.dir, along - base, null);
+        if (!taken(moved.cell)) return moved;
+      }
+    }
+    return null;
+  };
+
   // A line may turn right outside a node (┌─┴─┐), but an arrowhead must be approached head-on.
-  const routeEnds = (f: Anchor, t: Anchor) => {
+  const routeEnds = (f0: Anchor, t0: Anchor) => {
+    const fs = settle(f0, edge.from, "out"), ts = settle(t0, edge.to, "in");
+    const f = fs ?? f0, t = ts ?? t0;
+    const crowded = !fs || !ts;
     const stops: RouteEnd[] = [
       { cell: f.cell, dir: f.dir, strict: edge.arrows.start },
       ...via.map((p) => ({ cell: p, dir: null })),
       { cell: t.cell, dir: t.dir, strict: edge.arrows.end },
     ];
-    const groups = [key(f.cell), key(t.cell)];
+    const groups = [`${key(f.cell)}>`, `${key(t.cell)}<`];
     let cells: Point[] = [];
     let cost = 0, clean = true;
     for (let i = 0; i + 1 < stops.length; i++) {
@@ -127,12 +169,12 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
       cost += r.cost;
       clean &&= r.clean;
     }
-    return { cells, cost, clean };
+    // An end squeezed onto a cell another connector uses the other way: a last resort.
+    return crowded ? { cells, cost: cost + CROWDED_END_COST, clean: false, f, t } : { cells, cost, clean, f, t };
   };
 
-  let from = resolveEndpoint(d, edge.from, fromOther);
-  let to = resolveEndpoint(d, edge.to, toOther);
-  let best = routeEnds(from, to);
+  let best = routeEnds(resolveEndpoint(d, edge.from, fromOther), resolveEndpoint(d, edge.to, toOther));
+  let from = best.f, to = best.t;
   // Something in the way (a long detour, more bends than an S-shape needs, or no head-on
   // approach): try other sides, first changing one end, then both if that didn't help.
   const poor = (r: { cells: Point[]; clean: boolean }, f: Anchor, t: Anchor) =>
@@ -150,16 +192,17 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
         const r = routeEnds(f, t);
         if (r.cost < best.cost) {
           best = r;
-          from = f;
-          to = t;
+          from = r.f;
+          to = r.t;
         }
       }
     };
-    const before = best;
     tryPairs(pairs);
-    if (best === before && poor(best, from, to)) tryPairs(fromOptions.flatMap((f) => toOptions.map((t) => [f, t] as const)));
+    if (poor(best, from, to)) tryPairs(fromOptions.flatMap((f) => toOptions.map((t) => [f, t] as const)));
   }
-  occupancy?.add(best.cells, [key(from.cell), key(to.cell)]);
+  occupancy?.add(best.cells, [`${key(from.cell)}>`, `${key(to.cell)}<`]);
+  occupancy?.markEnd(from.cell, "out");
+  occupancy?.markEnd(to.cell, "in");
   return { edge, from, to, cells: best.cells };
 }
 
@@ -173,6 +216,9 @@ function bends(cells: Point[]): number {
   return n;
 }
 
+/** Cost of an end that couldn't avoid another connector's end going the other way. */
+const CROWDED_END_COST = 40;
+
 /** How much longer than the straight-line distance a route may be before it counts as a detour. */
 const DETOUR_ALLOWANCE = 6;
 
@@ -182,5 +228,5 @@ function sideOptions(d: Diagram, ep: Endpoint, other: Endpoint): Anchor[] | null
   const node = d.nodes[ep.node];
   if (!node) return null;
   const otherRect = alignRect(d, other);
-  return SIDES.map((side) => anchorFor(node, side, ep.offset, otherRect));
+  return (shapeOf(node).sides ?? SIDES).map((side) => anchorFor(node, side, ep.offset, otherRect));
 }

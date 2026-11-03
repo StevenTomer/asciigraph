@@ -4,7 +4,7 @@ import type { Diagram } from "../model/types";
 import { type ResolvedEdge, resolveEdge } from "../routing/endpoints";
 import { Occupancy } from "../routing/occupancy";
 import { chars } from "./textLayout";
-import { shapeOf } from "../shapes/registry";
+import { footprint, shapeOf } from "../shapes/registry";
 import { CharGrid } from "./grid";
 
 export interface Rendered {
@@ -30,7 +30,7 @@ export function rasterize(d: Diagram, quick = false): Rendered {
 
   for (const id of paintOrder(d)) {
     const node = d.nodes[id];
-    grid.clear(node.rect);
+    for (const r of footprint(node)) grid.clear(r);
     shapeOf(node).rasterize(node, grid);
   }
 
@@ -138,8 +138,8 @@ function hidingNodes(d: Diagram, r: ResolvedEdge): Rect[] {
     return n ? within(n.rect, rect) : contains(rect, anchor.cell);
   };
   return d.order
-    .map((id) => d.nodes[id].rect)
-    .filter((rect) => !holds(rect, r.from) && !holds(rect, r.to));
+    .filter((id) => !holds(d.nodes[id].rect, r.from) && !holds(d.nodes[id].rect, r.to))
+    .flatMap((id) => footprint(d.nodes[id]));
 }
 
 /** Plain text of the whole diagram. */

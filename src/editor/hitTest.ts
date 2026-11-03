@@ -1,7 +1,8 @@
-import { type Point, type Rect, type Side, bottom, contains, key, right } from "../geometry/geom";
+import { type Point, type Rect, type Side, bottom, key, right } from "../geometry/geom";
 import { paintOrder } from "../model/containment";
 import type { Diagram, Endpoint, Id } from "../model/types";
-import { shapeOf } from "../shapes/registry";
+import { hits, shapeOf } from "../shapes/registry";
+import { onLifelineLine } from "../shapes/lifeline";
 import { getState } from "./store";
 import { borderToScreen, cellCenter, rendered, screenToCell } from "./view";
 
@@ -34,7 +35,7 @@ const near = (a: Point, b: Point) => Math.abs(a.x - b.x) <= HANDLE_RADIUS && Mat
 export function nodeAt(d: Diagram, cell: Point): Id | null {
   const order = paintOrder(d);
   for (let i = order.length - 1; i >= 0; i--) {
-    if (contains(d.nodes[order[i]].rect, cell)) return order[i];
+    if (hits(d.nodes[order[i]], cell)) return order[i];
   }
   return null;
 }
@@ -64,7 +65,7 @@ export function hitTest(sx: number, sy: number): Hit {
   const node = nodeAt(d, cell);
   if (node) {
     const n = d.nodes[node];
-    return { kind: "node", node, nameRow: shapeOf(n).hasBorder(n) && cell.y === n.rect.y };
+    return { kind: "node", node, nameRow: n.kind === "box" && n.border !== "none" && cell.y === n.rect.y };
   }
   return { kind: "none" };
 }
@@ -79,6 +80,8 @@ export function endpointAt(d: Diagram, cell: Point, free: boolean, exclude?: Id)
   const id = nodeAt(d, cell);
   if (id && id !== exclude) {
     const n = d.nodes[id];
+    // On a lifeline's line: a message at that row (the side is picked to face the other end).
+    if (onLifelineLine(n, cell.y)) return { kind: "attached", node: id, side: "auto", offset: cell.y - n.rect.y };
     const side = borderSide(n.rect, cell);
     if (side && shapeOf(n).hasBorder(n)) return pinned(id, n.rect, side, cell);
     return { kind: "attached", node: id, side: "auto" };

@@ -1,25 +1,51 @@
-import type { Rect, Side } from "../geometry/geom";
-import type { Node } from "../model/types";
+import { type Point, type Rect, type Side, contains } from "../geometry/geom";
+import type { Node, NodeKind } from "../model/types";
 import type { CharGrid } from "../render/grid";
 import { box } from "./box";
+import { decision, io, terminal } from "./flowchart";
+import { lifeline } from "./lifeline";
 
 /**
- * What a node kind must provide. New diagram types (flowchart decisions, sequence-diagram
+ * What a node kind must provide. New diagram types (flowchart shapes, sequence-diagram
  * lifelines, …) add an entry here instead of special-casing the editor or renderer.
  */
 export interface ShapeDef {
+  /** Shown in the shape picker and properties panel. */
+  label: string;
+  /** Size when created with a click rather than a drag. */
+  defaultSize: { w: number; h: number };
   minSize(node: Node): { w: number; h: number };
+  /** Adjust a rect to what the shape can draw (e.g. odd heights for diamonds). */
+  normalize?(rect: Rect): Rect;
+  /** Whether connector ends join its outline with a junction (┴ ├) where it has line strokes. */
   hasBorder(node: Node): boolean;
   /** Where the node's text goes. */
   contentRect(node: Node): Rect;
+  /** Sides connectors may attach to (default: all four). */
+  sides?: Side[];
   /** First and last cell (x for top/bottom, y for left/right) where connectors may attach. */
   sideRange(node: Node, side: Side): [number, number];
+  /** The cell on the outline where a connector attaching at `along` on `side` meets it (default:
+   * on the rect's edge). The connector's path starts one cell further out. */
+  anchor?(node: Node, side: Side, along: number): Point;
   /** The size the node should have for `text` (autosize labels, growing boxes). */
   fitSize(node: Node, text: string): { w: number; h: number };
-  /** Draw into the grid. The rasterizer has already cleared the node's rect. */
+  /** The opaque parts: blanked before drawing, they hide connectors passing behind and are routed
+   * around (default: the whole rect). */
+  footprint?(node: Node): Rect[];
+  /** Whether a cell counts as on the node, for clicking (default: anywhere in its rect). */
+  hitTest?(node: Node, cell: Point): boolean;
+  /** Draw into the grid. The rasterizer has already cleared the node's footprint. */
   rasterize(node: Node, grid: CharGrid): void;
 }
 
-const SHAPES: Record<Node["kind"], ShapeDef> = { box };
+const SHAPES: Record<NodeKind, ShapeDef> = { box, decision, io, terminal, lifeline };
 
-export const shapeOf = (node: Node): ShapeDef => SHAPES[node.kind];
+export const SHAPE_KINDS = Object.keys(SHAPES) as NodeKind[];
+
+export const shapeOf = (node: Node): ShapeDef => SHAPES[node.kind] ?? box;
+export const shapeFor = (kind: NodeKind): ShapeDef => SHAPES[kind];
+
+export const footprint = (node: Node): Rect[] => shapeOf(node).footprint?.(node) ?? [node.rect];
+export const hits = (node: Node, cell: Point): boolean =>
+  shapeOf(node).hitTest?.(node, cell) ?? contains(node.rect, cell);

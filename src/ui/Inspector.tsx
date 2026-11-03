@@ -1,5 +1,6 @@
 import { deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/ops";
 import { arrange } from "../editor/commands";
+import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
 import { apply, begin, commit, getState, select, set, useEditor } from "../editor/store";
 
@@ -32,6 +33,11 @@ export function Inspector() {
       {n0 && (
         <section>
           <h3>{nodes.length > 1 ? `${nodes.length} boxes` : n0.border === "none" ? "text" : "box"}</h3>
+          <Row label="shape">
+            {SHAPE_KINDS.map((k) => (
+              <Choice key={k} active={n0.kind === k} onClick={() => eachNode(() => ({ kind: k }))}>{shapeFor(k).label}</Choice>
+            ))}
+          </Row>
           <Row label="border">
             {BORDERS.map(([v, sample]) => (
               <Choice key={v} active={n0.border === v} onClick={() => eachNode(() => ({ border: v }))} title={v}>
@@ -59,7 +65,7 @@ export function Inspector() {
               </Choice>
             </Row>
           )}
-          {nodes.length === 1 && n0.border !== "none" && (
+          {nodes.length === 1 && n0.kind === "box" && n0.border !== "none" && (
             <>
               <Row label="name">
                 <input

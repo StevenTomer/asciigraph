@@ -18,6 +18,8 @@ export type Id = string;
 export type BorderStyle = "single" | "double" | "rounded" | "heavy" | "dashed" | "dotted" | "ascii" | "none";
 export type LineStyle = "single" | "double" | "heavy" | "dashed" | "dotted" | "ascii";
 export type HAlign = "left" | "center" | "right";
+/** Node shapes: plain box, flowchart decision / input-output / start-end, sequence lifeline. */
+export type NodeKind = "box" | "decision" | "io" | "terminal" | "lifeline";
 export type VAlign = "top" | "middle" | "bottom";
 
 /**
@@ -27,7 +29,7 @@ export type VAlign = "top" | "middle" | "bottom";
  */
 export interface Node {
   id: Id;
-  kind: "box";
+  kind: NodeKind;
   rect: Rect;
   border: BorderStyle;
   text: string;

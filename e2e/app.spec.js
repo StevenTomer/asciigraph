@@ -563,3 +563,46 @@ test("undo history survives a reload", async ({ page }) => {
   await page.keyboard.press("Control+Shift+z");
   expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(2);
 });
+
+test("shape picker draws flowchart shapes; lifelines get horizontal messages", async ({ page }) => {
+  await page.keyboard.press("b");
+  await expect(page.getByRole("toolbar", { name: "Shape" })).toBeVisible();
+  const picker = page.getByRole("toolbar", { name: "Shape" });
+  await picker.getByRole("button", { name: "decision" }).click();
+  await drag(page, [2, 2], [17, 6]);
+  await page.keyboard.type("ok?");
+  await page.keyboard.press("Escape");
+  expect(Object.values((await state(page)).diagram.nodes)[0].kind).toBe("decision");
+  expect(await text(page)).toContain("<     ok?      >");
+
+  // Two lifelines, then a message: it lands on the same row even if dropped a little lower.
+  await picker.getByRole("button", { name: "lifeline" }).click();
+  await drag(page, [2, 10], [13, 25]);
+  await page.keyboard.press("Escape");
+  await drag(page, [24, 10], [35, 25]);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("a");
+  await drag(page, [7, 16], [29, 18]);
+  const msg = Object.values((await state(page)).diagram.edges)[0];
+  expect(msg.from.offset).toBe(6);
+  expect(msg.to.offset).toBe(6);
+  expect(await text(page)).toMatch(/├─+►┆/);
+});
+
+test("right-click Auto Layout arranges the diagram", async ({ page }) => {
+  await box(page, [30, 2], [36, 4], "a");
+  await box(page, [2, 12], [8, 14], "b");
+  await box(page, [50, 20], [56, 22], "c");
+  await page.keyboard.press("l");
+  await drag(page, [33, 3], [5, 13]);
+  await drag(page, [5, 13], [53, 21]);
+  await page.keyboard.press("Escape");
+  const p = await at(page, 20, 30);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Auto Layout" }).hover();
+  await page.getByRole("menuitem", { name: "Top to Bottom" }).click();
+  const n = Object.values((await state(page)).diagram.nodes);
+  const y = (t) => n.find((x) => x.text === t).rect.y;
+  expect(y("a")).toBeLessThan(y("b"));
+  expect(y("b")).toBeLessThan(y("c"));
+});

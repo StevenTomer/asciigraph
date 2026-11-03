@@ -2,6 +2,7 @@ import type { Point } from "../geometry/geom";
 import {
   type Alignment, align, bringForward, distribute, reverseEdge, sendBackward, sendToBack, topLevel,
 } from "../model/arrange";
+import { autoLayout } from "../model/layout";
 import { bringToFront, updateEdge } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
@@ -51,8 +52,21 @@ export function contextMenu(at: Point): MenuEntry[] {
   const edges = selection.filter((id) => d.edges[id]);
   const paste: MenuItem = { label: "Paste", shortcut: `${mod}V`, run: () => pasteCommand(at) };
 
+  const layoutMenu = (ids: Id[]): MenuItem => ({
+    label: "Auto Layout",
+    submenu: [
+      { label: "Top to Bottom", run: () => apply((dd) => autoLayout(dd, ids, "down")) },
+      { label: "Left to Right", run: () => apply((dd) => autoLayout(dd, ids, "right")) },
+    ],
+  });
+
   if (!selection.length) {
-    return [paste, "separator", { label: "Select All", shortcut: `${mod}A`, run: selectAll }];
+    return [
+      paste,
+      ...(d.order.length >= 2 ? (["separator", layoutMenu([])] as MenuEntry[]) : []),
+      "separator",
+      { label: "Select All", shortcut: `${mod}A`, run: selectAll },
+    ];
   }
 
   const arrangeable = topLevel(d, nodes).length;
@@ -95,6 +109,7 @@ export function contextMenu(at: Point): MenuEntry[] {
           hint: arrangeable < 3 ? "3+ boxes" : undefined,
         })),
       },
+      layoutMenu(nodes),
     );
   }
   if (edges.length === 1 && !nodes.length) {
