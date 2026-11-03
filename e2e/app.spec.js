@@ -456,3 +456,18 @@ test("middle-drag pans without pasting (Linux primary-selection paste is ignored
   await page.keyboard.press("Control+v");
   expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(2);
 });
+
+test("a connector inside a box can be clicked and selected", async ({ page }) => {
+  await box(page, [2, 2], [30, 9], "");
+  await box(page, [4, 4], [10, 6], "in1");
+  await box(page, [20, 4], [26, 6], "in2");
+  await page.keyboard.press("a");
+  await drag(page, [7, 5], [23, 5]);
+  await page.keyboard.press("Escape");
+  const edgeId = Object.keys((await state(page)).diagram.edges)[0];
+  await click(page, 15, 5); // on the arrow, inside the outer box
+  expect((await state(page)).selection).toEqual([edgeId]);
+  await click(page, 15, 7); // empty space inside the outer box: the box
+  const outer = (await state(page)).diagram.order[0];
+  expect((await state(page)).selection).toEqual([outer]);
+});

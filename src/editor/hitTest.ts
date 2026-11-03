@@ -55,20 +55,15 @@ export function hitTest(sx: number, sy: number): Hit {
     for (const h of HANDLES) if (near(p, positions[h])) return { kind: "handle", node: selection[0], handle: h };
   }
   const cell = screenToCell(sx, sy);
+  // A connector wherever it's visible, even inside a box (one passing behind a box isn't).
+  const edge = r.edgeCells.get(key(cell));
+  if (edge) return { kind: "edge", edge };
   const node = nodeAt(d, cell);
   if (node) {
     const n = d.nodes[node];
     return { kind: "node", node, nameRow: shapeOf(n).hasBorder(n) && cell.y === n.rect.y };
   }
-  const edge = edgeAt(d, cell);
-  return edge ? { kind: "edge", edge } : { kind: "none" };
-}
-
-/** The edge drawn in a cell (later edges win). */
-export function edgeAt(d: Diagram, cell: Point): Id | null {
-  const cells = new Map<string, Id>();
-  for (const [id, e] of rendered(d).edges) for (const c of e.cells) cells.set(key(c), id);
-  return cells.get(key(cell)) ?? null;
+  return { kind: "none" };
 }
 
 /**

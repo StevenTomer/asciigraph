@@ -122,7 +122,7 @@ describe("connectors", () => {
     const d = addEdge(withNodes(a, b), makeEdge(att("a"), att("b"), { line: "double", arrows: { start: true, end: false } }));
     expect(text(d)).toBe(block(`
 ┌───┐       ┌───┐
-│ A │◄══════╣ B │
+│ A │◄══════╡ B │
 └───┘       └───┘
 `));
   });
@@ -168,6 +168,50 @@ describe("connectors", () => {
 +---+       +---+
 | A +------>| B |
 +---+       +---+
+`));
+  });
+});
+
+describe("line styles and junctions", () => {
+  const att = (node: string, side: "auto" | "top" | "bottom" = "auto") => ({ kind: "attached" as const, node, side });
+  const box = (id: string, x: number, y: number, border: Node["border"]) => makeNode({ x, y, w: 7, h: 3 }, { id, border });
+
+  it("draws dashed and dotted boxes and connectors", () => {
+    let d = withNodes(box("a", 0, 0, "dashed"), box("b", 14, 0, "dotted"));
+    d = addEdge(d, makeEdge(att("a"), att("b"), { line: "dashed" }));
+    expect(text(d)).toBe(block(`
+┌┄┄┄┄┄┐       ┌┈┈┈┈┈┐
+┆     ├┄┄┄┄┄┄►┊     ┊
+└┄┄┄┄┄┘       └┈┈┈┈┈┘
+`));
+  });
+
+  it("uses mixed glyphs where styles meet", () => {
+    // Single lines into a double box and a heavy box, plain lines (no arrowheads) so they join.
+    let d = withNodes(box("a", 0, 0, "single"), box("b", 0, 6, "double"), box("c", 12, 6, "heavy"));
+    d = addEdge(d, makeEdge(att("a"), att("b"), { arrows: { start: false, end: false } }));
+    d = addEdge(d, makeEdge(att("a"), att("c"), { line: "heavy", arrows: { start: false, end: false } }));
+    // Both leave A at the same spot and share a trunk (heavy wins where they overlap); each
+    // junction uses the matching mixed glyph: ┰ light/heavy, ┡ heavy/light, ╧ single/double.
+    expect(text(d)).toBe(block(`
+┌─────┐
+│     │
+└──┰──┘
+   ┃
+   ┃
+   ┡━━━━━━━━━━━┓
+╔══╧══╗     ┏━━┻━━┓
+║     ║     ┃     ┃
+╚═════╝     ┗━━━━━┛
+`));
+  });
+
+  it("maps everything to ASCII on request, keeping people's own text", () => {
+    const d = withNodes(makeNode({ x: 0, y: 0, w: 9, h: 3 }, { border: "double", text: "café" }));
+    expect(text(d, true)).toBe(block(`
++-------+
+| café  |
++-------+
 `));
   });
 });

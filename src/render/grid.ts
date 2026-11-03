@@ -1,11 +1,12 @@
 import { type Point, type Rect, type Side, bottom, right } from "../geometry/geom";
 import type { LineStyle } from "../model/types";
-import { arrowGlyph, lineGlyph, SIDE_BIT, STYLE_WEIGHT } from "./charsets";
+import { DIR_BITS, SIDE_INDEX, STYLE_WEIGHT, arrowGlyph, asciiChar, lineGlyph } from "./charsets";
 
 export interface Cell {
   /** Directions this cell's line strokes connect to (charsets.ts bits). */
   mask: number;
-  style: LineStyle;
+  /** The line style reaching the cell from each direction: up, right, down, left. */
+  styles: (LineStyle | undefined)[];
   rounded: boolean;
   /** A text character; wins over strokes. */
   ch?: string;
@@ -22,7 +23,7 @@ export class CharGrid {
     const k = `${p.x},${p.y}`;
     let c = this.cells.get(k);
     if (!c) {
-      c = { mask: 0, style: "single", rounded: false };
+      c = { mask: 0, styles: [undefined, undefined, undefined, undefined], rounded: false };
       this.cells.set(k, c);
     }
     return c;
@@ -34,8 +35,12 @@ export class CharGrid {
 
   stroke(p: Point, dirs: Side | Side[], style: LineStyle, rounded = false) {
     const c = this.cell(p);
-    if (c.mask === 0 || STYLE_WEIGHT[style] > STYLE_WEIGHT[c.style]) c.style = style;
-    for (const d of Array.isArray(dirs) ? dirs : [dirs]) c.mask |= SIDE_BIT[d];
+    for (const d of Array.isArray(dirs) ? dirs : [dirs]) {
+      const i = SIDE_INDEX[d];
+      const cur = c.styles[i];
+      if (!cur || STYLE_WEIGHT[style] > STYLE_WEIGHT[cur]) c.styles[i] = style;
+      c.mask |= DIR_BITS[i];
+    }
     if (rounded) c.rounded = true;
   }
 
@@ -98,9 +103,9 @@ export class CharGrid {
 }
 
 export function cellGlyph(c: Cell, ascii: boolean): string {
-  if (c.ch !== undefined) return c.ch;
+  if (c.ch !== undefined) return ascii ? asciiChar(c.ch) : c.ch;
   if (c.arrow) return arrowGlyph(c.arrow, ascii ? "ascii" : (c.arrowStyle ?? "single"));
-  if (c.mask) return lineGlyph(c.mask, ascii ? "ascii" : c.style, c.rounded);
+  if (c.mask) return lineGlyph(c.styles, c.rounded, ascii);
   return "";
 }
 

@@ -1,4 +1,4 @@
-import { type Point, type Rect, type Side, OPPOSITE, contains, stepSide } from "../geometry/geom";
+import { type Point, type Rect, type Side, OPPOSITE, contains, key, stepSide } from "../geometry/geom";
 import { paintOrder, within } from "../model/containment";
 import type { Diagram } from "../model/types";
 import { type ResolvedEdge, resolveEdge } from "../routing/endpoints";
@@ -9,6 +9,8 @@ export interface Rendered {
   grid: CharGrid;
   /** Each edge's computed path, for hit-testing and handles. */
   edges: Map<string, ResolvedEdge>;
+  /** Which edge is visible in each cell ("x,y"), for clicking on connectors. */
+  edgeCells: Map<string, string>;
 }
 
 /**
@@ -22,6 +24,7 @@ export interface Rendered {
 export function rasterize(d: Diagram): Rendered {
   const grid = new CharGrid();
   const edges = new Map<string, ResolvedEdge>();
+  const edgeCells = new Map<string, string>();
 
   for (const id of paintOrder(d)) {
     const node = d.nodes[id];
@@ -36,6 +39,7 @@ export function rasterize(d: Diagram): Rendered {
     const style = edge.line;
     const hiders = hidingNodes(d, r);
     const hidden = (p: Point) => hiders.some((rect) => contains(rect, p));
+    for (const c of cells) if (!hidden(c)) edgeCells.set(key(c), edge.id);
 
     for (let k = 1; k < cells.length; k++) {
       const a = cells[k - 1], b = cells[k];
@@ -67,7 +71,7 @@ export function rasterize(d: Diagram): Rendered {
     }
   }
 
-  return { grid, edges };
+  return { grid, edges, edgeCells };
 }
 
 /** Rects of the nodes that hide an edge: all but those containing one of its ends. */

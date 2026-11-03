@@ -4,9 +4,12 @@ import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../mode
 import { apply, begin, commit, getState, select, set, useEditor } from "../editor/store";
 
 const BORDERS: [BorderStyle, string][] = [
-  ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"], ["ascii", "ascii"], ["none", "none"],
+  ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"],
+  ["dashed", "dashed"], ["dotted", "dotted"], ["ascii", "ascii"], ["none", "none"],
 ];
-const LINES: [LineStyle, string][] = [["single", "───"], ["double", "═══"], ["heavy", "━━━"], ["ascii", "---"]];
+const LINES: [LineStyle, string][] = [
+  ["single", "───"], ["double", "═══"], ["heavy", "━━━"], ["dashed", "┄┄┄"], ["dotted", "┈┈┈"], ["ascii", "---"],
+];
 const HALIGN: [HAlign, string][] = [["left", "left"], ["center", "centre"], ["right", "right"]];
 const VALIGN: [VAlign, string][] = [["top", "top"], ["middle", "middle"], ["bottom", "bottom"]];
 
@@ -94,12 +97,12 @@ export function Inspector() {
           <h3>{edges.length > 1 ? `${edges.length} connectors` : "connector"}</h3>
           <Row label="line">
             {LINES.map(([v, sample]) => (
-              <Choice key={v} active={e0.line === v} onClick={() => eachEdge(() => ({ line: v }))} title={v}>{sample}</Choice>
+              <Choice key={v} active={e0.line === v} onClick={() => eachEdge(() => ({ line: v }))} title={v} label={v}>{sample}</Choice>
             ))}
           </Row>
           <Row label="arrows">
-            <Choice active={e0.arrows.start} onClick={() => eachEdge((e) => ({ arrows: { ...e.arrows, start: !e0.arrows.start } }))} title="arrow at start">◄─</Choice>
-            <Choice active={e0.arrows.end} onClick={() => eachEdge((e) => ({ arrows: { ...e.arrows, end: !e0.arrows.end } }))} title="arrow at end">─►</Choice>
+            <Choice active={e0.arrows.start} onClick={() => eachEdge((e) => ({ arrows: { ...e.arrows, start: !e0.arrows.start } }))} title="arrow at start" label="arrow at start">◄─</Choice>
+            <Choice active={e0.arrows.end} onClick={() => eachEdge((e) => ({ arrows: { ...e.arrows, end: !e0.arrows.end } }))} title="arrow at end" label="arrow at end">─►</Choice>
           </Row>
           {edges.length === 1 && (
             <Row label="ends">
@@ -135,12 +138,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function Choice(props: { active: boolean; onClick: () => void; title?: string; disabled?: boolean; children: React.ReactNode }) {
+/** `label`: the accessible name, for buttons that show a picture (───) instead of words. */
+function Choice(props: { active: boolean; onClick: () => void; title?: string; label?: string; disabled?: boolean; children: React.ReactNode }) {
   return (
     <button
       className={"choice" + (props.active ? " active" : "")}
       onClick={props.onClick}
       title={props.title}
+      aria-label={props.label}
       disabled={props.disabled}
       aria-pressed={props.active}
     >

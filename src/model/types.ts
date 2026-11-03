@@ -15,8 +15,8 @@ export interface Diagram {
 
 export type Id = string;
 
-export type BorderStyle = "single" | "double" | "rounded" | "heavy" | "ascii" | "none";
-export type LineStyle = "single" | "double" | "heavy" | "ascii";
+export type BorderStyle = "single" | "double" | "rounded" | "heavy" | "dashed" | "dotted" | "ascii" | "none";
+export type LineStyle = "single" | "double" | "heavy" | "dashed" | "dotted" | "ascii";
 export type HAlign = "left" | "center" | "right";
 export type VAlign = "top" | "middle" | "bottom";
 
