@@ -61,6 +61,17 @@ export function facingSide(r: Rect, other: Rect): Side {
   return dx >= 0 ? "right" : "left";
 }
 
+/** Whether `other` lies beyond `r`'s `side` (so a connector can leave or arrive that way without
+ * looping round). */
+function ahead(r: Rect, other: Rect, side: Side): boolean {
+  switch (side) {
+    case "right": return other.x > right(r);
+    case "left": return right(other) < r.x;
+    case "bottom": return other.y > bottom(r);
+    case "top": return bottom(other) < r.y;
+  }
+}
+
 /** A shape that only takes connectors on some sides (a lifeline: left/right) gets the allowed
  * side nearest to facing the other end. */
 function allowedSide(node: Node, side: Side, other: Rect | null): Side {
@@ -104,9 +115,10 @@ export function resolveEndpoint(d: Diagram, ep: Endpoint, other: Endpoint): Anch
   if (ep.kind === "free") return { cell: ep.at, dir: null, border: null, node: null };
   const node = d.nodes[ep.node];
   if (!node) return { cell: { x: 0, y: 0 }, dir: null, border: null, node: null };
-  const side = ep.side === "auto"
-    ? allowedSide(node, facingSide(node.rect, refRect(d, other) ?? node.rect), refRect(d, other))
-    : ep.side;
+  const otherRect = refRect(d, other) ?? node.rect;
+  const side = ep.side !== "auto" ? ep.side
+    : ep.prefer && ahead(node.rect, otherRect, ep.prefer) ? ep.prefer
+    : allowedSide(node, facingSide(node.rect, otherRect), refRect(d, other));
   return anchorFor(node, side, ep.offset, alignRect(d, other));
 }
 

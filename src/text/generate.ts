@@ -22,7 +22,7 @@ export interface DesiredNode {
   node: NodeSpec;
 }
 
-export type EndSpec = { key: string; side: Side | "auto"; offset?: number } | { at: Point };
+export type EndSpec = { key: string; side: Side | "auto"; offset?: number; prefer?: Side } | { at: Point };
 
 export interface DesiredEdge {
   key: string;
@@ -350,10 +350,12 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
     const pair = `${e.from}>${e.to}`;
     const n = (pairCount.get(pair) ?? 0) + 1;
     pairCount.set(pair, n);
+    // Connectors follow the flow: out of the bottom and into the top (TB), or out of the right
+    // and into the left (LR), wherever boxes are dragged, unless the target ends up behind.
     return {
       key: `e:${pair}#${n}`,
-      from: { key: keyOf(e.from), side: "auto" },
-      to: { key: keyOf(e.to), side: "auto" },
+      from: { key: keyOf(e.from), side: "auto", prefer: dir === "right" ? "right" : "bottom" },
+      to: { key: keyOf(e.to), side: "auto", prefer: dir === "right" ? "left" : "top" },
       label: e.label || undefined,
       line: e.line,
       arrows: e.arrows,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyDiagram, moveObjects, updateEdge, updateNode } from "../model/ops";
 import type { Diagram } from "../model/types";
-import { diagramToText } from "../render/rasterize";
+import { diagramToText, rasterize } from "../render/rasterize";
 import { directionOf, drawSource, membersOf, setDirection, unlinkSource, updateSource } from "./sync";
 
 const show = (d: Diagram) => "\n" + diagramToText(d) + "\n";
@@ -259,4 +259,40 @@ it("keeps labels on a shared trunk apart (the sample flowchart, left to right)",
                                                                   └►│ Backorders ├─────────┘
                                                                     ╰────────────╯
 `);
+});
+
+describe("graph connectors follow the flow direction", () => {
+  const text = `flowchart LR
+    A([Start]) --> C{In stock?}
+    C -->|yes| D[[Ship it]]
+    C -->|no| E[(Backorders)]
+    D --> F([Done])
+    E --> F`;
+  const sides = (d: Diagram, key: string) => {
+    const e = edgeByKey(d, key);
+    const r = rasterize(d).edges.get(e.id)!;
+    return [r.from.dir, r.to.dir];
+  };
+
+  it("keeps leaving right and arriving left when a box is dragged up", () => {
+    const s = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x: 0, y: 0 });
+    expect(sides(s.diagram, "e:C>D#1")).toEqual(["right", "left"]);
+    const d = moveObjects(s.diagram, [byKey(s.diagram, "n:D").id], { x: 0, y: -6 });
+    expect(sides(d, "e:C>D#1")).toEqual(["right", "left"]);
+    expect(sides(d, "e:D>F#1")).toEqual(["right", "left"]);
+  });
+
+  it("uses the facing side when the target ends up behind", () => {
+    const s = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x: 0, y: 0 });
+    const c = byKey(s.diagram, "n:C").rect, dn = byKey(s.diagram, "n:D");
+    // Ship it dragged to well left of the decision, and above it.
+    const d = moveObjects(s.diagram, [dn.id], { x: c.x - dn.rect.x - 30, y: -8 });
+    expect(sides(d, "e:C>D#1")).not.toEqual(["right", "left"]);
+  });
+
+  it("is top-to-bottom's bottom and top after switching direction", () => {
+    const s = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x: 0, y: 0 });
+    const d = setDirection(s.diagram, s.id, "down").diagram;
+    expect(sides(moveObjects(d, [byKey(d, "n:D").id], { x: -12, y: 0 }), "e:C>D#1")).toEqual(["bottom", "top"]);
+  });
 });

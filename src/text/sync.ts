@@ -166,7 +166,9 @@ function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
   const end = (es: EndSpec): Endpoint | null => {
     if ("at" in es) return { kind: "free", at: { x: es.at.x + origin.x, y: es.at.y + origin.y } };
     const node = idOf.get(es.key);
-    return node ? { kind: "attached", node, side: es.side, ...(es.offset !== undefined && { offset: es.offset }) } : null;
+    return node
+      ? { kind: "attached", node, side: es.side, ...(es.offset !== undefined && { offset: es.offset }), ...(es.prefer && { prefer: es.prefer }) }
+      : null;
   };
   const keptEdges = new Set<string>();
   for (const d0 of desired.edges) {

@@ -103,4 +103,9 @@ export interface Edge {
  */
 export type Endpoint =
   | { kind: "free"; at: Point }
-  | { kind: "attached"; node: Id; side: Side | "auto"; offset?: number };
+  | {
+      kind: "attached"; node: Id; side: Side | "auto"; offset?: number;
+      /** For an auto side: use this one (a graph's flow direction: leave right, arrive left)
+       * unless the other end is behind it, where it would have to loop round. */
+      prefer?: Side;
+    };
