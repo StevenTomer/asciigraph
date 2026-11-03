@@ -1,0 +1,255 @@
+import { type Point, type Rect, bottom, contains, eq, rectFromCorners, right, sub } from "../geometry/geom";
+import {
+  addEdge, addNode, makeEdge, makeNode, moveObjects, resizeNode, setEndpoint, updateNode,
+} from "../model/ops";
+import type { Diagram, Id } from "../model/types";
+import { shapeOf } from "../shapes/registry";
+import { type Handle, endpointAt, hitTest } from "./hitTest";
+import {
+  type ToolId, begin, cancel, commit, getState, select, set, setOverlay, setTool, startEditing,
+} from "./store";
+import { rendered } from "./view";
+
+export interface PointerInfo {
+  sx: number;
+  sy: number;
+  cell: Point;
+  shift: boolean;
+  alt: boolean;
+}
+
+export interface Tool {
+  down(p: PointerInfo): void;
+  move(p: PointerInfo): void;
+  up(p: PointerInfo): void;
+  dblclick?(p: PointerInfo): void;
+  cursor(p: PointerInfo): string;
+}
+
+/** Tool order, labels and shortcuts (the first letter of the label). */
+export const TOOLS: { id: ToolId; label: string }[] = [
+  { id: "select", label: "select" },
+  { id: "box", label: "box" },
+  { id: "arrow", label: "arrow" },
+  { id: "line", label: "line" },
+  { id: "text", label: "text" },
+];
+
+const DEFAULT_BOX = { w: 16, h: 3 };
+
+// ---------------------------------------------------------------------------------------------
+// Select: pick, move, resize, re-attach edge ends, rubber-band select, double-click to edit.
+// ---------------------------------------------------------------------------------------------
+
+type Gesture =
+  | { kind: "move"; start: Point; base: Diagram; ids: Id[] }
+  | { kind: "resize"; node: Id; handle: Handle; start: Point; orig: Rect }
+  | { kind: "endpoint"; edge: Id; which: "from" | "to" }
+  | { kind: "marquee"; start: Point; base: Id[] };
+
+let gesture: Gesture | null = null;
+
+const RESIZE_CURSORS: Record<Handle, string> = {
+  nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize",
+  n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize",
+};
+
+const selectTool: Tool = {
+  down(p) {
+    const hit = hitTest(p.sx, p.sy);
+    const { selection, diagram } = getState();
+    if (hit.kind === "handle") {
+      begin();
+      gesture = { kind: "resize", node: hit.node, handle: hit.handle, start: p.cell, orig: diagram.nodes[hit.node].rect };
+    } else if (hit.kind === "endpoint") {
+      begin();
+      gesture = { kind: "endpoint", edge: hit.edge, which: hit.which };
+    } else if (hit.kind === "node" || hit.kind === "edge") {
+      const id = hit.kind === "node" ? hit.node : hit.edge;
+      let ids = selection;
+      if (p.shift) {
+        ids = selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id];
+        select(ids);
+        if (!ids.includes(id)) return;
+      } else if (!selection.includes(id)) {
+        ids = [id];
+        select(ids);
+      }
+      begin();
+      gesture = { kind: "move", start: p.cell, base: getState().diagram, ids };
+    } else {
+      gesture = { kind: "marquee", start: p.cell, base: p.shift ? selection : [] };
+      if (!p.shift) select([]);
+    }
+  },
+
+  move(p) {
+    const g = gesture;
+    if (!g) return;
+    const d = getState().diagram;
+    if (g.kind === "move") {
+      set(moveObjects(g.base, g.ids, sub(p.cell, g.start)));
+    } else if (g.kind === "resize") {
+      const rect = resizedRect(d, g.node, g.orig, g.handle, sub(p.cell, g.start));
+      set(resizeNode(d, g.node, rect));
+      setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect });
+    } else if (g.kind === "endpoint") {
+      const edge = d.edges[g.edge];
+      const other = g.which === "from" ? edge.to : edge.from;
+      const ep = endpointAt(d, p.cell, p.alt, other.kind === "attached" ? other.node : undefined);
+      set(setEndpoint(d, g.edge, g.which, ep));
+      setOverlay(ep.kind === "attached" ? { attach: { node: ep.node, side: ep.side === "auto" ? null : ep.side } } : {});
+    } else {
+      const marquee = rectFromCorners(g.start, p.cell);
+      setOverlay({ marquee });
+      select([...new Set([...g.base, ...objectsIn(d, marquee)])]);
+    }
+  },
+
+  up() {
+    if (gesture && gesture.kind !== "marquee") commit();
+    gesture = null;
+    setOverlay({});
+  },
+
+  dblclick(p) {
+    const hit = hitTest(p.sx, p.sy);
+    if (hit.kind === "node") {
+      startEditing(hit.node, hit.nameRow ? "name" : "text");
+    } else if (hit.kind === "none") {
+      createLabel(p.cell);
+    }
+  },
+
+  cursor(p) {
+    const hit = hitTest(p.sx, p.sy);
+    if (hit.kind === "handle") return RESIZE_CURSORS[hit.handle];
+    if (hit.kind === "endpoint") return "crosshair";
+    if (hit.kind === "node" || hit.kind === "edge") return "move";
+    return "default";
+  },
+};
+
+function resizedRect(d: Diagram, id: Id, orig: Rect, handle: Handle, delta: Point): Rect {
+  const min = shapeOf(d.nodes[id]).minSize(d.nodes[id]);
+  let x0 = orig.x, y0 = orig.y, x1 = right(orig), y1 = bottom(orig);
+  if (handle.includes("w")) x0 = Math.min(x0 + delta.x, x1 - min.w + 1);
+  if (handle.includes("e")) x1 = Math.max(x1 + delta.x, x0 + min.w - 1);
+  if (handle.includes("n")) y0 = Math.min(y0 + delta.y, y1 - min.h + 1);
+  if (handle.includes("s")) y1 = Math.max(y1 + delta.y, y0 + min.h - 1);
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+/** Nodes entirely inside the rect, and edges whose whole path is. */
+function objectsIn(d: Diagram, r: Rect): Id[] {
+  const inside = (q: Rect) => q.x >= r.x && q.y >= r.y && right(q) <= right(r) && bottom(q) <= bottom(r);
+  const nodes = d.order.filter((id) => inside(d.nodes[id].rect));
+  const edges = [...rendered(d).edges].filter(([, e]) => e.cells.every((c) => contains(r, c))).map(([id]) => id);
+  return [...nodes, ...edges];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Box: drag out a box (or click for a default-sized one), then type its text.
+// ---------------------------------------------------------------------------------------------
+
+let creating: { id: Id; start: Point } | null = null;
+
+const boxTool: Tool = {
+  down(p) {
+    begin();
+    const node = makeNode(rectFromCorners(p.cell, p.cell));
+    set(addNode(getState().diagram, node));
+    creating = { id: node.id, start: p.cell };
+  },
+  move(p) {
+    if (!creating) return;
+    const rect = rectFromCorners(creating.start, p.cell);
+    set(updateNode(getState().diagram, creating.id, { rect }));
+    setOverlay({ sizeOf: getState().diagram.nodes[creating.id].rect });
+  },
+  up(p) {
+    if (!creating) return;
+    const { id, start } = creating;
+    creating = null;
+    if (eq(start, p.cell)) set(updateNode(getState().diagram, id, { rect: { ...start, ...DEFAULT_BOX } }));
+    setOverlay({});
+    setTool("select");
+    startEditing(id); // continues the same undo step
+  },
+  cursor: () => "crosshair",
+};
+
+// ---------------------------------------------------------------------------------------------
+// Arrow / line: drag from one place to another; ends attach to nodes they start or end on.
+// ---------------------------------------------------------------------------------------------
+
+let drawing: { id: Id; start: Point } | null = null;
+
+function connectorTool(arrow: boolean): Tool {
+  return {
+    down(p) {
+      begin();
+      const d = getState().diagram;
+      const from = endpointAt(d, p.cell, p.alt);
+      const edge = makeEdge(from, { kind: "free", at: p.cell }, { arrows: { start: false, end: arrow } });
+      set(addEdge(d, edge));
+      drawing = { id: edge.id, start: p.cell };
+      setOverlay(from.kind === "attached" ? { attach: { node: from.node, side: from.side === "auto" ? null : from.side } } : {});
+    },
+    move(p) {
+      if (!drawing) return;
+      const d = getState().diagram;
+      const from = d.edges[drawing.id].from;
+      const to = endpointAt(d, p.cell, p.alt, from.kind === "attached" ? from.node : undefined);
+      set(setEndpoint(d, drawing.id, "to", to));
+      setOverlay(to.kind === "attached" ? { attach: { node: to.node, side: to.side === "auto" ? null : to.side } } : {});
+    },
+    up(p) {
+      if (!drawing) return;
+      const { id, start } = drawing;
+      drawing = null;
+      setOverlay({});
+      const e = getState().diagram.edges[id];
+      // A click that didn't go anywhere: nothing to draw.
+      if (eq(start, p.cell) || (e.from.kind === "attached" && e.to.kind === "attached" && e.from.node === e.to.node)) {
+        cancel();
+        return;
+      }
+      commit();
+      setTool("select");
+      select([id]);
+    },
+    cursor: () => "crosshair",
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Text: click to type a free label.
+// ---------------------------------------------------------------------------------------------
+
+function createLabel(cell: Point) {
+  setTool("select");
+  begin();
+  const node = makeNode({ ...cell, w: 1, h: 1 }, {
+    border: "none", autosize: true, align: { h: "left", v: "top" },
+  });
+  set(addNode(getState().diagram, node));
+  startEditing(node.id); // continues the same undo step; an empty label is dropped when done
+}
+
+const textTool: Tool = {
+  down(p) {
+    createLabel(p.cell);
+  },
+  move() {},
+  up() {},
+  cursor: () => "text",
+};
+
+export const TOOL_IMPL: Record<ToolId, Tool> = {
+  select: selectTool,
+  box: boxTool,
+  arrow: connectorTool(true),
+  line: connectorTool(false),
+  text: textTool,
+};

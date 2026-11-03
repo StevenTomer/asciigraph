@@ -1,0 +1,258 @@
+* {
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+}
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-canvas-bg);
+  color: var(--color-text);
+  font-size: 14px;
+}
+.app {
+  position: fixed;
+  inset: 0;
+}
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  outline: none;
+}
+
+/* Toolbar */
+.toolbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--color-bg-raised);
+  border: var(--border);
+}
+.brand {
+  font-weight: bold;
+  padding: 0 4px;
+}
+.sep {
+  color: var(--color-border);
+  padding: 0 2px;
+}
+.tb {
+  font: inherit;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  padding: 4px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tb:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+.tb:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tb.active {
+  color: var(--color-bg-active-text);
+  background: var(--color-bg-active);
+}
+.tb.accent {
+  color: var(--color-accent);
+}
+.tb.danger {
+  color: var(--color-danger);
+}
+.tb.name {
+  color: var(--color-text);
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tb u {
+  text-underline-offset: 2px;
+}
+.kbd {
+  border: var(--border);
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+/* Inspector */
+.inspector {
+  position: absolute;
+  top: 60px;
+  right: 8px;
+  width: 300px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 70px);
+  overflow: auto;
+  background: var(--color-bg-raised);
+  border: var(--border);
+  padding: 4px 8px;
+}
+.inspector h3 {
+  font-size: 13px;
+  margin: 6px 0;
+  color: var(--color-text-muted);
+  font-weight: normal;
+}
+.inspector section + section {
+  border-top: var(--border-light);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+.row-label {
+  width: 52px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.row-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  flex: 1;
+}
+.choice {
+  font: inherit;
+  font-size: 13px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: var(--border-light);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.choice.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: 500;
+}
+.choice:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 4px 0;
+}
+.field {
+  font: inherit;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: var(--border);
+  padding: 3px 6px;
+  flex: 1;
+  min-width: 0;
+}
+.grow {
+  flex: 1;
+}
+
+/* In-place text editing */
+.text-editor {
+  margin: 0;
+  border: none;
+  outline: 1px dashed var(--color-accent);
+  padding: 0;
+  background: var(--color-canvas-bg);
+  color: var(--color-canvas-text);
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  z-index: 1;
+}
+
+/* Dialogs */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--color-overlay);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 16px 16px;
+  z-index: 10;
+}
+.dialog {
+  background: var(--color-bg);
+  border: var(--border);
+  width: min(720px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 8px 12px 12px;
+}
+.dialog-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text-muted);
+  border-bottom: var(--border-light);
+  margin-bottom: 8px;
+}
+.preview {
+  background: var(--color-canvas-bg);
+  border: var(--border-light);
+  padding: 8px;
+  max-height: 50vh;
+  overflow: auto;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.buttons {
+  gap: 4px;
+}
+.note {
+  font-size: 13px;
+}
+.error {
+  color: var(--color-danger);
+}
+.muted {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.diagram-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.diagram-list li {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.diagram-list li.current > .tb:first-child {
+  color: var(--color-accent);
+}
+.left {
+  text-align: left;
+}
+.help dt {
+  margin-top: 8px;
+  color: var(--color-accent);
+}
+.help dd {
+  margin-left: 16px;
+}
+a {
+  color: var(--color-accent);
+}

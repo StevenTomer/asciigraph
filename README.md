@@ -1,0 +1,47 @@
+# asciigraph
+
+A diagram editor whose output is plain text. Draw boxes, type in them, and connect them with
+arrows and lines; connectors attached to a box follow it when it moves. Export as text (Unicode
+box drawing or ASCII), a Markdown code block, a share link, or JSON.
+
+
+```
+┌─ API ──────────┐        ┌───────────┐
+│  orders        ├───────►│ Database  │
+└───────┬────────┘        └───────────┘
+        │
+        ▼
+   a free label
+```
+
+## How it works
+
+The document is objects, not characters. Nodes (boxes, labels) and edges (connectors) live in an
+immutable `Diagram` (`src/model`). Every change re-renders the objects into a character grid:
+
+1. connectors are routed (`src/routing`): each attached end finds its node's side, and an orthogonal
+   router finds a path around other nodes;
+2. everything is drawn as line strokes (directions per cell) and text into a `CharGrid`;
+3. each cell's glyph is looked up from its directions, so junctions like `├ ┬ ┼` come out right.
+
+That grid is what's on the canvas and what's exported, so the output is exactly what you see.
+New node kinds (flowchart shapes, sequence-diagram lifelines…) plug in through `src/shapes`.
+
+Diagrams are saved in the browser (localStorage) behind a `DiagramRepository` interface
+(`src/storage`), so a server-backed store can be added without changing the editor.
+
+## Developing
+
+```bash
+npm install
+npm run dev          # http://localhost:5173
+npm test             # unit tests (Vitest): rendering goldens, routing, ops, history
+npm run e2e          # build, then Playwright (first time: npx playwright install chromium)
+npm run build        # typecheck (strict) + production build into dist/
+./deploy/install.sh  # build and publish to a web server folder (uses sudo)
+```
+
+## Credits
+
+Text rendering, input handling, the share-link format and fonts are adapted from
+[ASCIIFlow](https://github.com/lewish/asciiflow) by Lewis Hemens (MIT). See `LICENSE`.

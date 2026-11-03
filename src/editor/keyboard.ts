@@ -1,0 +1,96 @@
+import { deleteObjects, moveObjects } from "../model/ops";
+import { keys } from "./input";
+import {
+  type ToolId, apply, getState, redo, select, setOverlay, setTool, startEditing, undo,
+} from "./store";
+import { TOOLS } from "./tools";
+
+const SHORTCUTS = new Map<string, ToolId>(TOOLS.map((t) => [t.label[0], t.id]));
+
+/** Keys typed into a field (text editor, inspector, dialogs) aren't shortcuts. */
+function inField(e: KeyboardEvent) {
+  const t = e.target as HTMLElement | null;
+  return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+}
+
+export function attachKeyboard(): () => void {
+  const down = (e: KeyboardEvent) => {
+    if (inField(e)) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+    if (mod) {
+      if (k === "z") {
+        e.shiftKey ? redo() : undo();
+        e.preventDefault();
+      } else if (k === "y") {
+        redo();
+        e.preventDefault();
+      } else if (k === "a") {
+        const d = getState().diagram;
+        select([...d.order, ...Object.keys(d.edges)]);
+        e.preventDefault();
+      }
+      return; // copy/cut/paste arrive as clipboard events (clipboard.ts)
+    }
+
+    // Tool shortcuts: plain letter or Alt+letter. Uses `code` so Alt+letter works on macOS too.
+    const letter = e.code.startsWith("Key") ? e.code.slice(3).toLowerCase() : k;
+    const tool = SHORTCUTS.get(letter);
+    if (tool && !e.shiftKey) {
+      setTool(tool);
+      e.preventDefault();
+      return;
+    }
+
+    const { selection, diagram } = getState();
+    switch (k) {
+      case " ":
+        keys.space = true;
+        e.preventDefault();
+        return;
+      case "Escape":
+        select([]);
+        setOverlay({});
+        setTool("select");
+        return;
+      case "Delete":
+      case "Backspace":
+        if (selection.length) {
+          apply((d) => deleteObjects(d, selection));
+          select([]);
+          e.preventDefault();
+        }
+        return;
+      case "Enter":
+        if (selection.length === 1 && diagram.nodes[selection[0]]) {
+          startEditing(selection[0]);
+          e.preventDefault();
+        }
+        return;
+      case "ArrowUp":
+      case "ArrowDown":
+      case "ArrowLeft":
+      case "ArrowRight": {
+        if (!selection.length) return;
+        const n = e.shiftKey ? 5 : 1;
+        const delta = {
+          x: k === "ArrowLeft" ? -n : k === "ArrowRight" ? n : 0,
+          y: k === "ArrowUp" ? -n : k === "ArrowDown" ? n : 0,
+        };
+        apply((d) => moveObjects(d, selection, delta));
+        e.preventDefault();
+        return;
+      }
+    }
+  };
+  const up = (e: KeyboardEvent) => {
+    if (e.key === " ") keys.space = false;
+  };
+  window.addEventListener("keydown", down);
+  window.addEventListener("keyup", up);
+  return () => {
+    window.removeEventListener("keydown", down);
+    window.removeEventListener("keyup", up);
+  };
+}
