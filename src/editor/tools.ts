@@ -248,7 +248,8 @@ function connectorTool(arrow: boolean): Tool {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Text: click to type a free label.
+// Text: click empty space to type a free label. Clicking a box or connector selects it and
+// switches to select (as the other drawing tools do), so it can be dragged straight away.
 // ---------------------------------------------------------------------------------------------
 
 function createLabel(cell: Point) {
@@ -263,6 +264,11 @@ function createLabel(cell: Point) {
 
 const textTool: Tool = {
   down(p) {
+    if (objectAt(p)) {
+      setTool("select");
+      selectTool.down(p); // the rest of the gesture goes to select, which is now the tool
+      return;
+    }
     createLabel(p.cell);
   },
   move() {},

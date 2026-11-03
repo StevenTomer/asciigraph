@@ -270,10 +270,10 @@ test("in box mode, clicking a box selects it; dragging inside one draws a nested
   expect(s.diagram.order).toHaveLength(2);
 });
 
-test("in arrow and line mode, clicking a box or connector selects it", async ({ page }) => {
+test("in arrow, line and text mode, clicking a box or connector selects it", async ({ page }) => {
   await box(page, [2, 2], [12, 4], "A");
   await box(page, [24, 2], [34, 4], "B");
-  for (const tool of ["a", "l"]) {
+  for (const tool of ["a", "l", "t"]) {
     await page.keyboard.press(tool);
     await click(page, 6, 3);
     const s = await state(page);
@@ -296,4 +296,20 @@ test("in arrow and line mode, clicking a box or connector selects it", async ({ 
   s = await state(page);
   expect(s.tool).toBe("select");
   expect(s.selection).toEqual([edge]);
+});
+
+test("text mode: click-drag on a box moves it; clicking empty space still makes a label", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  await page.keyboard.press("t");
+  await drag(page, [6, 3], [6, 8]);
+  let s = await state(page);
+  expect(s.tool).toBe("select");
+  expect(Object.values(s.diagram.nodes)[0].rect.y).toBe(7);
+  await page.keyboard.press("t");
+  await click(page, 20, 2);
+  await page.keyboard.type("label");
+  await page.keyboard.press("Escape");
+  s = await state(page);
+  expect(s.tool).toBe("text");
+  expect(await text(page)).toContain("label");
 });
