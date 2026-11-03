@@ -119,6 +119,9 @@ export function contextMenu(at: Point): MenuEntry[] {
     if (e.via?.length) {
       entries.push({ label: "Straighten", hint: "remove bends", run: () => apply((dd) => updateEdge(dd, e.id, { via: undefined })) });
     }
+    if (e.label && e.labelAt !== undefined) {
+      entries.push({ label: "Reset Label Position", run: () => apply((dd) => updateEdge(dd, e.id, { labelAt: undefined })) });
+    }
   }
   entries.push("separator", { label: "Select All", shortcut: `${mod}A`, run: selectAll });
   return entries;

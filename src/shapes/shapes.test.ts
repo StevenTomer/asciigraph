@@ -104,3 +104,47 @@ describe("sequence diagrams", () => {
 `);
   });
 });
+
+describe("more shapes", () => {
+  it("draws database, document, subroutine and note", () => {
+    const d = [
+      makeNode({ x: 0, y: 0, w: 14, h: 5 }, { kind: "database", text: "orders" }),
+      makeNode({ x: 16, y: 0, w: 16, h: 5 }, { kind: "document", text: "report" }),
+      makeNode({ x: 34, y: 0, w: 18, h: 3 }, { kind: "subroutine", text: "validate" }),
+      makeNode({ x: 54, y: 0, w: 16, h: 4 }, { kind: "note", text: "remember to log this" }),
+    ].reduce(addNode, emptyDiagram());
+    expect(show(d)).toBe(`
+╭────────────╮  ┌──────────────┐  ┌─┬────────────┬─┐  ┌─────────────┬╮
+├────────────┤  │    report    │  │ │  validate  │ │  │ remember to ╰┤
+│   orders   │  │              │  └─┴────────────┴─┘  │  log this    │
+│            │  ╰──╮  ╭──╮  ╭──╯                      └──────────────┘
+╰────────────╯     ╰──╯  ╰──╯
+`);
+  });
+
+  it("puts activation bars on lifelines, with messages at rows", () => {
+    let s = [
+      makeNode({ x: 0, y: 0, w: 12, h: 14 }, { id: "c", kind: "lifeline", text: "Client" }),
+      makeNode({ x: 20, y: 0, w: 12, h: 14 }, { id: "a", kind: "lifeline", text: "API" }),
+      makeNode({ x: 25, y: 5, w: 3, h: 7 }, { id: "act", kind: "activation" }),
+    ].reduce(addNode, emptyDiagram());
+    s = addEdge(s, makeEdge(att("c", { offset: 6 }), att("act", { offset: 1 }), { label: "call" }));
+    s = addEdge(s, makeEdge(att("act", { offset: 5 }), att("c", { offset: 10 }), { line: "dashed", label: "result", labelAt: 0.2 }));
+    expect(show(s)).toBe(`
+┌──────────┐        ┌──────────┐
+│  Client  │        │   API    │
+└────┬─────┘        └────┬─────┘
+     ┆                   ┆
+     ┆                   ┆
+     ┆                   ┌┴┐
+     ├────── call ──────►│ │
+     ┆                   │ │
+     ┆                   │ │
+     ┆                   │ │
+     ┆◄┄┄┄┄┄┄┄┄┄ result ┄┤ │
+     ┆                   └┬┘
+     ┆                   ┆
+     ┆                   ┆
+`);
+  });
+});

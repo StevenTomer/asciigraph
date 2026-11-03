@@ -3,7 +3,8 @@ import type { Node, NodeKind } from "../model/types";
 import type { CharGrid } from "../render/grid";
 import { box } from "./box";
 import { decision, io, terminal } from "./flowchart";
-import { lifeline } from "./lifeline";
+import { activation, lifeline } from "./lifeline";
+import { database, document, note, subroutine } from "./more";
 
 /**
  * What a node kind must provide. New diagram types (flowchart shapes, sequence-diagram
@@ -27,7 +28,7 @@ export interface ShapeDef {
   sideRange(node: Node, side: Side): [number, number];
   /** The cell on the outline where a connector attaching at `along` on `side` meets it (default:
    * on the rect's edge). The connector's path starts one cell further out. */
-  anchor?(node: Node, side: Side, along: number): Point;
+  anchor?(node: Node, side: Side, along: number): Point | undefined;
   /** The size the node should have for `text` (autosize labels, growing boxes). */
   fitSize(node: Node, text: string): { w: number; h: number };
   /** The opaque parts: blanked before drawing, they hide connectors passing behind and are routed
@@ -35,11 +36,17 @@ export interface ShapeDef {
   footprint?(node: Node): Rect[];
   /** Whether a cell counts as on the node, for clicking (default: anywhere in its rect). */
   hitTest?(node: Node, cell: Point): boolean;
+  /** Connectors attach here by row, on the left or right (sequence diagrams): a connector end
+   * dropped on such a cell gets `offset` = that row, so messages stay put and horizontal. */
+  attachByRow?(node: Node, cell: Point): boolean;
   /** Draw into the grid. The rasterizer has already cleared the node's footprint. */
   rasterize(node: Node, grid: CharGrid): void;
 }
 
-const SHAPES: Record<NodeKind, ShapeDef> = { box, decision, io, terminal, lifeline };
+/** In picker order. */
+const SHAPES: Record<NodeKind, ShapeDef> = {
+  box, decision, io, terminal, database, document, subroutine, note, lifeline, activation,
+};
 
 export const SHAPE_KINDS = Object.keys(SHAPES) as NodeKind[];
 

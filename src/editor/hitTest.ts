@@ -2,7 +2,6 @@ import { type Point, type Rect, type Side, bottom, key, right } from "../geometr
 import { paintOrder } from "../model/containment";
 import type { Diagram, Endpoint, Id } from "../model/types";
 import { hits, shapeOf } from "../shapes/registry";
-import { onLifelineLine } from "../shapes/lifeline";
 import { getState } from "./store";
 import { borderToScreen, cellCenter, rendered, screenToCell } from "./view";
 
@@ -13,6 +12,7 @@ export type Hit =
   | { kind: "handle"; node: Id; handle: Handle }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
   | { kind: "via"; edge: Id; index: number }
+  | { kind: "label"; edge: Id }
   | { kind: "node"; node: Id; nameRow: boolean }
   | { kind: "edge"; edge: Id }
   | { kind: "none" };
@@ -59,9 +59,14 @@ export function hitTest(sx: number, sy: number): Hit {
     for (const h of HANDLES) if (near(p, positions[h])) return { kind: "handle", node: selection[0], handle: h };
   }
   const cell = screenToCell(sx, sy);
-  // A connector wherever it's visible, even inside a box (one passing behind a box isn't).
+  // A connector wherever it's visible, even inside a box (one passing behind a box isn't); its
+  // label is a handle of its own, for dragging along the connector.
   const edge = r.edgeCells.get(key(cell));
-  if (edge) return { kind: "edge", edge };
+  if (edge) {
+    const label = d.edges[edge]?.label && r.edges.get(edge)?.label;
+    if (label && cell.y === label.y && cell.x >= label.x && cell.x < label.x + label.w) return { kind: "label", edge };
+    return { kind: "edge", edge };
+  }
   const node = nodeAt(d, cell);
   if (node) {
     const n = d.nodes[node];
@@ -80,8 +85,9 @@ export function endpointAt(d: Diagram, cell: Point, free: boolean, exclude?: Id)
   const id = nodeAt(d, cell);
   if (id && id !== exclude) {
     const n = d.nodes[id];
-    // On a lifeline's line: a message at that row (the side is picked to face the other end).
-    if (onLifelineLine(n, cell.y)) return { kind: "attached", node: id, side: "auto", offset: cell.y - n.rect.y };
+    // On a lifeline's line or an activation bar: a message at that row (the side is picked to
+    // face the other end).
+    if (shapeOf(n).attachByRow?.(n, cell)) return { kind: "attached", node: id, side: "auto", offset: cell.y - n.rect.y };
     const side = borderSide(n.rect, cell);
     if (side && shapeOf(n).hasBorder(n)) return pinned(id, n.rect, side, cell);
     return { kind: "attached", node: id, side: "auto" };

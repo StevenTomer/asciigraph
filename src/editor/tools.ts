@@ -5,8 +5,9 @@ import {
 } from "../model/ops";
 import { withContents } from "../model/containment";
 import type { Diagram, Id } from "../model/types";
+import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
-import { type Handle, endpointAt, hitTest } from "./hitTest";
+import { type Handle, endpointAt, hitTest, nodeAt } from "./hitTest";
 import {
   type ToolId, apply, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, setTool, startEditing,
 } from "./store";
@@ -49,6 +50,8 @@ type Gesture =
   | { kind: "move"; start: Point; base: Diagram; ids: Id[]; carried: Id[] }
   | { kind: "resize"; node: Id; handle: Handle; start: Point; orig: Rect }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
+  /** Dragging a connector's label along it. */
+  | { kind: "label"; edge: Id }
   /** Dragging a bend point; `index` null until the pointer moves (then a new bend is added). */
   | { kind: "bend"; edge: Id; index: number | null; insertAt: number }
   | { kind: "marquee"; start: Point; base: Id[] };
@@ -73,6 +76,10 @@ const selectTool: Tool = {
     } else if (hit.kind === "via") {
       begin();
       gesture = { kind: "bend", edge: hit.edge, index: hit.index, insertAt: hit.index };
+    } else if (hit.kind === "label") {
+      select([hit.edge]);
+      begin();
+      gesture = { kind: "label", edge: hit.edge };
     } else if (hit.kind === "edge" && !p.shift && selection.length === 1 && selection[0] === hit.edge) {
       // Dragging the line of the selected connector bends it there.
       begin();
@@ -128,6 +135,20 @@ const selectTool: Tool = {
       }
       set(resizeNode(d, g.node, rect));
       setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect, guides });
+    } else if (g.kind === "label") {
+      // The nearest point on the connector to the pointer, as a fraction of its length.
+      const cells = rendered(d).edges.get(g.edge)?.cells ?? [];
+      if (cells.length > 2) {
+        let best = 0, bestDist = Infinity;
+        cells.forEach((c, i) => {
+          const dist = Math.abs(c.x - p.cell.x) + Math.abs(c.y - p.cell.y);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = i;
+          }
+        });
+        set(updateEdge(d, g.edge, { labelAt: best / (cells.length - 1) }));
+      }
     } else if (g.kind === "bend") {
       const via = [...(d.edges[g.edge].via ?? [])];
       if (g.index === null) {
@@ -164,7 +185,7 @@ const selectTool: Tool = {
         const via = (d.edges[hit.edge].via ?? []).filter((_, i) => i !== hit.index);
         return updateEdge(d, hit.edge, { via: via.length ? via : undefined });
       });
-    } else if (hit.kind === "edge") {
+    } else if (hit.kind === "edge" || hit.kind === "label") {
       startEditing(hit.edge, "label");
     } else if (hit.kind === "node") {
       startEditing(hit.node, hit.nameRow ? "name" : "text");
@@ -177,7 +198,7 @@ const selectTool: Tool = {
     const hit = hitTest(p.sx, p.sy);
     if (hit.kind === "handle") return RESIZE_CURSORS[hit.handle];
     if (hit.kind === "endpoint") return "crosshair";
-    if (hit.kind === "via") return "move";
+    if (hit.kind === "via" || hit.kind === "label") return "move";
     if (hit.kind === "edge" && getState().selection.length === 1 && getState().selection[0] === hit.edge) return "copy";
     if (hit.kind === "node" || hit.kind === "edge") return "move";
     return "default";
@@ -217,43 +238,58 @@ function objectsIn(d: Diagram, r: Rect): Id[] {
 // a box draws a new box inside it.
 // ---------------------------------------------------------------------------------------------
 
-let creating: { id: Id; start: Point; over: Id | null } | null = null;
+/** `start`: the box's first corner; `pressed`: where the pointer went down (they differ for an
+ * activation bar, which moves onto the lifeline's line: `column`). */
+let creating: { id: Id; start: Point; pressed: Point; over: Id | null; column: number | null } | null = null;
+
+/** Activation bars drawn on a lifeline sit centred on its line: the bar's left column. */
+function activationColumn(d: Diagram, cell: Point): number | null {
+  const id = nodeAt(d, cell);
+  const n = id ? d.nodes[id] : undefined;
+  return n?.kind === "lifeline" ? lifelineColumn(n.rect) - 1 : null;
+}
 
 /** The node or connector under the pointer, if any. */
 function objectAt(p: PointerInfo): Id | null {
   const hit = hitTest(p.sx, p.sy);
   return hit.kind === "node" || hit.kind === "handle" ? hit.node
-    : hit.kind === "edge" || hit.kind === "endpoint" || hit.kind === "via" ? hit.edge
+    : hit.kind === "edge" || hit.kind === "endpoint" || hit.kind === "via" || hit.kind === "label" ? hit.edge
     : null;
 }
 
 const boxTool: Tool = {
   down(p) {
-    const over = objectAt(p);
+    const kind = getState().shape;
+    const column = kind === "activation" ? activationColumn(getState().diagram, p.cell) : null;
+    // Clicking a box selects it, except that an activation bar goes onto the lifeline clicked.
+    const over = column === null ? objectAt(p) : null;
     begin();
-    const node = makeNode(rectFromCorners(p.cell, p.cell), { kind: getState().shape });
+    const start = column === null ? p.cell : { x: column, y: p.cell.y };
+    const node = makeNode(rectFromCorners(start, start), { kind });
     set(addNode(getState().diagram, node));
-    creating = { id: node.id, start: p.cell, over };
+    creating = { id: node.id, start, pressed: p.cell, over, column };
   },
   move(p) {
     if (!creating) return;
-    const corner = p.mod ? { point: p.cell, guides: [] } : snapPoint(getState().diagram, [creating.id], p.cell);
-    const rect = rectFromCorners(creating.start, corner.point);
+    const corner = p.mod || creating.column !== null ? { point: p.cell, guides: [] } : snapPoint(getState().diagram, [creating.id], p.cell);
+    let rect = rectFromCorners(creating.start, corner.point);
+    if (creating.column !== null) rect = { ...rect, x: creating.column, w: 3 };
     set(updateNode(getState().diagram, creating.id, { rect }));
     setOverlay({ sizeOf: getState().diagram.nodes[creating.id].rect, guides: corner.guides });
   },
   up(p) {
     if (!creating) return;
-    const { id, start, over } = creating;
+    const { id, start, pressed, over } = creating;
     creating = null;
     setOverlay({});
-    if (eq(start, p.cell) && over) {
+    const click = eq(pressed, p.cell);
+    if (click && over) {
       cancel();
       setTool("select");
       select([over]);
       return;
     }
-    if (eq(start, p.cell)) {
+    if (click) {
       const size = shapeOf(getState().diagram.nodes[id]).defaultSize;
       set(updateNode(getState().diagram, id, { rect: { ...start, ...size } }));
     }
@@ -285,20 +321,25 @@ function connectorTool(arrow: boolean): Tool {
       if (!drawing) return;
       const d = getState().diagram;
       const from = d.edges[drawing.id].from;
-      const fromNode = from.kind === "attached" ? d.nodes[from.node] : undefined;
-      const lifelines = fromNode?.kind === "lifeline" && from.kind === "attached" && from.offset !== undefined;
-      // A lifeline may message itself; other nodes don't connect to themselves.
-      let to = endpointAt(d, p.cell, p.alt, lifelines ? undefined : fromNode?.id);
+      const attachedFrom = from.kind === "attached" ? from : null;
+      const fromNode = attachedFrom ? d.nodes[attachedFrom.node] : undefined;
+      // Sequence diagrams: a message starting on a lifeline or activation bar, at a row.
+      const fromRow = fromNode && attachedFrom?.offset !== undefined && shapeOf(fromNode).attachByRow
+        ? fromNode.rect.y + attachedFrom.offset : null;
+      // Those may message themselves; other nodes don't connect to themselves.
+      let to = endpointAt(d, p.cell, p.alt, fromRow !== null ? undefined : fromNode?.id);
       let fromEnd = from;
-      if (lifelines && to.kind === "attached" && to.offset !== undefined && d.nodes[to.node]?.kind === "lifeline") {
-        if (to.node === fromNode!.id) {
+      const toNode = to.kind === "attached" ? d.nodes[to.node] : undefined;
+      if (fromRow !== null && attachedFrom && to.kind === "attached" && to.offset !== undefined && toNode && shapeOf(toNode).attachByRow) {
+        if (toNode.id === fromNode!.id) {
           // A message to itself loops out to the right and back, at least two rows down.
-          to = { ...to, side: "right", offset: Math.max(to.offset, from.offset! + 2) };
-          fromEnd = { ...from, side: "right" };
+          to = { ...to, side: "right", offset: Math.max(to.offset, attachedFrom.offset! + 2) };
+          fromEnd = { ...attachedFrom, side: "right" };
         } else {
-          // Messages between lifelines are horizontal: same row as where it started.
-          to = { ...to, offset: from.offset };
-          fromEnd = { ...from, side: "auto" };
+          // Messages are horizontal: the same row as where they started (kept within the target).
+          const [lo, hi] = shapeOf(toNode).sideRange(toNode, "left");
+          to = { ...to, offset: Math.max(lo, Math.min(hi, fromRow)) - toNode.rect.y };
+          fromEnd = { ...attachedFrom, side: "auto" };
         }
       }
       set(setEndpoint(setEndpoint(d, drawing.id, "from", fromEnd), drawing.id, "to", to));
@@ -312,8 +353,9 @@ function connectorTool(arrow: boolean): Tool {
       const e = getState().diagram.edges[id];
       // A click that didn't go anywhere: nothing to draw (but select what was clicked).
       const selfLoop = e.from.kind === "attached" && e.to.kind === "attached" && e.from.node === e.to.node;
-      const lifeline = e.from.kind === "attached" && getState().diagram.nodes[e.from.node]?.kind === "lifeline";
-      if (eq(start, p.cell) || (selfLoop && !lifeline)) {
+      const fromNode = e.from.kind === "attached" ? getState().diagram.nodes[e.from.node] : undefined;
+      const byRow = !!fromNode && !!shapeOf(fromNode).attachByRow;
+      if (eq(start, p.cell) || (selfLoop && !byRow)) {
         cancel();
         if (eq(start, p.cell) && over) {
           setTool("select");

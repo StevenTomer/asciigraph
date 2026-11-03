@@ -75,7 +75,7 @@ export function rasterize(d: Diagram, quick = false): Rendered {
     }
     // Labels go on after every connector's lines, so a later one doesn't draw over them.
     labels.push(() => {
-      const placed = placeLabel(r.cells, edge.label ?? "");
+      const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt);
       r.label = placed.rect;
       for (const [p, ch] of placed.chars) {
         if (hidden(p)) continue;
@@ -90,11 +90,12 @@ export function rasterize(d: Diagram, quick = false): Rendered {
 }
 
 /**
- * Where a connector's label goes: inline on the longest horizontal run it fits on, with a space
- * each side (`── yes ──►`); otherwise beside the middle of the longest vertical run. Without a
- * label, `rect` is where one would go (for the editor). Labels are one line.
+ * Where a connector's label goes: inline on a horizontal run it fits on, with a space each side
+ * (`── yes ──►`), otherwise beside a vertical run. `at` (0–1 along the connector) puts it near
+ * that point; without it, the longest horizontal run that fits (or the middle of the longest
+ * vertical one). Without a label, `rect` is where one would go (for the editor). One line.
  */
-export function placeLabel(cells: Point[], label: string): { rect: Rect; chars: [Point, string][] } {
+export function placeLabel(cells: Point[], label: string, at?: number): { rect: Rect; chars: [Point, string][] } {
   const text = chars(label.replace(/\s*\n\s*/g, " "));
   const len = Math.max(text.length, 1);
   // Straight runs: [first index, last index].
@@ -108,12 +109,13 @@ export function placeLabel(cells: Point[], label: string): { rect: Rect; chars: 
   }
   // Leave the ends alone (arrowheads, junctions): only inner cells take text.
   const room = (r: { a: number; b: number }) => Math.min(r.b, cells.length - 2) - Math.max(r.a, 1) + 1;
-  const fits = runs.filter((r) => r.horizontal && room(r) >= len + 2).sort((p, q) => room(q) - room(p))[0];
-  if (fits) {
-    const lo = Math.max(fits.a, 1), hi = Math.min(fits.b, cells.length - 2);
+  const inline = (run: { a: number; b: number }, centre?: number) => {
+    const lo = Math.max(run.a, 1), hi = Math.min(run.b, cells.length - 2);
     const minX = Math.min(cells[lo].x, cells[hi].x), maxX = Math.max(cells[lo].x, cells[hi].x);
-    // Centred in the run, whichever way it's heading, with a space either side.
-    const x0 = Math.floor((minX + maxX + 1 - len) / 2);
+    // Centred on `centre` (or the run), whichever way the run heads, with a space either side.
+    const x0 = centre === undefined
+      ? Math.floor((minX + maxX + 1 - len) / 2)
+      : Math.max(minX + 1, Math.min(maxX - len, centre - Math.floor((len - 1) / 2)));
     const y = cells[lo].y;
     const out: [Point, string][] = [];
     if (text.length) {
@@ -121,14 +123,24 @@ export function placeLabel(cells: Point[], label: string): { rect: Rect; chars: 
       text.forEach((c, i) => out.push([{ x: x0 + i, y }, c]));
     }
     return { rect: { x: x0, y, w: len, h: 1 }, chars: out };
-  }
-  const vertical = runs.filter((r) => !r.horizontal || r.a === r.b).sort((p, q) => q.b - q.a - (p.b - p.a))[0] ?? runs[0];
-  const at = cells[Math.floor((vertical.a + vertical.b) / 2)];
-  const x0 = at.x + 2;
-  return {
-    rect: { x: x0, y: at.y, w: len, h: 1 },
-    chars: text.map((c, i) => [{ x: x0 + i, y: at.y }, c] as [Point, string]),
   };
+  const beside = (cell: Point) => {
+    const x0 = cell.x + 2;
+    return {
+      rect: { x: x0, y: cell.y, w: len, h: 1 },
+      chars: text.map((c, i) => [{ x: x0 + i, y: cell.y }, c] as [Point, string]),
+    };
+  };
+
+  if (at !== undefined && cells.length > 2) {
+    const k = Math.max(1, Math.min(cells.length - 2, Math.round(at * (cells.length - 1))));
+    const run = runs.find((r) => r.horizontal && r.a <= k && k <= r.b && room(r) >= len + 2);
+    return run ? inline(run, cells[k].x) : beside(cells[k]);
+  }
+  const fits = runs.filter((r) => r.horizontal && room(r) >= len + 2).sort((p, q) => room(q) - room(p))[0];
+  if (fits) return inline(fits);
+  const vertical = runs.filter((r) => !r.horizontal || r.a === r.b).sort((p, q) => q.b - q.a - (p.b - p.a))[0] ?? runs[0];
+  return beside(cells[Math.floor((vertical.a + vertical.b) / 2)]);
 }
 
 /** Rects of the nodes that hide an edge: all but those containing one of its ends. */

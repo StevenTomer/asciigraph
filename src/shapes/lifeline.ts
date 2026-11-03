@@ -1,5 +1,5 @@
 import { type Rect, bottom, right } from "../geometry/geom";
-import type { LineStyle, Node } from "../model/types";
+import type { LineStyle } from "../model/types";
 import { layoutText } from "../render/textLayout";
 import type { ShapeDef } from "./registry";
 
@@ -44,6 +44,7 @@ export const lifeline: ShapeDef = {
   },
   fitSize: (n) => ({ w: n.rect.w, h: n.rect.h }),
   footprint: (n) => [header(n.rect)],
+  attachByRow: (n, cell) => cell.y >= n.rect.y + HEADER && cell.y <= bottom(n.rect),
   hitTest(n, cell) {
     const r = n.rect;
     if (cell.x >= r.x && cell.x <= right(r) && cell.y >= r.y && cell.y < r.y + HEADER) return true;
@@ -74,7 +75,45 @@ export const lifeline: ShapeDef = {
   },
 };
 
-/** Whether a node is a lifeline and the cell is on its line (not the header). */
-export function onLifelineLine(n: Node, y: number): boolean {
-  return n.kind === "lifeline" && y >= n.rect.y + HEADER && y <= bottom(n.rect);
-}
+/**
+ * An activation bar: a narrow box on a lifeline showing when that participant is busy. It joins
+ * the dashed line above and below (┴ ┬), and takes messages by row, like the lifeline.
+ *
+ *      ┆
+ *     ┌┴┐
+ *  ──►│ │
+ *     │ ├──►
+ *     └┬┘
+ *      ┆
+ */
+export const activation: ShapeDef = {
+  label: "activation",
+  defaultSize: { w: 3, h: 6 },
+  minSize: () => ({ w: 3, h: 3 }),
+  normalize: (r) => ({ ...r, w: 3 }),
+  hasBorder: () => true,
+  contentRect: (n) => ({ x: n.rect.x + 1, y: n.rect.y + 1, w: 1, h: Math.max(1, n.rect.h - 2) }),
+  sides: ["left", "right"],
+  sideRange(n, side) {
+    const r = n.rect;
+    return side === "left" || side === "right" ? [r.y + 1, bottom(r) - 1] : [r.x + 1, r.x + 1];
+  },
+  fitSize: (n) => ({ w: n.rect.w, h: n.rect.h }),
+  attachByRow: () => true,
+  rasterize(n, grid) {
+    const r = n.rect;
+    const style: LineStyle = n.border === "none" || n.border === "rounded" ? "single" : n.border;
+    const x1 = right(r), y1 = bottom(r), cx = r.x + 1;
+    for (let x = r.x; x <= x1; x++) {
+      for (const y of [r.y, y1]) {
+        const dirs: ("left" | "right" | "top" | "bottom")[] = [];
+        if (x > r.x) dirs.push("left");
+        if (x < x1) dirs.push("right");
+        if (x === r.x || x === x1) dirs.push(y === r.y ? "bottom" : "top");
+        if (x === cx) dirs.push(y === r.y ? "top" : "bottom"); // join the lifeline
+        grid.stroke({ x, y }, dirs, style);
+      }
+    }
+    for (let y = r.y + 1; y < y1; y++) for (const x of [r.x, x1]) grid.stroke({ x, y }, ["top", "bottom"], style);
+  },
+};

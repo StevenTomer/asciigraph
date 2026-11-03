@@ -18,8 +18,11 @@ export type Id = string;
 export type BorderStyle = "single" | "double" | "rounded" | "heavy" | "dashed" | "dotted" | "ascii" | "none";
 export type LineStyle = "single" | "double" | "heavy" | "dashed" | "dotted" | "ascii";
 export type HAlign = "left" | "center" | "right";
-/** Node shapes: plain box, flowchart decision / input-output / start-end, sequence lifeline. */
-export type NodeKind = "box" | "decision" | "io" | "terminal" | "lifeline";
+/** Node shapes: plain box; flowchart decision, input/output, start/end, database, document,
+ * subroutine; notes; sequence-diagram lifelines and activation bars. */
+export type NodeKind =
+  | "box" | "decision" | "io" | "terminal" | "database" | "document" | "subroutine" | "note"
+  | "lifeline" | "activation";
 export type VAlign = "top" | "middle" | "bottom";
 
 /**
@@ -51,6 +54,9 @@ export interface Edge {
   arrows: { start: boolean; end: boolean };
   /** Text shown on (or beside) the line: `── yes ──►`. */
   label?: string;
+  /** Where along the connector the label sits, 0 (start) to 1 (end), when dragged there.
+   * Without it, the label goes on the longest straight stretch. */
+  labelAt?: number;
   /** Bend points the route passes through, in order (absolute cells; they move only when the
    * connector itself is moved). Without them the route is automatic. */
   via?: Point[];

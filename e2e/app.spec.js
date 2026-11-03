@@ -606,3 +606,50 @@ test("right-click Auto Layout arranges the diagram", async ({ page }) => {
   expect(y("a")).toBeLessThan(y("b"));
   expect(y("b")).toBeLessThan(y("c"));
 });
+
+test("drag a connector's label along it", async ({ page }) => {
+  await box(page, [2, 2], [8, 4], "A");
+  await box(page, [40, 2], [46, 4], "B");
+  await page.keyboard.press("a");
+  await drag(page, [5, 3], [43, 3]);
+  await page.keyboard.press("s");
+  const id = (await state(page)).selection[0];
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("go");
+  await page.keyboard.press("Enter");
+  const row = async () => (await text(page)).split("\n")[1];
+  const before = (await row()).indexOf(" go ");
+  // Drag the label (centred, around column 24) towards A.
+  await drag(page, [24, 3], [14, 3]);
+  expect((await state(page)).diagram.edges[id].labelAt).toBeLessThan(0.5);
+  expect((await row()).indexOf(" go ")).toBeLessThan(before - 5);
+  // Right-click: Reset Label Position puts it back.
+  const p = await at(page, 30, 3);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Reset Label Position" }).click();
+  expect((await row()).indexOf(" go ")).toBe(before);
+});
+
+test("activation bars sit on a lifeline and take messages at the row", async ({ page }) => {
+  const picker = page.getByRole("toolbar", { name: "Shape" });
+  await page.keyboard.press("b");
+  await picker.getByRole("button", { name: "lifeline" }).click();
+  await drag(page, [2, 2], [13, 20]);
+  await page.keyboard.press("Escape");
+  await drag(page, [24, 2], [35, 20]);
+  await page.keyboard.press("Escape");
+  // Draw an activation bar a little off the second lifeline's line: it centres on it.
+  await picker.getByRole("button", { name: "activation" }).click();
+  await drag(page, [30, 8], [31, 14]);
+  await page.keyboard.press("Escape");
+  const nodes = Object.values((await state(page)).diagram.nodes);
+  const act = nodes.find((n) => n.kind === "activation");
+  expect(act.rect).toMatchObject({ x: 28, w: 3, y: 8, h: 7 });
+  // A message from the first lifeline onto the bar: horizontal, at the row it started.
+  await page.keyboard.press("a");
+  await drag(page, [7, 10], [29, 12]);
+  const msg = Object.values((await state(page)).diagram.edges)[0];
+  expect(msg.to.node).toBe(act.id);
+  expect(act.rect.y + msg.to.offset).toBe(10);
+  expect(await text(page)).toMatch(/├─+►│ │/);
+});

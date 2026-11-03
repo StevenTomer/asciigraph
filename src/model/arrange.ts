@@ -103,5 +103,6 @@ export function reverseEdge(d: Diagram, id: Id): Diagram {
   if (!e) return d;
   const reversed = { ...e, from: e.to, to: e.from, arrows: { start: e.arrows.end, end: e.arrows.start } };
   if (e.via) reversed.via = [...e.via].reverse();
+  if (e.labelAt !== undefined) reversed.labelAt = 1 - e.labelAt;
   return { ...d, edges: { ...d.edges, [id]: reversed } };
 }
