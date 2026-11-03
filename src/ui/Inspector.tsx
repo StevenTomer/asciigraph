@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { reveal, whenIdle } from "../editor/view";
 import { deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/ops";
 import { arrange } from "../editor/commands";
 import { locksOf, unlock } from "../model/locks";
@@ -22,7 +23,8 @@ const VALIGN: [VAlign, string][] = [["top", "top"], ["middle", "middle"], ["bott
  *
  * Top right on wide screens; a sheet along the bottom on narrow ones (app.css). Either way its
  * title bar collapses it, remembered across visits. Its height is published as --panel-h so the
- * zoom controls can sit above the bottom sheet.
+ * zoom controls can sit above the bottom sheet, and on a narrow screen the drawing scrolls to
+ * keep the selection clear of the sheet.
  */
 export function Inspector() {
   const selection = useEditor((s) => s.selection);
@@ -45,6 +47,17 @@ export function Inspector() {
       root.removeProperty("--panel-h");
     };
   }, [shown]);
+  // As a bottom sheet, keep what's selected in view: between the toolbar and the sheet.
+  const selected = selection.join(",");
+  useEffect(() => {
+    if (!shown || !window.matchMedia("(max-width: 640px)").matches) return;
+    whenIdle(() => {
+      const el = ref.current;
+      if (!el) return;
+      const top = document.querySelector(".toolbar-wrap")?.getBoundingClientRect().bottom ?? 0;
+      reveal(top, el.getBoundingClientRect().top);
+    });
+  }, [selected, open, shown]);
   if (!shown) return null;
 
   const eachNode = (patch: (n: Node) => Partial<Node>) =>

@@ -914,6 +914,33 @@ test.describe("properties panel", () => {
     await expect(panel.getByText("border")).toBeVisible();
   });
 
+  test("on a phone, scrolls the selection out from under the sheet; drags still land exactly", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await box(page, [2, 28], [14, 32], "low");
+    const rect = async () => Object.values((await state(page)).diagram.nodes)[0].rect;
+    const viewY = async () => (await state(page)).view.y;
+    const y0 = await viewY();
+    await click(page, 8, 30);
+    const panel = page.getByRole("complementary", { name: "Properties" });
+    await expect(panel).toBeVisible();
+    await expect.poll(viewY).toBeGreaterThan(y0);
+    const p = await panel.boundingBox();
+    const r = await rect();
+    expect((await at(page, r.x, r.y + r.h - 1)).y).toBeLessThan(p.y);
+    if (shots) await page.screenshot({ path: `${shots}/phone-revealed.png` });
+
+    // Press on an unselected box and drag it: no scrolling mid-drag, so it moves by exactly the drag.
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    const before = await rect();
+    const cx = before.x + 6, cy = before.y + 2;
+    await drag(page, [cx, cy], [cx + 3, cy + 1], { ctrl: true });
+    const after = await rect();
+    expect([after.x - before.x, after.y - before.y]).toEqual([3, 1]);
+    // Then, once released, it's scrolled clear of the sheet again.
+    await expect.poll(async () => (await at(page, after.x, after.y + after.h - 1)).y).toBeLessThan((await panel.boundingBox()).y);
+  });
+
   test("collapses to a tab on a wide screen", async ({ page }) => {
     await box(page, [2, 4], [14, 8], "wide");
     await click(page, 8, 6);

@@ -1,4 +1,4 @@
-import type { Point, Rect } from "../geometry/geom";
+import { type Point, type Rect, union } from "../geometry/geom";
 import type { Diagram } from "../model/types";
 import { type Rendered, rasterize } from "../render/rasterize";
 import { metrics } from "../render/font";
@@ -106,4 +106,63 @@ export function zoomToFit() {
   const z = Math.round(zoom * metrics.ch) / metrics.ch;
   const cx = (b.x + b.w / 2) * metrics.cw, cy = (b.y + b.h / 2) * metrics.ch;
   setView({ zoom: z, x: cx - w / 2 / z, y: cy - (h + top) / 2 / z });
+}
+
+/** The selection's extent in cells: its nodes, and its connectors' paths and labels. */
+function selectionBounds(): Rect | null {
+  const { diagram, selection } = getState();
+  const r = rendered(diagram);
+  const rects: Rect[] = [];
+  for (const id of selection) {
+    if (diagram.nodes[id]) rects.push(diagram.nodes[id].rect);
+    const e = r.edges.get(id);
+    if (e) {
+      rects.push(...e.cells.map((c) => ({ ...c, w: 1, h: 1 })));
+      if (e.edge.label && e.label) rects.push(e.label);
+    }
+  }
+  return union(rects);
+}
+
+/**
+ * Scroll up or down so the selection is visible between `top` and `bottom` (screen px): used
+ * when the properties sheet opens over it on a narrow screen. Moves as little as it can; if the
+ * selection is taller than the space, its top is shown.
+ */
+export function reveal(top: number, bottom: number) {
+  const b = selectionBounds();
+  if (!b) return;
+  const margin = 12;
+  const s = rectToScreen(b);
+  let dy = 0; // screen px to scroll the drawing up by
+  if (s.y + s.h > bottom - margin) dy = s.y + s.h - (bottom - margin);
+  if (s.y - dy < top + margin) dy = s.y - (top + margin);
+  if (Math.abs(dy) < 1) return;
+  const v = getState().view;
+  setView({ ...v, y: v.y + dy / v.zoom });
+}
+
+// Whether a pointer is pressed: scrolling then would pull the drawing from under a drag.
+let pressed = 0;
+let afterRelease: (() => void) | null = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("pointerdown", () => pressed++, true);
+  const up = () => {
+    pressed = Math.max(0, pressed - 1);
+    if (!pressed && afterRelease) {
+      const f = afterRelease;
+      afterRelease = null;
+      // After the tool has handled the release (and finished any gesture).
+      setTimeout(f, 0);
+    }
+  };
+  window.addEventListener("pointerup", up, true);
+  window.addEventListener("pointercancel", up, true);
+}
+
+/** Run `f` now, or once no pointer is pressed and no gesture is in progress. Only the latest
+ * waiting call runs. */
+export function whenIdle(f: () => void) {
+  if (pressed || getState().pending) afterRelease = () => (getState().pending ? undefined : f());
+  else f();
 }
