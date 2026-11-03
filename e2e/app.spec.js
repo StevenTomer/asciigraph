@@ -269,3 +269,31 @@ test("in box mode, clicking a box selects it; dragging inside one draws a nested
   expect(s.tool).toBe("box");
   expect(s.diagram.order).toHaveLength(2);
 });
+
+test("in arrow and line mode, clicking a box or connector selects it", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  await box(page, [24, 2], [34, 4], "B");
+  for (const tool of ["a", "l"]) {
+    await page.keyboard.press(tool);
+    await click(page, 6, 3);
+    const s = await state(page);
+    expect(s.tool).toBe("select");
+    expect(s.selection).toHaveLength(1);
+    expect(s.diagram.nodes[s.selection[0]].text).toBe("A");
+    expect(Object.keys(s.diagram.edges)).toHaveLength(0);
+  }
+  // Dragging from a box still draws a connector, and the tool stays on.
+  await page.keyboard.press("a");
+  await drag(page, [6, 3], [28, 3]);
+  let s = await state(page);
+  const edge = s.selection[0];
+  expect(s.tool).toBe("arrow");
+  expect(s.diagram.edges[edge]).toBeDefined();
+  // Clicking the connector itself selects it.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("l");
+  await click(page, 18, 3);
+  s = await state(page);
+  expect(s.tool).toBe("select");
+  expect(s.selection).toEqual([edge]);
+});

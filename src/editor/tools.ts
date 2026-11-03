@@ -200,19 +200,21 @@ const boxTool: Tool = {
 
 // ---------------------------------------------------------------------------------------------
 // Arrow / line: drag from one place to another; ends attach to nodes they start or end on.
+// Clicking (without dragging) a box or connector selects it and switches to select, as in box mode.
 // ---------------------------------------------------------------------------------------------
 
-let drawing: { id: Id; start: Point } | null = null;
+let drawing: { id: Id; start: Point; over: Id | null } | null = null;
 
 function connectorTool(arrow: boolean): Tool {
   return {
     down(p) {
+      const over = objectAt(p);
       begin();
       const d = getState().diagram;
       const from = endpointAt(d, p.cell, p.alt);
       const edge = makeEdge(from, { kind: "free", at: p.cell }, { arrows: { start: false, end: arrow } });
       set(addEdge(d, edge));
-      drawing = { id: edge.id, start: p.cell };
+      drawing = { id: edge.id, start: p.cell, over };
       setOverlay(from.kind === "attached" ? { attach: { node: from.node, side: from.side === "auto" ? null : from.side } } : {});
     },
     move(p) {
@@ -225,13 +227,17 @@ function connectorTool(arrow: boolean): Tool {
     },
     up(p) {
       if (!drawing) return;
-      const { id, start } = drawing;
+      const { id, start, over } = drawing;
       drawing = null;
       setOverlay({});
       const e = getState().diagram.edges[id];
-      // A click that didn't go anywhere: nothing to draw.
+      // A click that didn't go anywhere: nothing to draw (but select what was clicked).
       if (eq(start, p.cell) || (e.from.kind === "attached" && e.to.kind === "attached" && e.from.node === e.to.node)) {
         cancel();
+        if (eq(start, p.cell) && over) {
+          setTool("select");
+          select([over]);
+        }
         return;
       }
       commit();
