@@ -1,4 +1,5 @@
-import { bringToFront, deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/ops";
+import { deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/ops";
+import { arrange } from "../editor/commands";
 import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
 import { apply, begin, commit, getState, select, set, useEditor } from "../editor/store";
 
@@ -110,7 +111,12 @@ export function Inspector() {
         </section>
       )}
       <section className="actions">
-        <button className="tb" onClick={() => apply((d) => bringToFront(d, selection))}>to front</button>
+        {nodes.length > 0 && (
+          <>
+            <button className="tb" onClick={arrange.bringToFront} title="Bring to Front (Ctrl+Shift+])">to front</button>
+            <button className="tb" onClick={arrange.sendToBack} title="Send to Back (Ctrl+Shift+[)">to back</button>
+          </>
+        )}
         <button className="tb danger" onClick={() => { apply((d) => deleteObjects(d, selection)); select([]); }}>delete</button>
       </section>
     </aside>

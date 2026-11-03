@@ -413,3 +413,14 @@ test("right-click menu works from the keyboard", async ({ page }) => {
   await page.keyboard.press("Enter");
   expect((await state(page)).editing).not.toBeNull();
 });
+
+test("properties panel: to front / to back", async ({ page }) => {
+  await box(page, [2, 2], [10, 5], "A");
+  await box(page, [6, 3], [14, 6], "B");
+  const [a, b] = (await state(page)).diagram.order;
+  await click(page, 12, 5); // B
+  await page.getByRole("button", { name: "to back" }).click();
+  expect((await state(page)).diagram.order).toEqual([b, a]);
+  await page.getByRole("button", { name: "to front" }).click();
+  expect((await state(page)).diagram.order).toEqual([a, b]);
+});
