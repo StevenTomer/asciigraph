@@ -7,7 +7,7 @@ import type { Diagram, Id } from "../model/types";
 import { shapeOf } from "../shapes/registry";
 import { type Handle, endpointAt, hitTest } from "./hitTest";
 import {
-  type ToolId, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, startEditing,
+  type ToolId, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, setTool, startEditing,
 } from "./store";
 import { rendered } from "./view";
 
@@ -154,17 +154,26 @@ function objectsIn(d: Diagram, r: Rect): Id[] {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Box: drag out a box (or click for a default-sized one), then type its text.
+// Box: drag out a box (or click empty space for a default-sized one), then type its text.
+// Clicking an existing box or connector selects it and switches to select; dragging from inside
+// a box draws a new box inside it.
 // ---------------------------------------------------------------------------------------------
 
-let creating: { id: Id; start: Point } | null = null;
+let creating: { id: Id; start: Point; over: Id | null } | null = null;
+
+/** The node or connector under the pointer, if any. */
+function objectAt(p: PointerInfo): Id | null {
+  const hit = hitTest(p.sx, p.sy);
+  return hit.kind === "node" || hit.kind === "handle" ? hit.node : hit.kind === "edge" || hit.kind === "endpoint" ? hit.edge : null;
+}
 
 const boxTool: Tool = {
   down(p) {
+    const over = objectAt(p);
     begin();
     const node = makeNode(rectFromCorners(p.cell, p.cell));
     set(addNode(getState().diagram, node));
-    creating = { id: node.id, start: p.cell };
+    creating = { id: node.id, start: p.cell, over };
   },
   move(p) {
     if (!creating) return;
@@ -174,10 +183,16 @@ const boxTool: Tool = {
   },
   up(p) {
     if (!creating) return;
-    const { id, start } = creating;
+    const { id, start, over } = creating;
     creating = null;
-    if (eq(start, p.cell)) set(updateNode(getState().diagram, id, { rect: { ...start, ...DEFAULT_BOX } }));
     setOverlay({});
+    if (eq(start, p.cell) && over) {
+      cancel();
+      setTool("select");
+      select([over]);
+      return;
+    }
+    if (eq(start, p.cell)) set(updateNode(getState().diagram, id, { rect: { ...start, ...DEFAULT_BOX } }));
     startEditing(id); // continues the same undo step; the box tool stays active for the next one
   },
   cursor: () => "crosshair",

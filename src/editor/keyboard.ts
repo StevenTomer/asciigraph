@@ -47,7 +47,9 @@ export function attachKeyboard(): () => void {
     const { selection, diagram } = getState();
     switch (k) {
       case " ":
+        // Space: back to select (not mid-drag), and hold it to pan by dragging.
         keys.space = true;
+        if (!e.repeat && !getState().pending) setTool("select");
         e.preventDefault();
         return;
       case "Escape":

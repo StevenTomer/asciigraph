@@ -180,17 +180,19 @@ test("a share link opens the diagram as an unsaved copy", async ({ page, context
 });
 
 test("tool shortcuts and text editing keys", async ({ page }) => {
-  for (const [k, tool] of [["b", "box"], ["a", "arrow"], ["l", "line"], ["t", "text"], ["s", "select"]]) {
+  for (const [k, tool] of [["b", "box"], ["a", "arrow"], ["l", "line"], ["t", "text"], ["s", "select"], ["a", "arrow"], [" ", "select"]]) {
     await page.keyboard.press(k);
     expect((await state(page)).tool).toBe(tool);
   }
   await box(page, [2, 2], [12, 5], "");
   await click(page, 6, 3);
   await page.keyboard.press("Enter");
-  await page.keyboard.type("bad"); // letters type, not switch tools, while editing
+  await page.keyboard.press("b");
+  await page.keyboard.type("a d"); // letters and space type, not switch tools, while editing
+  expect((await state(page)).editing).not.toBeNull();
   expect((await state(page)).tool).toBe("select");
   await page.keyboard.press("Escape");
-  expect(await text(page)).toContain("bad");
+  expect(await text(page)).toContain("ba d");
 });
 
 test("the box tool stays on: draw several boxes in a row", async ({ page }) => {
@@ -245,4 +247,25 @@ test("boxes inside a box move with it; alt-drag or 'stays put' moves it alone", 
   d = (await state(page)).diagram;
   expect(d.nodes[frame.id].rect.y).toBe(11);
   expect(d.nodes[in1.id].rect.y).toBe(14);
+});
+
+test("in box mode, clicking a box selects it; dragging inside one draws a nested box", async ({ page }) => {
+  await page.keyboard.press("b");
+  await drag(page, [2, 2], [30, 10]);
+  await page.keyboard.press("Escape"); // finish typing; still in box mode
+  const outer = (await state(page)).diagram.order[0];
+  await page.keyboard.press("Escape"); // deselect, back to select…
+  await page.keyboard.press("b"); // …and into box mode again
+
+  await click(page, 16, 6);
+  let s = await state(page);
+  expect(s.tool).toBe("select");
+  expect(s.selection).toEqual([outer]);
+  expect(s.diagram.order).toHaveLength(1);
+
+  await page.keyboard.press("b");
+  await drag(page, [5, 4], [14, 7]);
+  s = await state(page);
+  expect(s.tool).toBe("box");
+  expect(s.diagram.order).toHaveLength(2);
 });
