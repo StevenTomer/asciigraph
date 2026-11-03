@@ -38,6 +38,10 @@ export interface Generated {
   at?: Rect;
   /** The style last generated (JSON), to tell whether the user has restyled it since. */
   style?: string;
+  /** Connector ends last generated (JSON), to tell whether the user has moved them since. */
+  ends?: string;
+  /** Placed by hand (drawn before it was linked to text): keeps its own position and size. */
+  placed?: boolean;
 }
 
 export type Id = string;

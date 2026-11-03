@@ -128,6 +128,9 @@ export function contextMenu(at: Point): MenuEntry[] {
   }
   const sourceIds = new Set(selection.map((id) => (d.nodes[id] ?? d.edges[id])?.gen?.source));
   const sourceId = sourceIds.size === 1 ? [...sourceIds][0] : undefined;
+  if (!sourceId && nodes.length) {
+    entries.push("separator", { label: "Edit as Text…", hint: "Mermaid", run: () => openTextDialog(null, selection) });
+  }
   if (sourceId) {
     entries.push(
       "separator",

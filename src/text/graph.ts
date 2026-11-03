@@ -148,8 +148,9 @@ export function parseGraph(text: string): ParsedGraph {
     // A statement: group (edge group)* [: label]
     let rest = line;
     let tailLabel: string | undefined;
-    const colon = /^(.*?[^:]):\s+([^>|]*)$/.exec(rest);
-    if (colon && !/\[|\(|\{/.test(colon[2])) {
+    // Shorthand "A -> B: label" (only on lines without quotes or shapes, whose colons are text).
+    const colon = /["[\]{}()]/.test(rest) ? null : /^(.*?[^:]):\s+([^>|]*)$/.exec(rest);
+    if (colon) {
       rest = colon[1];
       tailLabel = colon[2].trim();
     }

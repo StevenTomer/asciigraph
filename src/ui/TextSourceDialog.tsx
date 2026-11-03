@@ -5,7 +5,8 @@ import { emptyDiagram } from "../model/ops";
 import type { SourceKind, TextSource } from "../model/types";
 import { diagramToText } from "../render/rasterize";
 import { detectKind } from "../text/detect";
-import { drawSource, membersOf, updateSource } from "../text/sync";
+import { describe } from "../text/fromDiagram";
+import { adopt, drawSource, membersOf, updateSource } from "../text/sync";
 
 const EXAMPLES: Record<SourceKind, string> = {
   sequence: `sequenceDiagram
@@ -46,11 +47,16 @@ const KIND_LABEL: Record<SourceKind, string> = { sequence: "message sequence", g
 export function TextSourceDialog() {
   const dialog = useEditor((s) => s.textDialog);
   if (!dialog) return null;
-  return <Body key={dialog.sourceId ?? "new"} sourceId={dialog.sourceId} />;
+  return <Body key={dialog.sourceId ?? dialog.adopt?.join() ?? "new"} sourceId={dialog.sourceId} adoptIds={dialog.adopt} />;
 }
 
-function Body({ sourceId }: { sourceId: string | null }) {
-  const existing = sourceId ? getState().diagram.sources?.[sourceId] : undefined;
+function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: string[] }) {
+  // Editing a hand-drawn selection as text: start from Mermaid written for it.
+  const [described] = useState(() => (adoptIds ? describe(getState().diagram, adoptIds) : null));
+  const existing = sourceId
+    ? getState().diagram.sources?.[sourceId]
+    : described ? { kind: described.kind, text: described.text, options: described.options } : undefined;
+  const editing = !!sourceId || !!described;
   const [kind, setKind] = useState<SourceKind | "auto">(existing?.kind ?? "auto");
   const [text, setText] = useState(existing?.text ?? "");
   const [direction, setDirection] = useState<"auto" | "down" | "right">(existing?.options.direction ?? "auto");
@@ -75,6 +81,16 @@ function Body({ sourceId }: { sourceId: string | null }) {
     if (sourceId && existing) {
       apply((d) => updateSource(d, sourceId, { kind: actual, text, options: { ...existing.options, ...options } }).diagram);
       ids = membersOf(getState().diagram, sourceId);
+    } else if (adoptIds && existing) {
+      // Link the selection to the text, then redraw from the (possibly edited) text.
+      let id = "";
+      apply((d) => {
+        const a = adopt(d, adoptIds);
+        if (!a) return d;
+        id = a.id;
+        return updateSource(a.diagram, a.id, { kind: actual, text, options: { ...existing.options, ...options } }).diagram;
+      });
+      ids = id ? membersOf(getState().diagram, id) : [];
     } else {
       // Centred on screen.
       const lines = preview.text.split("\n");
@@ -98,14 +114,14 @@ function Body({ sourceId }: { sourceId: string | null }) {
       <div
         className="dialog wide"
         role="dialog"
-        aria-label={sourceId ? "Edit source text" : "Draw from text"}
+        aria-label={sourceId ? "Edit source text" : described ? "Edit as text" : "Draw from text"}
         onKeyDown={(e) => {
           if (e.key === "Escape") closeTextDialog();
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) draw();
         }}
       >
         <div className="dialog-title">
-          <span>{sourceId ? "edit source text" : "draw from text"}</span>
+          <span>{sourceId ? "edit source text" : described ? "edit as text" : "draw from text"}</span>
           <button className="tb" onClick={closeTextDialog} aria-label="Close">✕</button>
         </div>
         <div className="row">
@@ -160,13 +176,13 @@ function Body({ sourceId }: { sourceId: string | null }) {
           </ul>
         )}
         <div className="row buttons">
-          <button className="tb accent" onClick={draw} disabled={!text.trim()} title="Ctrl+Enter">{sourceId ? "update" : "draw"}</button>
+          <button className="tb accent" onClick={draw} disabled={!text.trim()} title="Ctrl+Enter">{editing ? "update" : "draw"}</button>
           <span className="muted">examples:</span>
           {(["sequence", "graph", "tree"] as const).map((k) => (
             <button key={k} className="tb" onClick={() => { setText(EXAMPLES[k]); setKind("auto"); }}>{KIND_LABEL[k]}</button>
           ))}
         </div>
-        {sourceId && <p className="note muted">Things you've moved, resized or restyled stay as they are; the rest is redrawn from the text.</p>}
+        {editing && <p className="note muted">Things you've moved, resized or restyled stay as they are; the rest is redrawn from the text. {described && "Connectors with a loose end, or to boxes outside the selection, aren't included and stay as they are."}</p>}
       </div>
     </div>
   );

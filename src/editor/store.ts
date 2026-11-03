@@ -44,8 +44,9 @@ export interface EditorState {
   /** Which saved diagram is open, or null for a shared one that hasn't been saved. */
   diagramId: string | null;
   diagramName: string;
-  /** The "draw from text" dialog: open for a new drawing (sourceId null) or to edit one. */
-  textDialog: { sourceId: Id | null } | null;
+  /** The "draw from text" dialog: for a new drawing (sourceId null), to edit one, or to edit a
+   * hand-drawn selection as text (`adopt`: its ids). */
+  textDialog: { sourceId: Id | null; adopt?: Id[] } | null;
   /** The right-click menu: where it opened (screen px) and the cell under it. */
   menu: { x: number; y: number; cell: { x: number; y: number } } | null;
 }
@@ -187,8 +188,8 @@ export function setView(view: Partial<View>) {
   setState({ view: { ...getState().view, ...view } });
 }
 
-export function openTextDialog(sourceId: Id | null) {
-  setState({ textDialog: { sourceId }, menu: null });
+export function openTextDialog(sourceId: Id | null, adopt?: Id[]) {
+  setState({ textDialog: { sourceId, ...(adopt && { adopt }) }, menu: null });
 }
 
 export function closeTextDialog() {

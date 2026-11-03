@@ -151,6 +151,13 @@ export function Inspector() {
           )}
         </section>
       )}
+      {!sourceOf && nodes.length > 0 && (
+        <section>
+          <Row label="as text">
+            <Choice active={false} onClick={() => openTextDialog(null, selection)} title="Edit the selection as Mermaid text">edit as text</Choice>
+          </Row>
+        </section>
+      )}
       {sourceOf && (
         <section>
           <Row label="from text">

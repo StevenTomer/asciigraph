@@ -716,3 +716,54 @@ test("markdown lists in a box", async ({ page }) => {
   expect(t).toContain("│ • design");
   expect(t).toContain("│   2. draw");
 });
+
+test("edit a hand-drawn graph as text", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "Start");
+  await box(page, [30, 2], [42, 4], "Check");
+  await page.keyboard.press("a");
+  await drag(page, [6, 3], [36, 3]);
+  await page.keyboard.press("Control+a");
+  const before = (await state(page)).diagram;
+  const start = Object.values(before.nodes).find((n) => n.text === "Start");
+  const p = await at(page, 36, 3);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Edit as Text…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit as text" });
+  const field = dialog.getByLabel("Diagram text");
+  await expect(field).toHaveValue(/flowchart LR\n  Start\[Start\]\n  Check\[Check\]\n  Start --> Check/);
+  // Rename Check over several lines with a list, and add a node.
+  await field.fill('flowchart LR\n  Start[Start]\n  Check["`Check:\n  - stock\n  - price`"]\n  Start --> Check\n  Check --> Done([Done])');
+  await dialog.getByRole("button", { name: "update" }).click();
+  const after = (await state(page)).diagram;
+  expect(after.nodes[start.id].rect).toEqual(start.rect); // kept its place
+  expect(await text(page)).toContain("• stock");
+  expect(Object.values(after.nodes).some((n) => n.text === "Done" && n.kind === "terminal")).toBe(true);
+  // Now it's linked: the panel offers its text.
+  await expect(page.getByRole("button", { name: "edit text" })).toBeVisible();
+});
+
+test("edit a hand-drawn sequence diagram as text", async ({ page }) => {
+  const picker = page.getByRole("toolbar", { name: "Shape" });
+  await page.keyboard.press("b");
+  await picker.getByRole("button", { name: "lifeline" }).click();
+  await drag(page, [2, 2], [13, 18]);
+  await page.keyboard.type("Client");
+  await page.keyboard.press("Escape");
+  await drag(page, [26, 2], [37, 18]);
+  await page.keyboard.type("Server");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("a");
+  await drag(page, [7, 9], [31, 9]);
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("hello");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Control+a");
+  await page.getByRole("button", { name: "edit as text" }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit as text" });
+  const field = dialog.getByLabel("Diagram text");
+  await expect(field).toHaveValue("sequenceDiagram\n  participant Client\n  participant Server\n  Client->>Server: hello");
+  await field.fill("sequenceDiagram\n  participant Client\n  participant Server\n  Client->>Server: hello\n  Server-->>Client: hi back");
+  await dialog.getByRole("button", { name: "update" }).click();
+  expect(await text(page)).toContain("hi back");
+  expect(Object.keys((await state(page)).diagram.edges)).toHaveLength(2);
+});

@@ -1,6 +1,8 @@
 import { type Point, type Rect } from "../geometry/geom";
 import { addEdge, addNode, deleteObjects, emptyDiagram, makeEdge, makeNode, newId, updateEdge, updateNode } from "../model/ops";
 import type { Diagram, Edge, Endpoint, Id, Node, TextSource } from "../model/types";
+import { shapeOf } from "../shapes/registry";
+import { describe } from "./fromDiagram";
 import { type DesiredNode, type EndSpec, generate } from "./generate";
 
 /**
@@ -47,6 +49,33 @@ export function unlinkSource(d: Diagram, id: Id): Diagram {
   };
 }
 
+/**
+ * Link part of a hand-drawn diagram to text written for it (fromDiagram.ts), so it can be
+ * edited as text. Everything keeps its place and style: they count as placed by hand.
+ */
+export function adopt(d: Diagram, ids: Id[]): (SyncResult & { id: Id; source: TextSource }) | null {
+  const desc = describe(d, ids);
+  if (!desc) return null;
+  const id = newId("n").replace(/^n/, "s");
+  const source: TextSource = { id, kind: desc.kind, text: desc.text, options: desc.options, origin: desc.origin };
+  const desired = generate(source);
+  const nodeSpecs = new Map(desired.nodes.map((n) => [n.key, n.node]));
+  const edgeSpecs = new Map(desired.edges.map((e) => [e.key, e]));
+  const nodes = { ...d.nodes }, edges = { ...d.edges };
+  for (const [objId, key] of desc.keys) {
+    if (nodes[objId]) {
+      const spec = nodeSpecs.get(key);
+      nodes[objId] = { ...nodes[objId], gen: { source: id, key, placed: true, ...(spec && { style: nodeStyle(spec) }) } };
+    } else if (edges[objId]) {
+      // Written the other way round (Mermaid arrows point forward): compare styles that way too.
+      const spec = edgeSpecs.get(key);
+      const style = spec && (desc.swapped.has(objId) ? edgeStyle({ ...spec, arrows: { start: spec.arrows.end, end: spec.arrows.start } }) : edgeStyle(spec));
+      edges[objId] = { ...edges[objId], gen: { source: id, key, placed: true, ...(style && { style }) } };
+    }
+  }
+  return { diagram: { ...d, nodes, edges, sources: { ...d.sources, [id]: source } }, warnings: desired.warnings, id, source };
+}
+
 /** Ids of everything drawn from a source. */
 export function membersOf(d: Diagram, id: Id): Id[] {
   return [...Object.values(d.nodes), ...Object.values(d.edges)].filter((o) => o.gen?.source === id).map((o) => o.id);
@@ -72,7 +101,7 @@ function sync(d: Diagram, source: TextSource): SyncResult {
   // Was the whole drawing dragged? Most nodes moved by the same amount since last generated.
   const deltas = new Map<string, number>();
   for (const n of nodes.values()) {
-    if (!n.gen?.at) continue;
+    if (!n.gen?.at || n.gen.placed) continue;
     const k = `${n.rect.x - n.gen.at.x},${n.rect.y - n.gen.at.y}`;
     deltas.set(k, (deltas.get(k) ?? 0) + 1);
   }
@@ -89,16 +118,22 @@ function sync(d: Diagram, source: TextSource): SyncResult {
     const ex = nodes.get(dn.key);
     if (ex) {
       const last = ex.gen!.at ? { ...ex.gen!.at, x: ex.gen!.at.x + sx, y: ex.gen!.at.y + sy } : ex.rect;
-      const moved = !sameXY(ex.rect, last), resized = !ex.autosize && !sameSize(ex.rect, last);
+      const placed = !!ex.gen!.placed;
+      const moved = placed || !sameXY(ex.rect, last), resized = !ex.autosize && (placed || !sameSize(ex.rect, last));
       const rect = {
         x: moved ? ex.rect.x : fresh.x, y: moved ? ex.rect.y : fresh.y,
         w: resized ? ex.rect.w : fresh.w, h: resized ? ex.rect.h : fresh.h,
       };
+      // A size kept by hand still grows to fit longer text.
+      if (resized) {
+        const fit = shapeOf(ex).fitSize({ ...ex, kind: dn.node.kind, rect }, dn.node.text);
+        rect.h = Math.max(rect.h, fit.h);
+      }
       const restyled = ex.gen!.style !== undefined && ex.gen!.style !== nodeStyle(ex);
       out = updateNode(out, ex.id, {
         kind: dn.node.kind, text: dn.node.text, name: dn.node.name, autosize: dn.node.autosize, rect,
         ...(restyled ? {} : { border: dn.node.border, align: dn.node.align }),
-        gen: { source: source.id, key: dn.key, at: fresh, style },
+        gen: { source: source.id, key: dn.key, at: fresh, style, ...(placed && { placed }) },
       });
       idOf.set(dn.key, ex.id);
     } else {
@@ -115,7 +150,14 @@ function sync(d: Diagram, source: TextSource): SyncResult {
     return node ? { kind: "attached", node, side: es.side, ...(es.offset !== undefined && { offset: es.offset }) } : null;
   };
   const keptEdges = new Set<string>();
-  for (const de of desired.edges) {
+  for (const d0 of desired.edges) {
+    // An existing connector between the same two nodes, the other way round (an arrow pointing
+    // back, written forwards): update it as it is, rather than turning it round.
+    const ex0 = edges.get(d0.key);
+    const f0 = end(d0.from), t0 = end(d0.to);
+    const flipped = !!ex0 && !!f0 && !!t0 && f0.kind === "attached" && t0.kind === "attached" &&
+      ex0.from.kind === "attached" && ex0.to.kind === "attached" && ex0.from.node === t0.node && ex0.to.node === f0.node;
+    const de = flipped ? { ...d0, from: d0.to, to: d0.from, arrows: { start: d0.arrows.end, end: d0.arrows.start } } : d0;
     const from = end(de.from), to = end(de.to);
     if (!from || !to) {
       warnings.push(`couldn't connect ${de.key}`);
@@ -123,16 +165,21 @@ function sync(d: Diagram, source: TextSource): SyncResult {
     }
     keptEdges.add(de.key);
     const style = edgeStyle(de);
+    const ends = JSON.stringify({ from, to });
     const ex = edges.get(de.key);
     if (ex) {
       const restyled = ex.gen!.style !== undefined && ex.gen!.style !== edgeStyle(ex);
+      // Ends the user placed (by hand, or dragged since) stay, while they join the same nodes.
+      const sameNodes = (a: Endpoint, b: Endpoint) => a.kind === "attached" && b.kind === "attached" && a.node === b.node;
+      const ownEnds = (ex.gen!.placed || (ex.gen!.ends !== undefined && ex.gen!.ends !== JSON.stringify({ from: ex.from, to: ex.to })))
+        && sameNodes(ex.from, from) && sameNodes(ex.to, to);
       out = updateEdge(out, ex.id, {
-        from, to, label: de.label,
+        ...(ownEnds ? {} : { from, to }), label: de.label,
         ...(restyled ? {} : { line: de.line, arrows: de.arrows }),
-        gen: { source: source.id, key: de.key, style },
+        gen: { source: source.id, key: de.key, style, ends, ...(ex.gen!.placed && { placed: true }) },
       });
     } else {
-      out = addEdge(out, makeEdge(from, to, { label: de.label, line: de.line, arrows: de.arrows, gen: { source: source.id, key: de.key, style } }));
+      out = addEdge(out, makeEdge(from, to, { label: de.label, line: de.line, arrows: de.arrows, gen: { source: source.id, key: de.key, style, ends } }));
     }
   }
 
