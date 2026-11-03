@@ -35,17 +35,22 @@ export function unlock(d: Diagram, ids: Iterable<Id>): Diagram {
 /** The locks a node is in. */
 export const locksOf = (d: Diagram, id: Id) => Object.values(d.locks ?? {}).filter((l) => l.members.includes(id));
 
-/** Everything that moves along with `ids` through locks, with the axes it moves on. */
-export function lockMates(d: Diagram, ids: Id[]): Map<Id, { x: boolean; y: boolean }> {
+/**
+ * Everything that moves along with `ids` through locks, with the axes it moves on. Nodes in
+ * `settled` are left out, and not gone through (they're being placed some other way).
+ */
+export function lockMates(d: Diagram, ids: Id[], settled: Set<Id> = new Set()): Map<Id, { x: boolean; y: boolean }> {
   const reach = new Map<Id, { x: boolean; y: boolean }>(ids.map((id) => [id, { x: true, y: true }]));
   const queue = [...ids];
   while (queue.length) {
     const id = queue.shift()!;
+    if (settled.has(id) && !ids.includes(id)) continue;
     const via = reach.get(id)!;
     for (const lock of locksOf(d, id)) {
       const axes = { x: via.x && lock.x, y: via.y && lock.y };
       if (!axes.x && !axes.y) continue;
       for (const m of lock.members) {
+        if (settled.has(m) && !ids.includes(m)) continue;
         const had = reach.get(m) ?? { x: false, y: false };
         const now = { x: had.x || axes.x, y: had.y || axes.y };
         if (now.x !== had.x || now.y !== had.y) {
@@ -59,12 +64,20 @@ export function lockMates(d: Diagram, ids: Id[]): Map<Id, { x: boolean; y: boole
   return reach;
 }
 
-/** Move `ids` by `delta`, and what they're locked to along the locked axes (with its contents). */
-export function moveWithLocks(d: Diagram, ids: Id[], delta: Point): Diagram {
+/**
+ * Move `ids` by `delta`, and what they're locked to along the locked axes (with its contents).
+ * `settled` (shared across several moves, as when aligning) holds what's already been placed:
+ * those don't move again, and what this moves is added to it, so each lock-mate moves once.
+ */
+export function moveWithLocks(d: Diagram, ids: Id[], delta: Point, settled?: Set<Id>): Diagram {
   let out = moveObjects(d, ids, delta);
   const groups = new Map<string, Id[]>();
-  for (const [id, axes] of lockMates(d, ids)) {
-    const k = `${axes.x ? delta.x : 0},${axes.y ? delta.y : 0}`;
+  for (const [id, axes] of lockMates(d, ids, settled)) {
+    const x = axes.x ? delta.x : 0, y = axes.y ? delta.y : 0;
+    // Only a mate that actually moves counts as placed (a later move may still need it).
+    if (!x && !y) continue;
+    settled?.add(id);
+    const k = `${x},${y}`;
     groups.set(k, [...(groups.get(k) ?? []), id]);
   }
   const moving = new Set(ids);

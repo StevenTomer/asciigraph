@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { align } from "./arrange";
 import { lockMates, lockTogether, moveWithLocks, unlock } from "./locks";
 import { addNode, deleteObjects, emptyDiagram, makeNode } from "./ops";
 import type { Diagram } from "./types";
@@ -32,5 +33,21 @@ describe("locks", () => {
     expect(Object.keys(d.locks!)).toHaveLength(2);
     expect(Object.values(unlock(d, ["b"]).locks ?? {})).toEqual([]); // a and c alone aren't locks
     expect(Object.values(deleteObjects(d, ["a"]).locks!).map((l) => l.members)).toEqual([["b", "c"]]);
+  });
+});
+
+describe("align and distribute with locks", () => {
+  it("brings lock-mates along, once each, and doesn't drag selected boxes around", () => {
+    // a and b are aligned; c is locked to both, d is locked to a; a–b are locked to each other.
+    let dd = ["a", "b", "c", "d"].reduce((x, id, i) => addNode(x, makeNode({ x: i * 10, y: i * 5, w: 5, h: 3 }, { id })), emptyDiagram());
+    dd = lockTogether(dd, ["a", "c"], { x: false, y: true });
+    dd = lockTogether(dd, ["b", "c"], { x: false, y: true });
+    dd = lockTogether(dd, ["a", "d"], { x: false, y: true });
+    dd = lockTogether(dd, ["a", "b"], { x: true, y: true });
+    const out = align(dd, ["a", "b"], "top");
+    expect(at(out, "a")).toEqual([0, 0]);
+    expect(at(out, "b")).toEqual([10, 0]); // to the top, not also pushed by a's lock
+    expect(at(out, "d")).toEqual([30, 15]); // a didn't move: d stays
+    expect(at(out, "c")).toEqual([20, 5]); // moved once, with b (by -5), not twice
   });
 });

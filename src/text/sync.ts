@@ -58,8 +58,11 @@ export function unlinkSource(d: Diagram, id: Id): Diagram {
   const strip = <T extends Node | Edge>(o: T): T => (o.gen?.source === id ? { ...o, gen: undefined } : o);
   const sources = { ...d.sources };
   delete sources[id];
+  // Its locks stay (they're still useful), as ordinary ones.
+  const locks = d.locks && Object.fromEntries(Object.entries(d.locks).map(([k, l]) => [k, l.source === id ? { ...l, source: undefined } : l]));
   return {
     ...d,
+    locks,
     nodes: Object.fromEntries(Object.entries(d.nodes).map(([k, n]) => [k, strip(n)])),
     edges: Object.fromEntries(Object.entries(d.edges).map(([k, e]) => [k, strip(e)])),
     sources: Object.keys(sources).length ? sources : undefined,
@@ -220,6 +223,15 @@ function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
     ...[...edges.values()].filter((e) => !keptEdges.has(e.gen!.key)).map((e) => e.id),
   ];
   if (gone.length) out = deleteObjects(out, gone);
+  // Locks the text makes (a note to its lifeline) are redone; the user's own are left alone.
+  const locks = Object.fromEntries(Object.entries(out.locks ?? {}).filter(([, l]) => l.source !== source.id));
+  for (const l of desired.locks ?? []) {
+    const members = l.keys.map((k) => idOf.get(k)).filter((id): id is Id => !!id && !!out.nodes[id]);
+    if (members.length < 2) continue;
+    const id = `l${source.id}_${members.join("_")}`.slice(0, 80);
+    locks[id] = { id, members, x: l.x, y: l.y, source: source.id };
+  }
+  out = { ...out, locks: Object.keys(locks).length ? locks : undefined };
   out = { ...out, sources: { ...out.sources, [source.id]: { ...source, origin } } };
   return { diagram: out, warnings };
 }

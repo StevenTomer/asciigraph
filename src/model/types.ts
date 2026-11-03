@@ -23,6 +23,8 @@ export interface Lock {
   members: Id[];
   x: boolean;
   y: boolean;
+  /** Made by a text source (a note locked to its lifeline): redrawing replaces it. */
+  source?: Id;
 }
 
 export type SourceKind = "sequence" | "graph" | "tree";

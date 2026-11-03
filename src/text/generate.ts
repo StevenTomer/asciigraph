@@ -37,6 +37,8 @@ export interface Desired {
   kind: SourceKind;
   nodes: DesiredNode[];
   edges: DesiredEdge[];
+  /** Nodes locked together (by key): a note to the lifeline it's beside. */
+  locks?: { keys: string[]; x: boolean; y: boolean }[];
   warnings: string[];
 }
 
@@ -247,7 +249,11 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       arrows: { start: false, end: m.arrow },
     };
   });
-  return { nodes, edges, warnings: s.warnings };
+  // A note beside (or over) one lifeline moves left–right with it (rows stay, like messages).
+  const locks = notes
+    .map((n, k) => (n.who.length === 1 ? { keys: [`n:${k}`, `p:${P[n.who[0]].key}`], x: true, y: false } : null))
+    .filter((l): l is NonNullable<typeof l> => l !== null);
+  return { nodes, edges, locks, warnings: s.warnings };
 }
 
 // ---------------------------------------------------------------------------------------------

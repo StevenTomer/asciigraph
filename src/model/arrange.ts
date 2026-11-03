@@ -1,6 +1,6 @@
 import { type Rect, bottom, intersects, right, union } from "../geometry/geom";
 import { within, withContents } from "./containment";
-import { moveObjects } from "./ops";
+import { moveWithLocks } from "./locks";
 import type { Diagram, Id } from "./types";
 
 /**
@@ -41,10 +41,11 @@ export function topLevel(d: Diagram, ids: Id[]): Id[] {
   return nodes.filter((id) => !nodes.some((o) => o !== id && within(d.nodes[id].rect, d.nodes[o].rect)));
 }
 
-/** Move a node (and what it carries) so its top-left cell is at (x, y). */
-function moveTo(d: Diagram, id: Id, x: number, y: number): Diagram {
+/** Move a node (with what it carries, and what's locked to it) so its top-left cell is at
+ * (x, y). `settled`: what's been placed already in this arrangement (see moveWithLocks). */
+function moveTo(d: Diagram, id: Id, x: number, y: number, settled: Set<Id>): Diagram {
   const r = d.nodes[id].rect;
-  return moveObjects(d, withContents(d, [id]), { x: x - r.x, y: y - r.y });
+  return moveWithLocks(d, withContents(d, [id]), { x: x - r.x, y: y - r.y }, settled);
 }
 
 export type Alignment = "left" | "center" | "right" | "top" | "middle" | "bottom";
@@ -56,6 +57,7 @@ export function align(d: Diagram, ids: Id[], how: Alignment): Diagram {
   if (!bounds || nodes.length < 2) return d;
   // Measure from the diagram as it was: moving one node can't change where the others go.
   const rects = new Map(nodes.map((id) => [id, d.nodes[id].rect]));
+  const settled = new Set(nodes);
   let out = d;
   for (const [id, r] of rects) {
     const x =
@@ -68,7 +70,7 @@ export function align(d: Diagram, ids: Id[], how: Alignment): Diagram {
       : how === "bottom" ? bottom(bounds) - r.h + 1
       : how === "middle" ? Math.round(bounds.y + (bounds.h - r.h) / 2)
       : r.y;
-    out = moveTo(out, id, x, y);
+    out = moveTo(out, id, x, y, settled);
   }
   return out;
 }
@@ -89,10 +91,11 @@ export function distribute(d: Diagram, ids: Id[], axis: "horizontal" | "vertical
   const gap = (span - sorted.reduce((sum, s) => sum + size(s.r), 0)) / (sorted.length - 1);
   let out = d;
   let used = 0;
+  const settled = new Set(nodes);
   sorted.forEach((s, i) => {
     const p = Math.round(pos(first) + used + gap * i);
     used += size(s.r);
-    out = h ? moveTo(out, s.id, p, s.r.y) : moveTo(out, s.id, s.r.x, p);
+    out = h ? moveTo(out, s.id, p, s.r.y, settled) : moveTo(out, s.id, s.r.x, p, settled);
   });
   return out;
 }

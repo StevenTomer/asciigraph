@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { withContents } from "../model/containment";
+import { moveWithLocks } from "../model/locks";
 import { emptyDiagram, moveObjects, updateEdge, updateNode } from "../model/ops";
 import type { Diagram } from "../model/types";
 import { diagramToText, rasterize } from "../render/rasterize";
@@ -333,5 +334,27 @@ describe("moving lifelines", () => {
     expect(byKey(d, "f:0").rect).toMatchObject({ x: f.x + 2, w: f.w + 4 });
     // DB isn't spanned: moving it leaves the frame alone.
     expect(byKey(moveObjects(d, [byKey(d, "p:D").id], { x: 5, y: 0 }), "f:0").rect).toEqual(byKey(d, "f:0").rect);
+  });
+});
+
+describe("notes stay with their lifeline", () => {
+  const text = `sequenceDiagram
+    participant C as Client
+    participant A as API
+    C->>A: GET
+    Note right of A: cached for 1h
+    Note over C,A: both`;
+  it("moves left–right with it, keeps its row when it moves up or down", () => {
+    const s = drawSource(emptyDiagram(), { kind: "sequence", options: {}, text }, { x: 0, y: 0 });
+    const note = byKey(s.diagram, "n:0").rect, over = byKey(s.diagram, "n:1").rect;
+    const api = byKey(s.diagram, "p:A").id;
+    let d = moveWithLocks(s.diagram, withContents(s.diagram, [api]), { x: 7, y: 0 });
+    expect(byKey(d, "n:0").rect).toMatchObject({ x: note.x + 7, y: note.y });
+    expect(byKey(d, "n:1").rect).toEqual(over); // over two lifelines: not locked to either
+    d = moveWithLocks(d, withContents(d, [api]), { x: 0, y: 3 });
+    expect(byKey(d, "n:0").rect).toMatchObject({ x: note.x + 7, y: note.y });
+    // Redrawing keeps the lock, without duplicating it.
+    d = updateSource(d, s.id, { text: text + "\n    A-->>C: 200" }).diagram;
+    expect(Object.values(d.locks!)).toHaveLength(1);
   });
 });
