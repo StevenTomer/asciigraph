@@ -880,3 +880,49 @@ test("lock boxes together horizontally; Alt moves one alone; unlock", async ({ p
   await drag(page, [18, 5], [20, 5], { ctrl: true });
   expect((await rect("B")).x).toBe(10);
 });
+
+test.describe("properties panel", () => {
+  const shots = process.env.SHOTS; // a directory to save screenshots in, when set
+
+  test("is a bottom sheet on a phone, with the zoom controls above it", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await box(page, [2, 14], [14, 18], "phone");
+    await click(page, 8, 16);
+    const panel = page.getByRole("complementary", { name: "Properties" });
+    await expect(panel).toBeVisible();
+    const p = await panel.boundingBox();
+    expect(p.x).toBe(0);
+    expect(p.width).toBe(390);
+    expect(Math.round(p.y + p.height)).toBe(844);
+    expect(p.height).toBeLessThanOrEqual(844 * 0.45 + 1);
+    const z = await page.getByRole("group", { name: "Zoom" }).boundingBox();
+    expect(z.y + z.height).toBeLessThanOrEqual(p.y);
+    if (shots) await page.screenshot({ path: `${shots}/phone-open.png` });
+
+    // Collapse to the title bar: the zoom controls follow it down, and it stays collapsed.
+    await panel.locator(".panel-head").click();
+    await expect(panel.getByText("border")).toHaveCount(0);
+    const c = await panel.boundingBox();
+    expect(c.height).toBeLessThan(60);
+    await expect.poll(async () => (await page.getByRole("group", { name: "Zoom" }).boundingBox()).y).toBeGreaterThan(p.y);
+    if (shots) await page.screenshot({ path: `${shots}/phone-collapsed.png` });
+    await page.reload();
+    await page.waitForFunction(() => window.__asciigraph__.state().diagramId);
+    await click(page, 8, 16);
+    await expect(panel.locator(".panel-head")).toHaveAttribute("aria-expanded", "false");
+    await panel.locator(".panel-head").click();
+    await expect(panel.getByText("border")).toBeVisible();
+  });
+
+  test("collapses to a tab on a wide screen", async ({ page }) => {
+    await box(page, [2, 4], [14, 8], "wide");
+    await click(page, 8, 6);
+    const panel = page.getByRole("complementary", { name: "Properties" });
+    if (shots) await page.screenshot({ path: `${shots}/wide-open.png` });
+    await panel.locator(".panel-head").click();
+    const c = await panel.boundingBox();
+    expect(c.height).toBeLessThan(40);
+    expect(c.x + c.width).toBeGreaterThan(1180);
+    if (shots) await page.screenshot({ path: `${shots}/wide-collapsed.png` });
+  });
+});

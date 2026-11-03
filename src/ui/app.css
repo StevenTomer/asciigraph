@@ -108,6 +108,48 @@ html, body, #root {
   border: var(--border);
   padding: 4px 8px;
 }
+.inspector.collapsed {
+  padding-bottom: 0;
+}
+.panel-head {
+  font: inherit;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  padding: 4px 0;
+  cursor: pointer;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-bg-raised);
+}
+.inspector:not(.collapsed) .panel-head {
+  border-bottom: var(--border-light);
+}
+.panel-what {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-toggle {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.panel-head:hover .panel-toggle {
+  color: var(--color-text);
+}
+/* Collapsed on a wide screen: just a small tab in the corner. */
+.inspector.collapsed {
+  width: auto;
+  min-width: 160px;
+}
 .inspector h3 {
   font-size: 13px;
   margin: 6px 0;
@@ -372,4 +414,32 @@ a {
 .field.short {
   width: 9ch;
   flex: none;
+}
+
+/* Narrow screens: the panel becomes a sheet along the bottom, and the zoom controls sit above it. */
+@media (max-width: 640px) {
+  .inspector,
+  .inspector.collapsed {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    max-height: 45vh;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 0 12px 4px;
+  }
+  .inspector .panel-head {
+    padding: 8px 0;
+  }
+  .zoom {
+    bottom: calc(var(--panel-h, 0px) + 8px);
+  }
+  /* Bigger touch targets. */
+  .choice {
+    padding: 4px 8px;
+  }
 }

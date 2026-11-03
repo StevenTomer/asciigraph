@@ -43,6 +43,8 @@ export interface EditorState {
   grid: boolean;
   /** Snap boxes into line with their neighbours while dragging (editor/snap.ts). */
   snap: boolean;
+  /** The properties panel is open (false: collapsed to its title bar). */
+  panelOpen: boolean;
   /** Which saved diagram is open, or null for a shared one that hasn't been saved. */
   diagramId: string | null;
   diagramName: string;
@@ -69,6 +71,7 @@ export const useEditor = create<EditorState>(() => ({
   dark: false,
   grid: true,
   snap: true,
+  panelOpen: true,
   diagramId: null,
   diagramName: "",
   menu: null,
@@ -203,6 +206,6 @@ export function setMenu(menu: EditorState["menu"]) {
   setState({ menu });
 }
 
-export function setPrefs(prefs: Partial<Pick<EditorState, "dark" | "grid" | "snap">>) {
+export function setPrefs(prefs: Partial<Pick<EditorState, "dark" | "grid" | "snap" | "panelOpen">>) {
   setState(prefs);
 }

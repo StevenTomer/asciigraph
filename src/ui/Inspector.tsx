@@ -1,9 +1,10 @@
+import { useLayoutEffect, useRef } from "react";
 import { deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/ops";
 import { arrange } from "../editor/commands";
 import { locksOf, unlock } from "../model/locks";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
-import { apply, begin, commit, getState, openTextDialog, select, set, useEditor } from "../editor/store";
+import { apply, begin, commit, getState, openTextDialog, select, set, setPrefs, useEditor } from "../editor/store";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 
 const BORDERS: [BorderStyle, string][] = [
@@ -16,13 +17,35 @@ const LINES: [LineStyle, string][] = [
 const HALIGN: [HAlign, string][] = [["left", "left"], ["center", "centre"], ["right", "right"]];
 const VALIGN: [VAlign, string][] = [["top", "top"], ["middle", "middle"], ["bottom", "bottom"]];
 
-/** Properties of the selection. Changes apply to every selected node / edge. */
+/**
+ * Properties of the selection. Changes apply to every selected node / edge.
+ *
+ * Top right on wide screens; a sheet along the bottom on narrow ones (app.css). Either way its
+ * title bar collapses it, remembered across visits. Its height is published as --panel-h so the
+ * zoom controls can sit above the bottom sheet.
+ */
 export function Inspector() {
   const selection = useEditor((s) => s.selection);
   const diagram = useEditor((s) => s.diagram);
+  const open = useEditor((s) => s.panelOpen);
   const nodes = selection.map((id) => diagram.nodes[id]).filter(Boolean) as Node[];
   const edges = selection.map((id) => diagram.edges[id]).filter(Boolean) as Edge[];
-  if (!nodes.length && !edges.length) return null;
+  const shown = nodes.length > 0 || edges.length > 0;
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const root = document.documentElement.style;
+    if (!el) return;
+    const publish = () => root.setProperty("--panel-h", `${el.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.removeProperty("--panel-h");
+    };
+  }, [shown]);
+  if (!shown) return null;
 
   const eachNode = (patch: (n: Node) => Partial<Node>) =>
     apply((d) => nodes.reduce((acc, n) => updateNode(acc, n.id, patch(n)), d));
@@ -39,12 +62,22 @@ export function Inspector() {
   const lockInfo = locks.length ? `${together} together, ${ways.join(", ")}` : null;
   const source = sourceOf ? diagram.sources?.[sourceOf] : undefined;
   const direction = source ? directionOf(source) : null;
+  const what = [
+    nodes.length && (nodes.length > 1 ? `${nodes.length} boxes` : n0.border === "none" ? "text" : "box"),
+    edges.length && (edges.length > 1 ? `${edges.length} connectors` : "connector"),
+  ].filter(Boolean).join(", ");
+  const toggle = () => setPrefs({ panelOpen: !open });
 
   return (
-    <aside className="inspector" aria-label="Properties">
+    <aside ref={ref} className={"inspector" + (open ? "" : " collapsed")} aria-label="Properties">
+      <button className="panel-head" onClick={toggle} aria-expanded={open} title={open ? "Collapse the panel" : "Show the properties"}>
+        <span className="panel-what">{what}</span>
+        <span className="panel-toggle" aria-hidden="true">{open ? "▾ hide" : "▸ show"}</span>
+      </button>
+      {open && <div className="panel-body">
       {n0 && (
         <section>
-          <h3>{nodes.length > 1 ? `${nodes.length} boxes` : n0.border === "none" ? "text" : "box"}</h3>
+          {e0 && <h3>{nodes.length > 1 ? `${nodes.length} boxes` : n0.border === "none" ? "text" : "box"}</h3>}
           <Row label="shape">
             {SHAPE_KINDS.map((k) => (
               <Choice key={k} active={n0.kind === k} onClick={() => eachNode(() => ({ kind: k }))}>{shapeFor(k).label}</Choice>
@@ -112,7 +145,7 @@ export function Inspector() {
       )}
       {e0 && (
         <section>
-          <h3>{edges.length > 1 ? `${edges.length} connectors` : "connector"}</h3>
+          {n0 && <h3>{edges.length > 1 ? `${edges.length} connectors` : "connector"}</h3>}
           <Row label="line">
             {LINES.map(([v, sample]) => (
               <Choice key={v} active={e0.line === v} onClick={() => eachEdge(() => ({ line: v }))} title={v} label={v}>{sample}</Choice>
@@ -207,6 +240,7 @@ export function Inspector() {
 
         <button className="tb danger" onClick={() => { apply((d) => deleteObjects(d, selection)); select([]); }}>delete</button>
       </section>
+      </div>}
     </aside>
   );
 }

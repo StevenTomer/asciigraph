@@ -114,7 +114,8 @@ export function startAutosave(): () => void {
       clearTimeout(timer);
       timer = setTimeout(flush, AUTOSAVE_MS);
     }
-    if (s.dark !== prev.dark || s.grid !== prev.grid || s.snap !== prev.snap) writeJson("prefs", { dark: s.dark, grid: s.grid, snap: s.snap });
+    if (s.dark !== prev.dark || s.grid !== prev.grid || s.snap !== prev.snap || s.panelOpen !== prev.panelOpen)
+      writeJson("prefs", { dark: s.dark, grid: s.grid, snap: s.snap, panelOpen: s.panelOpen });
   });
   const onHide = () => {
     clearTimeout(timer);
@@ -129,6 +130,6 @@ export function startAutosave(): () => void {
 
 export function loadPrefs() {
   const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-  const prefs = readJson<{ dark?: boolean; grid?: boolean; snap?: boolean }>("prefs", { dark: prefersDark, grid: true });
-  setPrefs({ dark: !!prefs.dark, grid: prefs.grid !== false, snap: prefs.snap !== false });
+  const prefs = readJson<{ dark?: boolean; grid?: boolean; snap?: boolean; panelOpen?: boolean }>("prefs", { dark: prefersDark, grid: true });
+  setPrefs({ dark: !!prefs.dark, grid: prefs.grid !== false, snap: prefs.snap !== false, panelOpen: prefs.panelOpen !== false });
 }
