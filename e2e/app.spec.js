@@ -414,13 +414,45 @@ test("right-click menu works from the keyboard", async ({ page }) => {
   expect((await state(page)).editing).not.toBeNull();
 });
 
-test("properties panel: to front / to back", async ({ page }) => {
+test("properties panel: stacking order buttons", async ({ page }) => {
   await box(page, [2, 2], [10, 5], "A");
   await box(page, [6, 3], [14, 6], "B");
-  const [a, b] = (await state(page)).diagram.order;
-  await click(page, 12, 5); // B
+  await box(page, [10, 4], [18, 7], "C");
+  const [a, b, c] = (await state(page)).diagram.order;
+  const order = async () => (await state(page)).diagram.order;
+  await click(page, 16, 6); // C
+  await page.getByRole("button", { name: "backward", exact: true }).click();
+  expect(await order()).toEqual([a, c, b]);
   await page.getByRole("button", { name: "to back" }).click();
-  expect((await state(page)).diagram.order).toEqual([b, a]);
+  expect(await order()).toEqual([c, a, b]);
+  await page.getByRole("button", { name: "forward", exact: true }).click();
+  expect(await order()).toEqual([a, c, b]);
   await page.getByRole("button", { name: "to front" }).click();
-  expect((await state(page)).diagram.order).toEqual([a, b]);
+  expect(await order()).toEqual([a, b, c]);
+});
+
+test("middle-drag pans without pasting (Linux primary-selection paste is ignored)", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await box(page, [2, 2], [10, 4], "A");
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Control+c");
+  const before = (await state(page)).view;
+  const p = await at(page, 20, 10);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down({ button: "middle" });
+  await page.mouse.move(p.x - 100, p.y - 50, { steps: 4 });
+  await page.mouse.up({ button: "middle" });
+  // What the browser does next on Linux: a paste event carrying the primary selection.
+  await page.evaluate((t) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", t);
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+  }, await page.evaluate(() => navigator.clipboard.readText()));
+  const after = await state(page);
+  expect(after.view.x).toBeGreaterThan(before.x);
+  expect(Object.keys(after.diagram.nodes)).toHaveLength(1);
+  // A real Ctrl+V a moment later still pastes.
+  await page.waitForTimeout(600);
+  await page.keyboard.press("Control+v");
+  expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(2);
 });

@@ -79,6 +79,14 @@ export function Inspector() {
               )}
             </>
           )}
+          <Row label="order">
+            <Choice active={false} onClick={arrange.sendToBack} title="Send to Back (Ctrl+Shift+[)">to back</Choice>
+            <Choice active={false} onClick={arrange.bringToFront} title="Bring to Front (Ctrl+Shift+])">to front</Choice>
+          </Row>
+          <Row label="">
+            <Choice active={false} onClick={arrange.sendBackward} title="Send Backward (Ctrl+[)">backward</Choice>
+            <Choice active={false} onClick={arrange.bringForward} title="Bring Forward (Ctrl+])">forward</Choice>
+          </Row>
         </section>
       )}
       {e0 && (
@@ -111,12 +119,7 @@ export function Inspector() {
         </section>
       )}
       <section className="actions">
-        {nodes.length > 0 && (
-          <>
-            <button className="tb" onClick={arrange.bringToFront} title="Bring to Front (Ctrl+Shift+])">to front</button>
-            <button className="tb" onClick={arrange.sendToBack} title="Send to Back (Ctrl+Shift+[)">to back</button>
-          </>
-        )}
+
         <button className="tb danger" onClick={() => { apply((d) => deleteObjects(d, selection)); select([]); }}>delete</button>
       </section>
     </aside>

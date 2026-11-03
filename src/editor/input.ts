@@ -8,6 +8,14 @@ import { screenToCell, zoomAt } from "./view";
 export const keys = { space: false };
 
 /**
+ * When the middle button was last pressed/released. On Linux, middle-click pastes the "primary
+ * selection", which browsers deliver as an ordinary paste event when the button is released, so
+ * the clipboard code ignores pastes that arrive around a middle-click (we use it to pan).
+ */
+let middleAt = 0;
+export const middleClickRecently = () => Date.now() - middleAt < 500;
+
+/**
  * Pointer input on the canvas. Adapted from asciidraw/ASCIIFlow's InputController:
  *  - one pointer: the current tool (middle button, or space + drag: pan),
  *  - two touches: pan and pinch-zoom,
@@ -50,6 +58,7 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
       return;
     }
     if (pointers.size > 2) return;
+    if (e.button === 1) middleAt = Date.now();
     if (e.button === 1 || keys.space) {
       e.preventDefault();
       startPan(p.sx, p.sy);
@@ -90,6 +99,7 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
   };
 
   const up = (e: PointerEvent) => {
+    if (e.button === 1) middleAt = Date.now();
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) pan = null;

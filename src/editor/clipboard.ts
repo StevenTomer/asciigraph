@@ -3,6 +3,7 @@ import { exportText, subset } from "../export/text";
 import { withContents } from "../model/containment";
 import { addEdge, addNode, deleteObjects, makeNode, newId } from "../model/ops";
 import type { Diagram, Endpoint, Id } from "../model/types";
+import { middleClickRecently } from "./input";
 import { apply, getState, select } from "./store";
 import { screenToCell } from "./view";
 
@@ -143,6 +144,7 @@ export function attachClipboard(): () => void {
   const onPaste = (e: ClipboardEvent) => {
     if (inField(e) || getState().editing) return;
     e.preventDefault();
+    if (middleClickRecently()) return; // Linux primary-selection paste: middle button pans here
     pasteText(e.clipboardData?.getData("text/plain") ?? "");
   };
   document.addEventListener("copy", onCopy);
