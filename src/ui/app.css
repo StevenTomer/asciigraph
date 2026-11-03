@@ -368,3 +368,8 @@ a {
   text-decoration: line-through;
   opacity: 0.6;
 }
+
+.field.short {
+  width: 9ch;
+  flex: none;
+}

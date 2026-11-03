@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { exportText } from "../export/text";
+import { type Wrap, WRAPS, exportText } from "../export/text";
+import { readJson, writeJson } from "../storage/local";
 import { forgetHistory, newDiagram, renameCurrent, repo } from "../editor/session";
 import { useEditor } from "../editor/store";
 import type { DiagramMeta } from "../storage/repository";
@@ -31,10 +32,16 @@ function Dialog({ title, onClose, children }: { title: string; onClose: () => vo
 export function ExportDialog({ onClose }: { onClose: () => void }) {
   const diagram = useEditor((s) => s.diagram);
   const name = useEditor((s) => s.diagramName);
-  const [ascii, setAscii] = useState(false);
-  const [markdown, setMarkdown] = useState(false);
+  // The last choices are remembered (this browser).
+  const saved = readJson<{ ascii?: boolean; kind?: Wrap["kind"]; first?: string; prefix?: string; last?: string }>("export", {});
+  const [ascii, setAscii] = useState(!!saved.ascii);
+  const [kind, setKind] = useState<Wrap["kind"]>(WRAPS.some((w) => w.kind === saved.kind) ? saved.kind! : "plain");
+  const [custom, setCustom] = useState({ first: saved.first ?? "", prefix: saved.prefix ?? "-- ", last: saved.last ?? "" });
   const [note, setNote] = useState("");
-  const text = useMemo(() => exportText(diagram, { ascii, markdown }), [diagram, ascii, markdown]);
+  const wrap: Wrap = kind === "custom" ? { kind, ...custom } : { kind };
+  const text = useMemo(() => exportText(diagram, { ascii, wrap }), [diagram, ascii, JSON.stringify(wrap)]);
+  useEffect(() => writeJson("export", { ascii, kind, ...custom }), [ascii, kind, custom]);
+  const ext = WRAPS.find((w) => w.kind === kind)!.ext;
 
   const copy = async (value: string, what: string) => {
     try {
@@ -48,13 +55,31 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog title="export" onClose={onClose}>
       <div className="row">
+        <span className="row-label">format</span>
+        <span className="row-items" role="group" aria-label="Format">
+          {WRAPS.map((w) => (
+            <button key={w.kind} className={"choice" + (kind === w.kind ? " active" : "")} aria-pressed={kind === w.kind} onClick={() => setKind(w.kind)}>
+              {w.label}
+            </button>
+          ))}
+        </span>
+      </div>
+      {kind === "custom" && (
+        <div className="row">
+          <span className="row-label" />
+          <label className="muted">first line <input className="field short" value={custom.first} aria-label="First line" placeholder="(none)" onChange={(e) => setCustom({ ...custom, first: e.target.value })} /></label>
+          <label className="muted">each line starts <input className="field short" value={custom.prefix} aria-label="Line prefix" onChange={(e) => setCustom({ ...custom, prefix: e.target.value })} /></label>
+          <label className="muted">last line <input className="field short" value={custom.last} aria-label="Last line" placeholder="(none)" onChange={(e) => setCustom({ ...custom, last: e.target.value })} /></label>
+        </div>
+      )}
+      <div className="row">
+        <span className="row-label" />
         <label><input type="checkbox" checked={ascii} onChange={(e) => setAscii(e.target.checked)} /> ASCII only</label>
-        <label><input type="checkbox" checked={markdown} onChange={(e) => setMarkdown(e.target.checked)} /> Markdown code block</label>
       </div>
       <pre className="preview" data-testid="export-text">{text || "(empty diagram)"}</pre>
       <div className="row buttons">
         <button className="tb accent" onClick={() => void copy(text, "the text")} data-testid="copy-text">copy text</button>
-        <button className="tb" onClick={() => download(`${safeFilename(name)}.${markdown ? "md" : "txt"}`, text + "\n", "text/plain")}>download .{markdown ? "md" : "txt"}</button>
+        <button className="tb" onClick={() => download(`${safeFilename(name)}.${ext}`, text + "\n", "text/plain")}>download .{ext}</button>
         <button className="tb" onClick={() => downloadDiagram(name, diagram)} title="Keeps the boxes and connectors, for importing later">download .json</button>
         <button className="tb" onClick={() => void copy(shareUrl(diagram, name), "a share link")}>copy share link</button>
       </div>
@@ -166,6 +191,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt><Kbd>delete</Kbd>, arrows</dt><dd>delete or nudge the selection (<Kbd>shift</Kbd>: by 5)</dd>
         <dt>from text</dt><dd>draw a message sequence, graph or folder tree from text (toolbar "from text", or right-click empty space). Accepts Mermaid (<code>sequenceDiagram</code>: <code>A-&gt;&gt;B: msg</code>, <code>--&gt;&gt;</code> replies, <code>+</code>/<code>-</code> activation, <code>Note right of A: …</code>, <code>loop</code>/<code>alt</code>/<code>else</code>/<code>end</code>; <code>flowchart TD</code>/<code>LR</code>: <code>{"A[box] -->|label| B{decision}"}</code>, <code>([start])</code>, <code>[(database)]</code>, <code>[[subroutine]]</code>, <code>[/in-out/]</code>, <code>subgraph … end</code>), a shorthand (<code>Client -&gt; API: GET /x</code>, <code>A -&gt; B -&gt; C</code>), and folder trees (<code>tree</code> output, indented names or paths). It stays linked: select it and "edit text" to change the text and redraw; things you've moved, resized or restyled stay put. "Unlink" makes it ordinary objects. Something you drew by hand can be edited as text too: select it and choose "Edit as Text…". Multi-line text (and lists) in a node: <code>A["line one&lt;br&gt;- item"]</code>, or a markdown string spanning lines: <code>A["`Todo:</code> … <code>- item`"]</code></dd>
         <dt>lists</dt><dd>in a box, lines starting <code>- </code>, <code>* </code> or <code>1. </code> become bullet and numbered lists; indent to nest</dd>
+        <dt>export</dt><dd>copy or download the drawing as text: plain, a Markdown code block, or a comment block for source code (C/C++ <code>//</code> or <code>/* */</code>, Python or Bash <code>#</code>, or your own first line, line prefix and last line), optionally ASCII only. Also as JSON (to import later) or a share link</dd>
         <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align, Distribute and Auto Layout (arranges boxes in layers following their connectors; on empty space it lays out the whole diagram)</dd>
         <dt><Kbd>ctrl+]</Kbd> / <Kbd>ctrl+[</Kbd></dt><dd>bring forward / send backward (with <Kbd>shift</Kbd>: to front / to back)</dd>
         <dt><Kbd>ctrl+d</Kbd></dt><dd>duplicate</dd>

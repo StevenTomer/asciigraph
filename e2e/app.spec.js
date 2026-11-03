@@ -804,3 +804,25 @@ test("Alt, Ctrl or the snap toggle place a box freely", async ({ page }) => {
   expect(await y()).toBe(3);
   expect((await state(page)).snap).toBe(false);
 });
+
+test("export as comment blocks for source code, and a custom style", async ({ page }) => {
+  await box(page, [2, 2], [8, 4], "A");
+  await page.getByTestId("export").click();
+  const preview = page.getByTestId("export-text");
+  const format = page.getByRole("group", { name: "Format" });
+  await format.getByRole("button", { name: "C/C++ /* */" }).click();
+  await expect(preview).toHaveText("/*\n * ┌─────┐\n * │  A  │\n * └─────┘\n */");
+  await format.getByRole("button", { name: "C/C++ //" }).click();
+  await expect(preview).toHaveText(/^\/\/ ┌─────┐/);
+  await format.getByRole("button", { name: "Python #" }).click();
+  await expect(page.getByRole("button", { name: "download .py" })).toBeVisible();
+  await format.getByRole("button", { name: "custom" }).click();
+  await page.getByLabel("First line").fill("<!--");
+  await page.getByLabel("Line prefix").fill("  ");
+  await page.getByLabel("Last line").fill("-->");
+  await expect(preview).toHaveText("<!--\n  ┌─────┐\n  │  A  │\n  └─────┘\n-->");
+  // Remembered next time.
+  await page.keyboard.press("Escape");
+  await page.getByTestId("export").click();
+  await expect(page.getByTestId("export-text")).toHaveText(/^<!--/);
+});
