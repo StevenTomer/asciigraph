@@ -23,14 +23,14 @@ export function rectToScreen(r: Rect): { x: number; y: number; w: number; h: num
   return { x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y };
 }
 
-/** Screen px rectangle through the centres of a rect's corner cells: where its border is drawn. */
+/** Screen px rectangle through the centers of a rect's corner cells: where its border is drawn. */
 export function borderToScreen(r: Rect): { x: number; y: number; w: number; h: number } {
   const a = cellCenter({ x: r.x, y: r.y });
   const b = cellCenter({ x: r.x + r.w - 1, y: r.y + r.h - 1 });
   return { x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y };
 }
 
-/** Screen px of a cell's centre. */
+/** Screen px of a cell's center. */
 export function cellCenter(p: Point): Point {
   const a = cellToScreen(p.x, p.y);
   const z = getState().view.zoom;
@@ -77,7 +77,7 @@ const canvasSize = () => {
 
 export const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2, 2.5, 3, 4];
 
-/** Next zoom step in or out from the current zoom, kept centred. */
+/** Next zoom step in or out from the current zoom, kept centered. */
 export function zoomStep(direction: 1 | -1) {
   const z = getState().view.zoom;
   const next = direction > 0

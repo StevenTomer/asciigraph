@@ -27,7 +27,7 @@ describe("stacking order", () => {
 describe("align", () => {
   const d = diagram(n("a", 2, 0, 4, 3), n("b", 10, 5, 8, 5), n("c", 5, 12, 6, 3));
 
-  it("lines up edges and centres within the selection's bounds", () => {
+  it("lines up edges and centers within the selection's bounds", () => {
     expect(rects(align(d, ["a", "b", "c"], "left"))).toEqual({ a: [2, 0], b: [2, 5], c: [2, 12] });
     expect(rects(align(d, ["a", "b", "c"], "right"))).toEqual({ a: [14, 0], b: [10, 5], c: [12, 12] });
     expect(rects(align(d, ["a", "b", "c"], "center"))).toEqual({ a: [8, 0], b: [6, 5], c: [7, 12] });

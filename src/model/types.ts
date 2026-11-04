@@ -82,6 +82,8 @@ export interface Node {
   align: { h: HAlign; v: VAlign };
   name?: string;
   nameAlign?: HAlign;
+  /** false: the text is shown exactly as typed, with no Markdown lists ("lists: off"). */
+  lists?: boolean;
   /** Size follows the text (text labels); resizing by hand turns it off. */
   autosize?: boolean;
   /** Moving this box takes along what's inside it (default true). See model/containment.ts. */
@@ -110,7 +112,7 @@ export interface Edge {
 /**
  * An edge end: either a free cell, or attached to a node. Attached ends follow the node.
  * `side: "auto"` picks the side facing the other end on every render. `offset` pins the position
- * along the side (cells from the side's top/left corner); without it the end centres itself, or
+ * along the side (cells from the side's top/left corner); without it the end centers itself, or
  * lines up with the other end when that makes a straight line possible.
  */
 export type Endpoint =

@@ -5,15 +5,15 @@ import { drawSource } from "../text/sync";
 import { snapMove, snapPoint, snapResize } from "./snap";
 
 const d = [
-  makeNode({ x: 0, y: 0, w: 9, h: 3 }, { id: "a" }), // left 0, centre 4, right 8; top 0, middle 1, bottom 2
-  makeNode({ x: 30, y: 10, w: 6, h: 4 }, { id: "b" }), // centre isn't a whole cell: edges only
+  makeNode({ x: 0, y: 0, w: 9, h: 3 }, { id: "a" }), // left 0, center 4, right 8; top 0, middle 1, bottom 2
+  makeNode({ x: 30, y: 10, w: 6, h: 4 }, { id: "b" }), // center isn't a whole cell: edges only
 ].reduce(addNode, emptyDiagram());
 
 describe("snap", () => {
-  it("pulls a moving box's edges or centre onto a neighbour's within a cell", () => {
-    // A 5-wide box whose left is at 2: its centre (4) already lines up with a's centre.
+  it("pulls a moving box's edges or center onto a neighbor's within a cell", () => {
+    // A 5-wide box whose left is at 2: its center (4) already lines up with a's center.
     expect(snapMove(d, ["m"], { x: 2, y: 20, w: 5, h: 3 }).shift).toEqual({ x: 0, y: 0 });
-    // Left at 1: one off a's left edge (0) and a's centre is 1 off too; nearest wins (first found).
+    // Left at 1: one off a's left edge (0) and a's center is 1 off too; nearest wins (first found).
     expect(snapMove(d, ["m"], { x: 1, y: 20, w: 5, h: 3 }).shift.x).toBe(-1);
     // Top at 11 (6 tall, so no whole-cell middle): one off b's top (10).
     const r = snapMove(d, ["m"], { x: 50, y: 11, w: 5, h: 6 });

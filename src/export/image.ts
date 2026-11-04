@@ -5,7 +5,7 @@ import { exportText } from "./text";
 /**
  * The diagram as a picture: SVG (text characters placed cell by cell, so it lines up in any
  * monospace font, and exactly when the font is embedded) or PNG (drawn the way the canvas is).
- * Both are the same characters as the text export, in the canvas's colours.
+ * Both are the same characters as the text export, in the canvas's colors.
  */
 
 export type ImageTheme = "light" | "dark";
@@ -19,7 +19,7 @@ export interface ImageOptions {
   padding?: number;
 }
 
-/** The canvas colours (theme.css), so pictures look like the editor. */
+/** The canvas colors (theme.css), so pictures look like the editor. */
 export const THEMES: Record<ImageTheme, { bg: string; text: string }> = {
   light: { bg: "#eceff4", text: "#2e3440" },
   dark: { bg: "#2e3440", text: "#d8dee9" },

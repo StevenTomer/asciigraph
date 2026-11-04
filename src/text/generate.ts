@@ -111,7 +111,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       const from = index.get(e.from)!, to = index.get(e.to)!;
       count++;
       const label = s.autonumber ? `${count}. ${e.label}`.trim() : e.label;
-      // A label of several lines is centred on the arrow: leave room above and below it.
+      // A label of several lines is centered on the arrow: leave room above and below it.
       const extra = label.split("\n").length - 1;
       row += Math.floor(extra / 2);
       msgs.push({ from, to, row, label, dashed: e.dashed, arrow: e.arrow, n: count });
@@ -161,7 +161,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
 
   // 2. Columns: lifelines spaced so labels, self-messages and notes fit between them.
   const half = (i: number) => Math.floor((pw[i] - 1) / 2);
-  const centres = P.map(() => 0);
+  const centers = P.map(() => 0);
   const need: [number, number, number][] = []; // [left, right, minimum distance]
   for (let i = 0; i + 1 < P.length; i++) need.push([i, i + 1, half(i) + (pw[i + 1] - half(i + 1)) + 3]);
   for (const m of msgs) {
@@ -177,18 +177,18 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       if (i > 0) need.push([i - 1, i, Math.ceil(n.w / 2) + half(i - 1) + 2]);
     }
   }
-  centres[0] = half(0);
-  for (let i = 1; i < P.length; i++) centres[i] = centres[i - 1];
+  centers[0] = half(0);
+  for (let i = 1; i < P.length; i++) centers[i] = centers[i - 1];
   for (let pass = 0; pass < 3; pass++) {
     for (const [a, b, dist] of need.sort((p, q) => p[1] - q[1] || p[0] - q[0])) {
-      const gap = centres[b] - centres[a];
-      if (gap < dist) for (let k = b; k < P.length; k++) centres[k] += dist - gap;
+      const gap = centers[b] - centers[a];
+      if (gap < dist) for (let k = b; k < P.length; k++) centers[k] += dist - gap;
     }
   }
 
   // 3. Nodes.
   const nodes: DesiredNode[] = [];
-  const lifelineRect = (i: number): Rect => ({ x: centres[i] - half(i), y: 0, w: pw[i], h: bottom + 1 });
+  const lifelineRect = (i: number): Rect => ({ x: centers[i] - half(i), y: 0, w: pw[i], h: bottom + 1 });
   P.forEach((p, i) => nodes.push({ key: `p:${p.key}`, node: spec(lifelineRect(i), { kind: "lifeline", text: p.label }) }));
   const barCount = P.map(() => 0);
   const barKeys = bars.map((b) => `a:${P[b.who].key}#${++barCount[b.who]}`);
@@ -197,7 +197,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
     nodes.push({ key: barKeys[k], node: spec({ x, y: b.top - 1, w: 3, h: b.bottom - b.top + 3 }, { kind: "activation" }) });
   });
   notes.forEach((n, k) => {
-    const c = n.who.map((w) => centres[w]);
+    const c = n.who.map((w) => centers[w]);
     const x =
       n.side === "right" ? c[0] + 2
       : n.side === "left" ? c[0] - 2 - n.w + 1
@@ -209,8 +209,8 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
   frames.forEach((f, k) => {
     const parts = f.parts.size ? [...f.parts] : P.map((_, i) => i);
     const lo = Math.min(...parts), hi = Math.max(...parts);
-    const x0 = centres[lo] - Math.max(half(lo) + 1, 4);
-    const x1 = centres[hi] + Math.max(pw[hi] - half(hi), 5) + (msgs.some((m) => m.from === hi && m.to === hi) ? 4 : 0);
+    const x0 = centers[lo] - Math.max(half(lo) + 1, 4);
+    const x1 = centers[hi] + Math.max(pw[hi] - half(hi), 5) + (msgs.some((m) => m.from === hi && m.to === hi) ? 4 : 0);
     nodes.push({ key: `f:${k}`, node: spec({ x: x0, y: f.top, w: x1 - x0 + 1, h: f.bottom - f.top + 1 }, { kind: "frame", name: f.label }) });
     // An else / and: a dashed divider across the frame, with its label.
     const inner = x1 - x0 - 1;

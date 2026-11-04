@@ -46,22 +46,23 @@ export function measure(text: string): { lines: string[]; w: number; h: number }
 }
 
 /** The lines node text shows at `width` columns: wrapped, with Markdown lists rendered. */
-export function textLines(text: string, width: number): string[] {
-  return renderText(text, width).lines;
+export function textLines(text: string, width: number, plain = false): string[] {
+  return renderText(text, width, plain).lines;
 }
 
 /**
  * Place text in `area`: wrap (rendering Markdown lists), align, and clip (marking the last visible
  * line with … when lines are cut off). Returns each character with its cell. Text containing a
- * list is laid out left-aligned, so bullets line up.
+ * list is laid out left-aligned, so bullets line up. `plain`: no Markdown (see markdown.ts).
  */
 export function layoutText(
   text: string,
   area: Rect,
-  align: { h: HAlign; v: VAlign }
+  align: { h: HAlign; v: VAlign },
+  plain = false
 ): [Point, string][] {
   if (area.w < 1 || area.h < 1 || text === "") return [];
-  const rendered = renderText(text, area.w);
+  const rendered = renderText(text, area.w, plain);
   let lines = rendered.lines;
   if (rendered.list) align = { ...align, h: "left" };
   if (lines.length > area.h) {

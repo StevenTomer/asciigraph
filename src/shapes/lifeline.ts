@@ -73,7 +73,7 @@ export const lifeline: ShapeDef = {
       }
     }
     for (let y = h.y + 1; y < y1; y++) for (const x of [h.x, x1]) grid.stroke({ x, y }, ["top", "bottom"], style);
-    for (const [p, c] of layoutText(n.text, this.contentRect(n), n.align)) grid.setChar(p, c);
+    for (const [p, c] of layoutText(n.text, this.contentRect(n), n.align, n.lists === false)) grid.setChar(p, c);
     // The dashed line.
     for (let y = y1 + 1; y <= bottom(r); y++) {
       grid.stroke({ x: cx, y }, y < bottom(r) ? ["top", "bottom"] : ["top"], "dashed");

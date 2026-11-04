@@ -87,6 +87,7 @@ export function attachKeyboard(): () => void {
         }
         return;
       case "Enter":
+      case "F2": // as in file managers and spreadsheets
         if (selection.length === 1 && (diagram.nodes[selection[0]] || diagram.edges[selection[0]])) {
           startEditing(selection[0], diagram.edges[selection[0]] ? "label" : "text");
           e.preventDefault();

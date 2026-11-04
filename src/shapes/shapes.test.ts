@@ -122,7 +122,7 @@ describe("more shapes", () => {
 `);
   });
 
-  it("keeps activation bars centred on their lifeline's line", () => {
+  it("keeps activation bars centered on their lifeline's line", () => {
     // API's line is column 25; a bar placed or moved a column off is put back on it.
     let s = [
       makeNode({ x: 20, y: 0, w: 12, h: 14 }, { id: "a", kind: "lifeline", text: "API" }),

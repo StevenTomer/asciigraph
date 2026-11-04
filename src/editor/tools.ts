@@ -264,7 +264,7 @@ function objectsIn(d: Diagram, r: Rect): Id[] {
  * activation bar, which moves onto the lifeline's line: `column`). */
 let creating: { id: Id; start: Point; pressed: Point; over: Id | null; column: number | null } | null = null;
 
-/** Activation bars drawn on a lifeline sit centred on its line: the bar's left column. */
+/** Activation bars drawn on a lifeline sit centered on its line: the bar's left column. */
 function activationColumn(d: Diagram, cell: Point): number | null {
   const id = nodeAt(d, cell);
   const n = id ? d.nodes[id] : undefined;

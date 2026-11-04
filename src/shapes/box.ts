@@ -42,18 +42,18 @@ export const box: ShapeDef = {
     // Autosized labels size to their text; anything else grows (never shrinks) to fit its
     // wrapped text.
     if (node.autosize) {
-      const lines = textLines(text, 100000);
+      const lines = textLines(text, 100000, node.lists === false);
       return { w: Math.max(1, ...lines.map((l) => chars(l).length)), h: lines.length };
     }
     const content = this.contentRect(node);
-    const lines = textLines(text, content.w).length;
+    const lines = textLines(text, content.w, node.lists === false).length;
     return { w: node.rect.w, h: Math.max(node.rect.h, lines + (node.rect.h - content.h)) };
   },
 
   rasterize(node, grid) {
     const r = node.rect;
     if (node.border !== "none") drawBorder(grid, r, node);
-    for (const [p, c] of layoutText(node.text, this.contentRect(node), node.align)) {
+    for (const [p, c] of layoutText(node.text, this.contentRect(node), node.align, node.lists === false)) {
       grid.setChar(p, c);
     }
     if (node.name && node.border !== "none") drawName(grid, r, node.name, node.nameAlign ?? "left");
@@ -78,7 +78,7 @@ function drawBorder(grid: CharGrid, r: Rect, node: Node) {
   }
 }
 
-/** `┌─ Name ───┐`: name padded by a space each side, after one border character (or centred or
+/** `┌─ Name ───┐`: name padded by a space each side, after one border character (or centered or
  * right-aligned), truncated with … when the box is too narrow. */
 function drawName(grid: CharGrid, r: Rect, name: string, align: Node["align"]["h"]) {
   const room = r.w - 6; // corner, line, space … space, line, corner

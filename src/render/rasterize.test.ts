@@ -23,7 +23,7 @@ describe("boxes", () => {
 `));
   });
 
-  it("wraps and centres text, growing the box to fit", () => {
+  it("wraps and centers text, growing the box to fit", () => {
     let d = withNodes(makeNode({ x: 0, y: 0, w: 11, h: 3 }, { id: "a" }));
     d = setNodeText(d, "a", "hello big world");
     // Content is 7 wide (border + 1 space padding each side), so three lines and a taller box.

@@ -102,7 +102,7 @@ export function TextEditor() {
   // Labels grow as you type: leave a column for the caret.
   const area = node.autosize ? { ...content, w: content.w + 1 } : content;
   const box = rectToScreen(area);
-  const lines = Math.min(content.h, textLines(node.text, content.w).length);
+  const lines = Math.min(content.h, textLines(node.text, content.w, node.lists === false).length);
   const free = content.h - lines;
   const topLines = node.align.v === "middle" ? Math.floor(free / 2) : node.align.v === "bottom" ? free : 0;
   return (

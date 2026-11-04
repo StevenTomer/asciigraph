@@ -27,7 +27,7 @@ function flat(grid: CharGrid, y: number, x0: number, x1: number, style: LineStyl
 }
 
 const text = (node: Node, area: Rect, grid: CharGrid) => {
-  for (const [p, c] of layoutText(node.text, area, node.align)) grid.setChar(p, c);
+  for (const [p, c] of layoutText(node.text, area, node.align, node.lists === false)) grid.setChar(p, c);
 };
 
 const middle = (r: Rect) => Math.floor(r.h / 2);

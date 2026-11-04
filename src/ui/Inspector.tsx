@@ -16,7 +16,7 @@ const BORDERS: [BorderStyle, string][] = [
 const LINES: [LineStyle, string][] = [
   ["single", "───"], ["double", "═══"], ["heavy", "━━━"], ["dashed", "┄┄┄"], ["dotted", "┈┈┈"], ["ascii", "---"],
 ];
-const HALIGN: [HAlign, string][] = [["left", "left"], ["center", "centre"], ["right", "right"]];
+const HALIGN: [HAlign, string][] = [["left", "left"], ["center", "center"], ["right", "right"]];
 const VALIGN: [VAlign, string][] = [["top", "top"], ["middle", "middle"], ["bottom", "bottom"]];
 
 /**
@@ -113,6 +113,14 @@ export function Inspector() {
             {VALIGN.map(([v, l]) => (
               <Choice key={v} active={n0.align.v === v} onClick={() => eachNode((n) => ({ align: { ...n.align, v } }))}>{l}</Choice>
             ))}
+          </Row>
+          <Row label="lists">
+            <Choice active={n0.lists !== false} onClick={() => eachNode(() => ({ lists: undefined }))} title="Lines starting - * + or 1. are shown as lists (a \ before the marker keeps one line as typed)">
+              on
+            </Choice>
+            <Choice active={n0.lists === false} onClick={() => eachNode(() => ({ lists: false }))} title="Show the text exactly as typed">
+              off (text as typed)
+            </Choice>
           </Row>
           {n0.border !== "none" && (
             <Row label="inside">

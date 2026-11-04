@@ -37,7 +37,7 @@ export function textFit(node: Node): Rect | null {
   const name = node.border !== "none" ? node.name ?? "" : "";
   if (!text.trim() && !name) return null;
   const shape = shapeOf(node);
-  const lines = text ? textLines(text, 100000) : [];
+  const lines = text ? textLines(text, 100000, node.lists === false) : [];
   const tw = Math.max(0, ...lines.map((l) => chars(l).length));
   const th = lines.length;
   // A name is drawn as "┌─ name ─┐": a corner, a line and a space each side.

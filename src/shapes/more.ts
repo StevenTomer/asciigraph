@@ -46,7 +46,7 @@ function rectOutline(r: Rect): Point[] {
 }
 
 const drawText = (n: Node, area: Rect, grid: CharGrid) => {
-  for (const [p, c] of layoutText(n.text, area, n.align)) grid.setChar(p, c);
+  for (const [p, c] of layoutText(n.text, area, n.align, n.lists === false)) grid.setChar(p, c);
 };
 
 const keepSize = (n: Node) => ({ w: n.rect.w, h: n.rect.h });
@@ -162,7 +162,7 @@ export const note: ShapeDef = {
   sideRange: flatSides,
   fitSize(n, text) {
     // Grows (never shrinks) to fit its wrapped text, like a box.
-    return { w: n.rect.w, h: Math.max(n.rect.h, textLines(text, this.contentRect(n).w).length + 2) };
+    return { w: n.rect.w, h: Math.max(n.rect.h, textLines(text, this.contentRect(n).w, n.lists === false).length + 2) };
   },
   rasterize(n, grid) {
     const r = n.rect, style = lineStyle(n.border);

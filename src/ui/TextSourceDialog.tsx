@@ -92,7 +92,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
       });
       ids = id ? membersOf(getState().diagram, id) : [];
     } else {
-      // Centred on screen.
+      // Centered on screen.
       const lines = preview.text.split("\n");
       const w = Math.max(...lines.map((l) => l.length)), h = lines.length;
       const c = screenToCell(window.innerWidth / 2, window.innerHeight / 2);

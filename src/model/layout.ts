@@ -8,8 +8,8 @@ import type { Diagram, Id } from "./types";
  * Automatic layout for graphs: a layered ("Sugiyama-style") layout, following the connectors.
  *  1. break cycles (a depth-first search reverses edges that point back up),
  *  2. rank nodes into layers by longest path from the sources,
- *  3. order each layer to reduce crossings (barycentre sweeps, down and up),
- *  4. place layers one after another, each centred on the widest.
+ *  3. order each layer to reduce crossings (barycenter sweeps, down and up),
+ *  4. place layers one after another, each centered on the widest.
  * Boxes move with what's inside them; connectors re-route themselves. Bend points on the
  * connectors between laid-out boxes are dropped (they'd be in the wrong place).
  *
@@ -108,12 +108,12 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
   for (const n of reading) (layers[rank.get(n)!] ??= []).push(n);
   for (const layer of layers) layer.sort((p, q) => cross(rect(p)) - cross(rect(q)));
 
-  // 3. Order within layers: sort by the average position of neighbours in the adjacent layer.
+  // 3. Order within layers: sort by the average position of neighbors in the adjacent layer.
   const position = new Map<Id, number>();
   const index = () => layers.forEach((layer) => layer.forEach((n, i) => position.set(n, i)));
   index();
-  const bary = (n: Id, neighbours: Id[]) =>
-    neighbours.length ? neighbours.reduce((s, m) => s + position.get(m)!, 0) / neighbours.length : position.get(n)!;
+  const bary = (n: Id, neighbors: Id[]) =>
+    neighbors.length ? neighbors.reduce((s, m) => s + position.get(m)!, 0) / neighbors.length : position.get(n)!;
   for (let sweep = 0; sweep < SWEEPS; sweep++) {
     const downward = sweep % 2 === 0;
     const order = downward ? layers.slice(1) : layers.slice(0, -1).reverse();
@@ -124,7 +124,7 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
     }
   }
 
-  // 4. Place: layers along the main axis, each centred on the widest across.
+  // 4. Place: layers along the main axis, each centered on the widest across.
   const origin = union(nodes.map(rect))!;
   const gap = GAP[direction];
   const mainSize = (r: Rect) => (down ? r.h : r.w);
@@ -140,7 +140,7 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
     const depth = Math.max(...layer.map((n) => mainSize(rect(n))));
     for (const n of layer) {
       const r = rect(n);
-      // Centre each node in its layer's band.
+      // Center each node in its layer's band.
       const m = main + Math.floor((depth - mainSize(r)) / 2);
       const [x, y] = down ? [c, m] : [m, c];
       const group = members.get(n)!;

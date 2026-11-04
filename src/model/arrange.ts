@@ -50,7 +50,7 @@ function moveTo(d: Diagram, id: Id, x: number, y: number, settled: Set<Id>): Dia
 
 export type Alignment = "left" | "center" | "right" | "top" | "middle" | "bottom";
 
-/** Align nodes to the edge or centre of their combined bounds (PowerPoint's "Align Selected Objects"). */
+/** Align nodes to the edge or center of their combined bounds (PowerPoint's "Align Selected Objects"). */
 export function align(d: Diagram, ids: Id[], how: Alignment): Diagram {
   const nodes = topLevel(d, ids);
   const bounds = union(nodes.map((id) => d.nodes[id].rect));

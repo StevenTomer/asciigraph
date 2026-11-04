@@ -196,7 +196,7 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
     }
   }
 
-  // Alignment guides while snapping: dashed lines through the matching borders/centres.
+  // Alignment guides while snapping: dashed lines through the matching borders/centers.
   if (s.overlay.guides?.length) {
     ctx.save();
     ctx.strokeStyle = c.guide;

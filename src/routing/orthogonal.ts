@@ -108,7 +108,7 @@ function search(start: RouteEnd, end: RouteEnd, obs: Rect[], win: Rect | null, o
     }
   }
   const crowdRight = new Float64Array(W * H).fill(NaN), crowdDown = new Float64Array(W * H).fill(NaN);
-  /** Crowding cost of the segment between (i,j) and its neighbour in direction nd (either way). */
+  /** Crowding cost of the segment between (i,j) and its neighbor in direction nd (either way). */
   const crowd = (i: number, j: number, nd: number) => {
     if (!occupancy) return 0;
     // Store by the segment's top/left end, so both directions share an entry.

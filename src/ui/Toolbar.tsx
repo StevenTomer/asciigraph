@@ -57,7 +57,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
           className={"tb" + (snap ? "" : " off")}
           onClick={() => setPrefs({ snap: !snap })}
           aria-pressed={snap}
-          title={snap ? "Snapping on: boxes line up with their neighbours (hold Alt or Ctrl while dragging to place freely)" : "Snapping off"}
+          title={snap ? "Snapping on: boxes line up with their neighbors (hold Alt or Ctrl while dragging to place freely)" : "Snapping off"}
         >
           snap
         </button>

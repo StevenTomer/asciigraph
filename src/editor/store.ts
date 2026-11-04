@@ -41,7 +41,7 @@ export interface EditorState {
   view: View;
   dark: boolean;
   grid: boolean;
-  /** Snap boxes into line with their neighbours while dragging (editor/snap.ts). */
+  /** Snap boxes into line with their neighbors while dragging (editor/snap.ts). */
   snap: boolean;
   /** The properties panel is open (false: collapsed to its title bar). */
   panelOpen: boolean;

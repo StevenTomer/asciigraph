@@ -679,7 +679,7 @@ test("drag a connector's label along it", async ({ page }) => {
   await page.keyboard.press("Enter");
   const row = async () => (await text(page)).split("\n")[1];
   const before = (await row()).indexOf(" go ");
-  // Drag the label (centred, around column 24) towards A.
+  // Drag the label (centered, around column 24) towards A.
   await drag(page, [24, 3], [14, 3]);
   expect((await state(page)).diagram.edges[id].labelAt).toBeLessThan(0.5);
   expect((await row()).indexOf(" go ")).toBeLessThan(before - 5);
@@ -698,7 +698,7 @@ test("activation bars sit on a lifeline and take messages at the row", async ({ 
   await page.keyboard.press("Escape");
   await drag(page, [24, 2], [35, 20]);
   await page.keyboard.press("Escape");
-  // Draw an activation bar a little off the second lifeline's line: it centres on it.
+  // Draw an activation bar a little off the second lifeline's line: it centers on it.
   await picker.getByRole("button", { name: "activation" }).click();
   await drag(page, [30, 8], [31, 14]);
   await page.keyboard.press("Escape");
@@ -1076,4 +1076,24 @@ test("export the selection only, and as SVG and PNG", async ({ page }) => {
   const width = png.readUInt32BE(16);
   const m = await page.evaluate(() => window.__asciigraph__.metrics());
   expect(width).toBe(Math.ceil(11 * m.cw * 2));
+});
+
+test("F2 edits the selected box; lists can be turned off, or escaped per line", async ({ page }) => {
+  await box(page, [2, 2], [22, 6], "");
+  await click(page, 10, 4);
+  await page.keyboard.press("F2");
+  expect((await state(page)).editing).toMatchObject({ field: "text" });
+  await page.keyboard.type("- one\n\\- two");
+  await page.keyboard.press("Escape");
+  expect(await text(page)).toContain("• one");
+  expect(await text(page)).toContain("- two");
+  expect(await text(page)).not.toContain("\\");
+
+  // "lists: off": all the text as typed.
+  await click(page, 10, 4);
+  await page.getByRole("button", { name: "off (text as typed)" }).click();
+  expect(await text(page)).toContain("- one");
+  expect(await text(page)).toContain("\\- two");
+  // Text alignment says "center".
+  await expect(page.getByRole("button", { name: "center", exact: true })).toBeVisible();
 });

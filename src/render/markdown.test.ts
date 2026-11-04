@@ -40,3 +40,20 @@ describe("markdown lists", () => {
     expect(diagramToText(d, true).split("\n")[2]).toBe("| * buy milk         |");
   });
 });
+
+describe("literal text", () => {
+  it("keeps a line as typed when its marker is escaped with a backslash", () => {
+    expect(renderText("\\- not a list\n  \\* nor this\n\\1. nor this\n- a list", 40)).toEqual({
+      lines: ["- not a list", "  * nor this", "1. nor this", "• a list"],
+      list: true,
+    });
+    // Backslashes anywhere else stay.
+    expect(renderText("a\\b\n\\-no space", 40).lines).toEqual(["a\\b", "\\-no space"]);
+  });
+
+  it("shows everything as typed in plain mode (a box with lists off)", () => {
+    expect(renderText("- one\n\\- two\n1. three", 40, true)).toEqual({ lines: ["- one", "\\- two", "1. three"], list: false });
+    const d = addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 14, h: 4 }, { text: "- one\n- two", lists: false }));
+    expect(diagramToText(d)).toBe(["┌────────────┐", "│   - one    │", "│   - two    │", "└────────────┘"].join("\n"));
+  });
+});

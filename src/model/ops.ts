@@ -57,7 +57,7 @@ export function addNode(d: Diagram, node: Node): Diagram {
 
 /**
  * Activation bars belong on a lifeline's line: one whose middle column is within a column of a
- * lifeline's line (and which overlaps that lifeline vertically) is moved to sit centred on it.
+ * lifeline's line (and which overlaps that lifeline vertically) is moved to sit centered on it.
  */
 export function seatActivations(d: Diagram, ids: Iterable<Id>): Diagram {
   let out = d;

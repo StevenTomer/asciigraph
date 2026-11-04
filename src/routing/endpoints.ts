@@ -54,7 +54,7 @@ export function facingSide(r: Rect, other: Rect): Side {
   const gx = Math.max(gapRight, gapLeft), gy = Math.max(gapDown, gapUp);
   if (gy >= 0 && gy * 2 >= gx) return gapDown >= gapUp ? "bottom" : "top";
   if (gx >= 0) return gapRight >= gapLeft ? "right" : "left";
-  // Overlapping: go by centres.
+  // Overlapping: go by centers.
   const dx = other.x + other.w / 2 - (r.x + r.w / 2);
   const dy = other.y + other.h / 2 - (r.y + r.h / 2);
   if (Math.abs(dy) * 2 >= Math.abs(dx)) return dy >= 0 ? "bottom" : "top";
@@ -93,7 +93,7 @@ export function anchorFor(node: Node, side: Side, offset: number | undefined, ot
   if (offset !== undefined) {
     along = Math.min(hi, Math.max(lo, (horizontal ? r.x : r.y) + offset));
   } else {
-    // Line up with the other end when their ranges overlap (a straight connector), else centre.
+    // Line up with the other end when their ranges overlap (a straight connector), else center.
     const [olo, ohi] = other
       ? horizontal ? [other.x, right(other)] : [other.y, bottom(other)]
       : [lo, hi];

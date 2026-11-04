@@ -3,10 +3,10 @@ import type { Diagram, Id } from "../model/types";
 import { footprint } from "../shapes/registry";
 
 /**
- * Snapping while moving, resizing or drawing boxes: a box's edges and centre line up with other
- * boxes' edges and centres when within SNAP cells, and guides show what lined up.
+ * Snapping while moving, resizing or drawing boxes: a box's edges and center line up with other
+ * boxes' edges and centers when within SNAP cells, and guides show what lined up.
  *
- * Only neighbours count: rows (tops, middles, bottoms) line up with boxes beside it, columns with
+ * Only neighbors count: rows (tops, middles, bottoms) line up with boxes beside it, columns with
  * boxes above or below it. Boxes it overlaps along the other axis (lifelines a frame is dragged
  * across, the box it's inside) don't pull at it; in a diagram full of them, every position would
  * be near something and the box would jump about.
@@ -21,7 +21,7 @@ export interface Guide {
   to: number;
 }
 
-/** Lines a rect offers: left/centre/right columns and top/middle/bottom rows (centres only when
+/** Lines a rect offers: left/center/right columns and top/middle/bottom rows (centers only when
  * they fall on a whole cell). */
 function lines(r: Rect, axis: "x" | "y"): number[] {
   const [lo, size, hi] = axis === "x" ? [r.x, r.w, right(r)] : [r.y, r.h, bottom(r)];
@@ -40,7 +40,7 @@ function others(d: Diagram, exclude: Set<Id>): Rect[] {
 
 /** The targets that can pull `r` along `axis`: those beside it (for rows) or above/below it (for
  * columns), not ones it overlaps across. */
-function neighbours(targets: Rect[], r: Rect, axis: "x" | "y"): Rect[] {
+function neighbors(targets: Rect[], r: Rect, axis: "x" | "y"): Rect[] {
   return targets.filter((t) =>
     axis === "y"
       ? t.x > right(r) || right(t) < r.x
@@ -65,12 +65,12 @@ function nearest(mine: number[], targets: Rect[], axis: "x" | "y"): number {
   return best;
 }
 
-/** Guides for every line of `r` that exactly matches a line of a neighbouring box. */
+/** Guides for every line of `r` that exactly matches a line of a neighboring box. */
 function guidesFor(r: Rect, targets: Rect[], axes: { x: number[]; y: number[] }): Guide[] {
   const out: Guide[] = [];
   for (const axis of ["x", "y"] as const) {
     for (const m of axes[axis]) {
-      const matches = neighbours(targets, r, axis).filter((t) => lines(t, axis).includes(m));
+      const matches = neighbors(targets, r, axis).filter((t) => lines(t, axis).includes(m));
       if (!matches.length) continue;
       const span = [r, ...matches];
       out.push(
@@ -87,8 +87,8 @@ function guidesFor(r: Rect, targets: Rect[], axes: { x: number[]; y: number[] })
 export function snapMove(d: Diagram, moving: Iterable<Id>, r: Rect): { shift: Point; guides: Guide[] } {
   const targets = others(d, new Set(moving));
   const shift = {
-    x: nearest(lines(r, "x"), neighbours(targets, r, "x"), "x"),
-    y: nearest(lines(r, "y"), neighbours(targets, r, "y"), "y"),
+    x: nearest(lines(r, "x"), neighbors(targets, r, "x"), "x"),
+    y: nearest(lines(r, "y"), neighbors(targets, r, "y"), "y"),
   };
   const moved = { ...r, x: r.x + shift.x, y: r.y + shift.y };
   return { shift, guides: guidesFor(moved, targets, { x: lines(moved, "x"), y: lines(moved, "y") }) };
@@ -100,7 +100,7 @@ export function snapResize(
 ): { rect: Rect; guides: Guide[] } {
   const targets = others(d, new Set([id]));
   let x0 = r.x, x1 = right(r), y0 = r.y, y1 = bottom(r);
-  const cols = neighbours(targets, r, "x"), rows = neighbours(targets, r, "y");
+  const cols = neighbors(targets, r, "x"), rows = neighbors(targets, r, "y");
   if (edges.left) x0 += nearest([x0], cols, "x");
   if (edges.right) x1 += nearest([x1], cols, "x");
   if (edges.top) y0 += nearest([y0], rows, "y");
@@ -118,6 +118,6 @@ export function snapResize(
 export function snapPoint(d: Diagram, exclude: Id[], p: Point): { point: Point; guides: Guide[] } {
   const targets = others(d, new Set(exclude));
   const cell = { ...p, w: 1, h: 1 };
-  const point = { x: p.x + nearest([p.x], neighbours(targets, cell, "x"), "x"), y: p.y + nearest([p.y], neighbours(targets, cell, "y"), "y") };
+  const point = { x: p.x + nearest([p.x], neighbors(targets, cell, "x"), "x"), y: p.y + nearest([p.y], neighbors(targets, cell, "y"), "y") };
   return { point, guides: guidesFor({ ...point, w: 1, h: 1 }, targets, { x: [point.x], y: [point.y] }) };
 }

@@ -30,7 +30,7 @@ export interface MenuItem {
   shortcut?: string;
   run?: () => void;
   disabled?: boolean;
-  /** Shown greyed out next to the label, e.g. why it's disabled. */
+  /** Shown grayed out next to the label, e.g. why it's disabled. */
   hint?: string;
   submenu?: MenuEntry[];
 }
@@ -90,7 +90,7 @@ export function contextMenu(at: Point): MenuEntry[] {
   const linkedLayout = !!linkedId && !!d.sources?.[linkedId] && directionOf(d.sources[linkedId]) !== null;
   const entries: MenuEntry[] = [];
   if (nodes.length === 1 && !edges.length) {
-    entries.push({ label: "Edit Text", shortcut: "Enter", run: () => startEditing(nodes[0]) }, "separator");
+    entries.push({ label: "Edit Text", shortcut: "Enter, F2", run: () => startEditing(nodes[0]) }, "separator");
   }
   entries.push(
     { label: "Cut", shortcut: `${mod}X`, run: cutCommand },

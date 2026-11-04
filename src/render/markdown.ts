@@ -10,10 +10,13 @@ import { chars, wrap } from "./textLayout";
  *   - second                       •  second
  *     1. nested                       1. nested
  *
- * Everything else is plain text, wrapped as usual.
+ * Everything else is plain text, wrapped as usual. A backslash before the marker (`\- not a
+ * list`, `\1. nor this`) keeps a line as written, minus the backslash. With `plain` (a box set to
+ * "lists: off"), nothing is treated as Markdown: the text shows exactly as typed.
  */
 
 const ITEM = /^([ \t]*)([-*+]|(\d+)([.)]))\s+(.*)$/;
+const ESCAPED = /^([ \t]*)\\(?=([-*+]|\d+[.)])\s)/;
 const BULLETS = ["•", "◦", "▪"];
 
 export interface Rendered {
@@ -22,8 +25,12 @@ export interface Rendered {
   list: boolean;
 }
 
-export function renderText(text: string, width: number): Rendered {
+export function renderText(text: string, width: number, plain = false): Rendered {
   const w = Math.max(1, width);
+  if (plain) {
+    const lines = text.split("\n").flatMap((l) => wrap(l, w));
+    return { lines: lines.length ? lines : [""], list: false };
+  }
   const out: string[] = [];
   let list = false;
   // Numbering per nesting level, for the current list.
@@ -33,7 +40,7 @@ export function renderText(text: string, width: number): Rendered {
     const m = ITEM.exec(line);
     if (!m) {
       counters = [];
-      out.push(...wrap(line, w));
+      out.push(...wrap(line.replace(ESCAPED, "$1"), w));
       continue;
     }
     list = true;

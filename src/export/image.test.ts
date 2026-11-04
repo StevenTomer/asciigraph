@@ -5,7 +5,7 @@ import { exportSvg } from "./image";
 describe("SVG export", () => {
   const d = addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 7, h: 3 }, { text: "a<b" }));
 
-  it("places each character in its cell, in the canvas colours", () => {
+  it("places each character in its cell, in the canvas colors", () => {
     // ┌─────┐ / │ a<b │ / └─────┘, one blank cell of padding; cells are 9×18 px (font.ts defaults).
     const svg = exportSvg(d);
     expect(svg).toContain('width="81" height="90"');

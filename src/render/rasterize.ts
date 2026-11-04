@@ -57,11 +57,11 @@ export function rasterize(d: Diagram, quick = false): Rendered {
       [r.to, edge.arrows.end, cells[cells.length - 1]],
     ] as const) {
       if (hidden(end)) continue;
-      const neighbour = cells.length > 1 ? (end === cells[0] ? cells[1] : cells[cells.length - 2]) : null;
+      const neighbor = cells.length > 1 ? (end === cells[0] ? cells[1] : cells[cells.length - 2]) : null;
       // Which way the line runs as it reaches this end.
       const pointing: Side = anchor.dir
         ? OPPOSITE[anchor.dir]
-        : neighbour ? stepSide(neighbour, end) : "right";
+        : neighbor ? stepSide(neighbor, end) : "right";
       if (arrow) {
         grid.setArrow(end, pointing, style);
       } else if (anchor.dir) {
@@ -126,13 +126,13 @@ export function placeLabel(
    * inline label, where covering this connector's own line is fine. */
   canUse: (p: Point, onLine: boolean) => boolean = () => true,
 ): { rect: Rect; chars: [Point, string][] } {
-  // Lines as shown (Markdown lists rendered). A block of several lines is centred on the line.
+  // Lines as shown (Markdown lists rendered). A block of several lines is centered on the line.
   const rendered = label ? renderText(label, 1000) : { lines: [], list: false };
   const lines = rendered.lines.map((l) => chars(l.replace(/\s+$/, "")));
   const len = Math.max(1, ...lines.map((l) => l.length));
   const n = Math.max(1, lines.length);
   type Placed = { rect: Rect; chars: [Point, string][]; line?: number };
-  /** Each line's characters from `x0`: centred in the block, or left-aligned for lists. */
+  /** Each line's characters from `x0`: centered in the block, or left-aligned for lists. */
   const place = (x0: number, top: number, out: [Point, string][]) => {
     lines.forEach((l, i) => {
       const left = rendered.list ? x0 : x0 + Math.floor((len - l.length) / 2);
@@ -150,13 +150,13 @@ export function placeLabel(
   }
   // Leave the ends alone (arrowheads, junctions): only inner cells take text.
   const room = (r: { a: number; b: number }) => Math.min(r.b, cells.length - 2) - Math.max(r.a, 1) + 1;
-  const inline = (run: { a: number; b: number }, centre?: number): Placed => {
+  const inline = (run: { a: number; b: number }, center?: number): Placed => {
     const lo = Math.max(run.a, 1), hi = Math.min(run.b, cells.length - 2);
     const minX = Math.min(cells[lo].x, cells[hi].x), maxX = Math.max(cells[lo].x, cells[hi].x);
-    // Centred on `centre` (or the run), whichever way the run heads, with a space either side.
-    const x0 = centre === undefined
+    // Centered on `center` (or the run), whichever way the run heads, with a space either side.
+    const x0 = center === undefined
       ? Math.floor((minX + maxX + 1 - len) / 2)
-      : Math.max(minX + 1, Math.min(maxX - len, centre - Math.floor((len - 1) / 2)));
+      : Math.max(minX + 1, Math.min(maxX - len, center - Math.floor((len - 1) / 2)));
     const y = cells[lo].y, top = y - Math.floor((n - 1) / 2);
     const out: [Point, string][] = [];
     if (lines.length) {
@@ -197,8 +197,8 @@ export function placeLabel(
   // Inline on a horizontal stretch (the roomiest first, middle outwards)…
   const horizontal = runs.filter((r) => r.horizontal && room(r) >= len + 2).sort((p, q) => room(q) - room(p));
   for (const r of horizontal) {
-    const centred = inline(r);
-    if (fine(centred)) return centred;
+    const centered = inline(r);
+    if (fine(centered)) return centered;
     const lo = Math.max(r.a, 1), hi = Math.min(r.b, cells.length - 2);
     for (const k of outward(lo, hi)) {
       const pl = inline(r, cells[k].x);
