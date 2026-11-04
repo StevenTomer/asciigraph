@@ -322,7 +322,8 @@ const boxTool: Tool = {
 
 // ---------------------------------------------------------------------------------------------
 // Arrow / line: drag from one place to another; ends attach to nodes they start or end on.
-// Clicking (without dragging) switches to select, selecting the box or connector clicked, if any.
+// Afterwards it's back to select, with the new connector selected. Clicking (without dragging)
+// switches to select too, selecting the box or connector clicked, if any.
 // ---------------------------------------------------------------------------------------------
 
 let drawing: { id: Id; start: Point; over: Id | null } | null = null;
@@ -388,6 +389,8 @@ function connectorTool(arrow: boolean): Tool {
         return;
       }
       commit();
+      // Drawn: back to select, with the new connector selected (to label it, or drag its ends).
+      setTool("select");
       select([id]);
     },
     cursor: () => "crosshair",

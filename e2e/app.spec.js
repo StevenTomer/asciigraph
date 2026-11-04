@@ -243,11 +243,14 @@ test("after a label or connector, clicking away goes to select", async ({ page }
   expect(s.tool).toBe("select");
   expect(Object.values(s.diagram.nodes).map((n) => n.text)).toEqual(["note"]);
 
-  // Arrow and line: draw one (the tool stays on for another), then a click on empty space.
+  // Arrow and line: drawing one goes back to select, with it selected; so does a plain click.
   for (const key of ["a", "l"]) {
     await page.keyboard.press(key);
     await drag(page, [4, 16], [20, 16]);
-    expect((await state(page)).tool).not.toBe("select");
+    s = await state(page);
+    expect(s.tool).toBe("select");
+    expect(s.selection.map((id) => !!s.diagram.edges[id])).toEqual([true]);
+    await page.keyboard.press(key);
     await click(page, 30, 20);
     s = await state(page);
     expect(s.tool).toBe("select");
@@ -346,12 +349,12 @@ test("in arrow, line and text mode, clicking a box or connector selects it", asy
     expect(s.diagram.nodes[s.selection[0]].text).toBe("A");
     expect(Object.keys(s.diagram.edges)).toHaveLength(0);
   }
-  // Dragging from a box still draws a connector, and the tool stays on.
+  // Dragging from a box still draws a connector, then it's back to select.
   await page.keyboard.press("a");
   await drag(page, [6, 3], [28, 3]);
   let s = await state(page);
   const edge = s.selection[0];
-  expect(s.tool).toBe("arrow");
+  expect(s.tool).toBe("select");
   expect(s.diagram.edges[edge]).toBeDefined();
   // Clicking the connector itself selects it.
   await page.keyboard.press("Escape");
@@ -655,6 +658,7 @@ test("right-click Auto Layout arranges the diagram", async ({ page }) => {
   await box(page, [50, 20], [56, 22], "c");
   await page.keyboard.press("l");
   await drag(page, [33, 3], [5, 13]);
+  await page.keyboard.press("l"); // drawing one goes back to select
   await drag(page, [5, 13], [53, 21]);
   await page.keyboard.press("Escape");
   const p = await at(page, 20, 30);
