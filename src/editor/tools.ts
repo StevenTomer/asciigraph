@@ -55,7 +55,9 @@ type Gesture =
   | { kind: "label"; edge: Id }
   /** Dragging a bend point; `index` null until the pointer moves (then a new bend is added). */
   | { kind: "bend"; edge: Id; index: number | null; insertAt: number }
-  | { kind: "marquee"; start: Point; base: Id[] };
+  /** Rubber-band selection. `click`: the object pressed on with Ctrl/⌘ held (a marquee started
+   * inside a box): selected as usual if the pointer is released without dragging. */
+  | { kind: "marquee"; start: Point; base: Id[]; click?: { id: Id; shift: boolean }; dragged?: boolean };
 
 let gesture: Gesture | null = null;
 
@@ -88,6 +90,10 @@ const selectTool: Tool = {
       // Dragging the line of the selected connector bends it there.
       begin();
       gesture = { kind: "bend", edge: hit.edge, index: null, insertAt: bendIndex(diagram, hit.edge, p.cell) };
+    } else if ((hit.kind === "node" || hit.kind === "edge") && p.mod) {
+      // Ctrl/⌘ held from the press: draw a selection box, even inside a box or frame.
+      const id = hit.kind === "node" ? hit.node : hit.edge;
+      gesture = { kind: "marquee", start: p.cell, base: p.shift ? selection : [], click: { id, shift: p.shift } };
     } else if (hit.kind === "node" || hit.kind === "edge") {
       const id = hit.kind === "node" ? hit.node : hit.edge;
       let ids = selection;
@@ -172,6 +178,8 @@ const selectTool: Tool = {
       set(setEndpoint(d, g.edge, g.which, ep));
       setOverlay(ep.kind === "attached" ? { attach: { node: ep.node, side: ep.side === "auto" ? null : ep.side } } : {});
     } else {
+      if (!g.dragged && g.start.x === p.cell.x && g.start.y === p.cell.y) return;
+      g.dragged = true;
       const marquee = rectFromCorners(g.start, p.cell);
       setOverlay({ marquee });
       select([...new Set([...g.base, ...objectsIn(d, marquee)])]);
@@ -180,6 +188,12 @@ const selectTool: Tool = {
 
   up() {
     if (gesture && gesture.kind !== "marquee") commit();
+    // A Ctrl/⌘-click that didn't drag: select what was clicked, as a plain (or Shift-) click does.
+    if (gesture?.kind === "marquee" && gesture.click && !gesture.dragged) {
+      const { id, shift } = gesture.click;
+      const { selection } = getState();
+      select(shift ? (selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id]) : [id]);
+    }
     gesture = null;
     setOverlay({});
   },
@@ -207,6 +221,7 @@ const selectTool: Tool = {
     if (hit.kind === "endpoint") return "crosshair";
     if (hit.kind === "via" || hit.kind === "label") return "move";
     if (hit.kind === "edge" && getState().selection.length === 1 && getState().selection[0] === hit.edge) return "copy";
+    if ((hit.kind === "node" || hit.kind === "edge") && p.mod) return "crosshair"; // Ctrl/⌘: select box
     if (hit.kind === "node" || hit.kind === "edge") return "move";
     return "default";
   },

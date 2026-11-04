@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Wrap, WRAPS, exportText } from "../export/text";
+import { type ImageTheme, exportPng, exportSvg, fontBase64 } from "../export/image";
+import { type Wrap, WRAPS, exportText, subset } from "../export/text";
+import { withContents } from "../model/containment";
 import { readJson, writeJson } from "../storage/local";
 import { forgetHistory, newDiagram, renameCurrent, repo } from "../editor/session";
 import { useEditor } from "../editor/store";
@@ -30,18 +32,42 @@ function Dialog({ title, onClose, children }: { title: string; onClose: () => vo
 // ---------------------------------------------------------------------------------------------
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
-  const diagram = useEditor((s) => s.diagram);
+  const whole = useEditor((s) => s.diagram);
+  const selection = useEditor((s) => s.selection);
+  const dark = useEditor((s) => s.dark);
   const name = useEditor((s) => s.diagramName);
   // The last choices are remembered (this browser).
-  const saved = readJson<{ ascii?: boolean; kind?: Wrap["kind"]; first?: string; prefix?: string; last?: string }>("export", {});
+  const saved = readJson<{
+    ascii?: boolean; kind?: Wrap["kind"]; first?: string; prefix?: string; last?: string; theme?: ImageTheme; transparent?: boolean;
+  }>("export", {});
   const [ascii, setAscii] = useState(!!saved.ascii);
+  // With something selected, export just that (and what's inside it), unless unticked.
+  const [onlySelection, setOnlySelection] = useState(selection.length > 0);
+  const partial = onlySelection && selection.length > 0;
+  const diagram = useMemo(() => (partial ? subset(whole, withContents(whole, selection)) : whole), [whole, selection, partial]);
+  const [theme, setTheme] = useState<ImageTheme>(saved.theme ?? (dark ? "dark" : "light"));
+  const [transparent, setTransparent] = useState(!!saved.transparent);
   const [kind, setKind] = useState<Wrap["kind"]>(WRAPS.some((w) => w.kind === saved.kind) ? saved.kind! : "plain");
   const [custom, setCustom] = useState({ first: saved.first ?? "", prefix: saved.prefix ?? "-- ", last: saved.last ?? "" });
   const [note, setNote] = useState("");
   const wrap: Wrap = kind === "custom" ? { kind, ...custom } : { kind };
   const text = useMemo(() => exportText(diagram, { ascii, wrap }), [diagram, ascii, JSON.stringify(wrap)]);
-  useEffect(() => writeJson("export", { ascii, kind, ...custom }), [ascii, kind, custom]);
+  useEffect(() => writeJson("export", { ascii, kind, ...custom, theme, transparent }), [ascii, kind, custom, theme, transparent]);
   const ext = WRAPS.find((w) => w.kind === kind)!.ext;
+  const file = safeFilename(name) + (partial ? "-selection" : "");
+  const image = { ascii, theme, transparent };
+
+  const svg = async () => download(`${file}.svg`, exportSvg(diagram, image, (await fontBase64()) ?? undefined), "image/svg+xml");
+  const png = async () => download(`${file}.png`, await exportPng(diagram, image), "image/png");
+  const copyPng = async () => {
+    try {
+      // A promise for the blob keeps Safari's clipboard permission tied to the click.
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": exportPng(diagram, image) })]);
+      setNote("Copied the picture.");
+    } catch {
+      setNote("Couldn't copy the picture here; download the PNG instead.");
+    }
+  };
 
   const copy = async (value: string, what: string) => {
     try {
@@ -75,12 +101,37 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
       <div className="row">
         <span className="row-label" />
         <label><input type="checkbox" checked={ascii} onChange={(e) => setAscii(e.target.checked)} /> ASCII only</label>
+        {selection.length > 0 && (
+          <label title="Only what's selected (and what's inside selected boxes)">
+            <input type="checkbox" checked={onlySelection} onChange={(e) => setOnlySelection(e.target.checked)} aria-label="Selection only" />{" "}
+            selection only ({selection.length} selected)
+          </label>
+        )}
       </div>
       <pre className="preview" data-testid="export-text">{text || "(empty diagram)"}</pre>
       <div className="row buttons">
+        <span className="row-label">text</span>
         <button className="tb accent" onClick={() => void copy(text, "the text")} data-testid="copy-text">copy text</button>
-        <button className="tb" onClick={() => download(`${safeFilename(name)}.${ext}`, text + "\n", "text/plain")}>download .{ext}</button>
-        <button className="tb" onClick={() => downloadDiagram(name, diagram)} title="Keeps the boxes and connectors, for importing later">download .json</button>
+        <button className="tb" onClick={() => download(`${file}.${ext}`, text + "\n", "text/plain")}>download .{ext}</button>
+      </div>
+      <div className="row buttons">
+        <span className="row-label">picture</span>
+        <span className="row-items" role="group" aria-label="Picture colours">
+          {(["light", "dark"] as const).map((t) => (
+            <button key={t} className={"choice" + (theme === t ? " active" : "")} aria-pressed={theme === t} onClick={() => setTheme(t)}>{t}</button>
+          ))}
+          <label className="muted"><input type="checkbox" checked={transparent} onChange={(e) => setTransparent(e.target.checked)} /> transparent</label>
+        </span>
+      </div>
+      <div className="row buttons">
+        <span className="row-label" />
+        <button className="tb" onClick={() => void copyPng()}>copy picture</button>
+        <button className="tb" onClick={() => void png()}>download .png</button>
+        <button className="tb" onClick={() => void svg()} title="Scales without blurring; the font is included">download .svg</button>
+      </div>
+      <div className="row buttons">
+        <span className="row-label">diagram</span>
+        <button className="tb" onClick={() => downloadDiagram(partial ? `${name || "diagram"} (selection)` : name, diagram)} title="Keeps the boxes and connectors, for importing later">download .json</button>
         <button className="tb" onClick={() => void copy(shareUrl(diagram, name), "a share link")}>copy share link</button>
       </div>
       {note && <p className="note" role="status">{note}</p>}
@@ -177,8 +228,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       <p>Draw boxes, type in them, and connect them. Connectors attached to a box follow it when it moves. Export the result as plain text.</p>
       <p>Drawing tools stay on, so you can draw several boxes or connectors in a row; <Kbd>space</Kbd>, <Kbd>esc</Kbd> or <Kbd>s</Kbd> goes back to select.</p>
       <dl className="help">
-        <dt><Kbd>s</Kbd> or <Kbd>space</Kbd> select</dt><dd>click or drag a rectangle to select; drag to move; handles resize; double-click edits text (on a box's top border: its name)</dd>
-        <dt>snapping</dt><dd>moving, resizing or drawing a box lines its edges and centre up with neighbouring boxes (beside it for rows, above or below it for columns), with guides. Hold <Kbd>alt</Kbd> or <Kbd>ctrl</Kbd> while dragging to place it freely, or turn "snap" off in the toolbar</dd>
+        <dt><Kbd>s</Kbd> or <Kbd>space</Kbd> select</dt><dd>click or drag a rectangle to select (inside a box or frame: hold <Kbd>ctrl</Kbd>/<Kbd>⌘</Kbd> as you start dragging, or it moves the box); drag to move; handles resize; double-click edits text (on a box's top border: its name)</dd>
+        <dt>snapping</dt><dd>moving, resizing or drawing a box lines its edges and centre up with neighbouring boxes (beside it for rows, above or below it for columns), with guides. Hold <Kbd>alt</Kbd>, or press <Kbd>ctrl</Kbd> once dragging, to place it freely, or turn "snap" off in the toolbar</dd>
         <dt>properties panel</dt><dd>shows what's selected; click its title bar to collapse it (remembered). On a narrow screen it's a sheet along the bottom, and the drawing scrolls to keep the selection above it</dd>
         <dt>locking</dt><dd>select several things, right-click → Lock Together ▸ Horizontally (they move left–right together), Vertically (up–down) or Both. What a selected item is locked to shows with a dotted outline; Unlock (menu or properties panel) undoes it, and <Kbd>alt</Kbd>+drag moves one alone. Dragging, nudging, Align, Distribute and Auto Layout all bring lock-mates along; Auto Layout keeps boxes locked both ways together as one unit</dd>
         <dt>sequence diagrams</dt><dd>moving a lifeline up or down moves its header; messages and activation bars keep their rows. Loop/alt frames stretch with the lifelines at their edges. Notes drawn from text beside (or over) one lifeline are locked left–right to it</dd>
@@ -194,7 +245,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt><Kbd>delete</Kbd>, arrows</dt><dd>delete or nudge the selection (<Kbd>shift</Kbd>: by 5)</dd>
         <dt>from text</dt><dd>draw a message sequence, graph or folder tree from text (toolbar "from text", or right-click empty space). Accepts Mermaid (<code>sequenceDiagram</code>: <code>A-&gt;&gt;B: msg</code>, <code>--&gt;&gt;</code> replies, <code>+</code>/<code>-</code> activation, <code>Note right of A: …</code>, <code>loop</code>/<code>alt</code>/<code>else</code>/<code>end</code>; <code>flowchart TD</code>/<code>LR</code>: <code>{"A[box] -->|label| B{decision}"}</code>, <code>([start])</code>, <code>[(database)]</code>, <code>[[subroutine]]</code>, <code>[/in-out/]</code>, <code>subgraph … end</code>), a shorthand (<code>Client -&gt; API: GET /x</code>, <code>A -&gt; B -&gt; C</code>), and folder trees (<code>tree</code> output, indented names or paths). Graphs (and folder trees drawn as boxes) can be laid out top to bottom (TB) or left to right (LR): in the dialog, in the text (<code>flowchart TB</code> / <code>flowchart LR</code>), or afterwards with "layout" in the properties panel or right-click → Layout. Their connectors follow the flow (out of the bottom and into the top, or out of the right and into the left) however you drag the boxes, unless a target ends up behind its source. It stays linked: select it and "edit text" to change the text and redraw; things you've moved, resized or restyled stay put. "Unlink" makes it ordinary objects. Something you drew by hand can be edited as text too: select it and choose "Edit as Text…". Multi-line text (and lists) in a node: <code>A["line one&lt;br&gt;- item"]</code>, or a markdown string spanning lines: <code>A["`Todo:</code> … <code>- item`"]</code></dd>
         <dt>lists</dt><dd>in a box, lines starting <code>- </code>, <code>* </code> or <code>1. </code> become bullet and numbered lists; indent to nest</dd>
-        <dt>export</dt><dd>copy or download the drawing as text: plain, a Markdown code block, or a comment block for source code (C/C++ <code>//</code> or <code>/* */</code>, Python or Bash <code>#</code>, or your own first line, line prefix and last line), optionally ASCII only. Also as JSON (to import later) or a share link</dd>
+        <dt>export</dt><dd>copy or download the drawing as text: plain, a Markdown code block, or a comment block for source code (C/C++ <code>//</code> or <code>/* */</code>, Python or Bash <code>#</code>, or your own first line, line prefix and last line), optionally ASCII only. Or as a picture: PNG (download or copy) or SVG (font included), light or dark, optionally transparent. Also as JSON (to import later) or a share link. With something selected, all of these can be just the selection</dd>
         <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align, Distribute and Auto Layout (arranges boxes in layers following their connectors; on empty space it lays out the whole diagram)</dd>
         <dt><Kbd>ctrl+]</Kbd> / <Kbd>ctrl+[</Kbd></dt><dd>bring forward / send backward (with <Kbd>shift</Kbd>: to front / to back)</dd>
         <dt><Kbd>ctrl+d</Kbd></dt><dd>duplicate</dd>

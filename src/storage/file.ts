@@ -1,8 +1,8 @@
 import { isDiagram } from "../model/ops";
 import type { Diagram } from "../model/types";
 
-export function download(filename: string, content: string, type: string) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+export function download(filename: string, content: string | Blob, type: string) {
+  const url = URL.createObjectURL(typeof content === "string" ? new Blob([content], { type }) : content);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 // Helpers. Positions are in cells; the app's test bridge converts them to screen pixels.
 const at = (page, x, y) => page.evaluate(([x, y]) => window.__asciigraph__.cellCenter(x, y), [x, y]);
@@ -952,4 +953,68 @@ test.describe("properties panel", () => {
     expect(c.x + c.width).toBeGreaterThan(1180);
     if (shots) await page.screenshot({ path: `${shots}/wide-collapsed.png` });
   });
+});
+
+test("Ctrl-drag inside a box draws a selection box; Ctrl-click still selects", async ({ page }) => {
+  await box(page, [2, 4], [40, 20], "");
+  await box(page, [5, 7], [12, 10], "one");
+  await box(page, [16, 7], [23, 10], "two");
+  await box(page, [28, 7], [35, 10], "three");
+  const ids = async () => {
+    const s = await state(page);
+    return s.selection.map((id) => s.diagram.nodes[id].text).sort();
+  };
+  // A plain drag from inside the outer box would move it; with Ctrl it selects what it covers.
+  const s = await at(page, 4, 6), e = await at(page, 25, 12);
+  await page.keyboard.down("Control");
+  await page.mouse.move(s.x, s.y);
+  await page.mouse.down();
+  await page.mouse.move(e.x, e.y, { steps: 4 });
+  await page.mouse.up();
+  await page.keyboard.up("Control");
+  expect(await ids()).toEqual(["one", "two"]);
+  expect((await state(page)).diagram.nodes[Object.keys((await state(page)).diagram.nodes)[0]].rect.x).toBe(2); // nothing moved
+
+  // Ctrl-click without dragging: selects what's clicked.
+  const c = await at(page, 30, 8);
+  await page.keyboard.down("Control");
+  await page.mouse.click(c.x, c.y);
+  await page.keyboard.up("Control");
+  expect(await ids()).toEqual(["three"]);
+});
+
+test("export the selection only, and as SVG and PNG", async ({ page }) => {
+  await box(page, [2, 4], [10, 7], "keep");
+  await box(page, [20, 4], [28, 7], "drop");
+  await click(page, 5, 5);
+  await page.getByTestId("export").click();
+  const preview = page.getByTestId("export-text");
+  await expect(preview).toContainText("keep");
+  await expect(preview).not.toContainText("drop");
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/export-dialog.png` });
+  await page.getByLabel("Selection only").uncheck();
+  await expect(preview).toContainText("drop");
+  await page.getByLabel("Selection only").check();
+
+  const svgDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "download .svg" }).click();
+  const svg = await svgDownload;
+  expect(svg.suggestedFilename()).toMatch(/-selection\.svg$/);
+  const svgText = readFileSync(await svg.path(), "utf8");
+  expect(svgText).toMatch(/^<svg /);
+  expect(svgText).toContain(">keep</text>");
+  expect(svgText).not.toContain("drop");
+  expect(svgText).toContain("base64,"); // font embedded
+  if (process.env.SHOTS) await svg.saveAs(`${process.env.SHOTS}/export.svg`);
+
+  const pngDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "download .png" }).click();
+  const pngFile = await pngDownload;
+  if (process.env.SHOTS) await pngFile.saveAs(`${process.env.SHOTS}/export.png`);
+  const png = readFileSync(await pngFile.path());
+  expect([...png.subarray(1, 4)].map((b) => String.fromCharCode(b)).join("")).toBe("PNG");
+  // 2× the picture: 9 columns + padding at 2 × cell width.
+  const width = png.readUInt32BE(16);
+  const m = await page.evaluate(() => window.__asciigraph__.metrics());
+  expect(width).toBe(Math.ceil(11 * m.cw * 2));
 });
