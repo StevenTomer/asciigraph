@@ -200,18 +200,54 @@ test("tool shortcuts and text editing keys", async ({ page }) => {
   expect(await text(page)).toContain("ba d");
 });
 
-test("the box tool stays on: draw several boxes in a row", async ({ page }) => {
+test("after drawing a box, clicking away goes to select; Esc keeps the box tool for another", async ({ page }) => {
   await page.keyboard.press("b");
-  for (const x of [2, 14, 26]) {
+  await drag(page, [2, 2], [10, 4]);
+  await page.keyboard.type("one");
+  // Clicking away finishes the box and switches to select: no new box.
+  await click(page, 20, 12);
+  expect((await state(page)).tool).toBe("select");
+  expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(1);
+  expect((await state(page)).selection).toEqual([]);
+
+  // Finishing with Esc keeps the box tool on, to draw several in a row.
+  await page.keyboard.press("b");
+  for (const x of [14, 26]) {
     await drag(page, [x, 2], [x + 8, 4]);
     await page.keyboard.type(`b${x}`);
+    await page.keyboard.press("Escape"); // finish typing
+    expect((await state(page)).tool).toBe("box");
   }
-  await page.keyboard.press("Escape"); // finish typing
-  expect((await state(page)).tool).toBe("box");
   expect(Object.keys((await state(page)).diagram.nodes)).toHaveLength(3);
   expect(await text(page)).toContain("b26");
   await page.keyboard.press("Escape"); // back to select
   expect((await state(page)).tool).toBe("select");
+
+  // Clicking away onto a box selects it.
+  await page.keyboard.press("b");
+  await drag(page, [2, 8], [10, 10]);
+  await page.keyboard.type("four");
+  await click(page, 6, 3);
+  const s = await state(page);
+  expect(s.tool).toBe("select");
+  expect(s.selection.map((id) => s.diagram.nodes[id].text)).toEqual(["one"]);
+});
+
+test("normalize sizes and shrink to text, from the right-click menu", async ({ page }) => {
+  await box(page, [2, 2], [10, 4], "a");
+  await box(page, [14, 2], [34, 8], "longer text");
+  await page.keyboard.press("Control+a");
+  const r = await at(page, 20, 5);
+  await page.mouse.click(r.x, r.y, { button: "right" });
+  await page.getByRole("menuitem", { name: /Normalize Size/ }).hover();
+  await page.getByRole("menuitem", { name: /^Width/ }).click();
+  const rects = async () => Object.values((await state(page)).diagram.nodes).map((n) => [n.rect.w, n.rect.h]);
+  expect(await rects()).toEqual([[21, 3], [21, 7]]);
+
+  await page.mouse.click(r.x, r.y, { button: "right" });
+  await page.getByRole("menuitem", { name: /Shrink to Text/ }).click();
+  expect(await rects()).toEqual([[5, 3], [15, 3]]);
+  expect(await text(page)).toContain("│ longer text │");
 });
 
 test("boxes inside a box move with it; alt-drag or 'stays put' moves it alone", async ({ page }) => {

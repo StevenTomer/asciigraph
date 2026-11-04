@@ -1,6 +1,6 @@
 import { eq } from "../geometry/geom";
 import { hitTest } from "./hitTest";
-import { cancel, finishEditing, getState, select, setMenu, setView } from "./store";
+import { cancel, finishEditing, getState, select, setMenu, setTool, setView } from "./store";
 import { type PointerInfo, TOOL_IMPL } from "./tools";
 import { screenToCell, zoomAt } from "./view";
 
@@ -65,7 +65,11 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
       return;
     }
     if (e.button !== 0) return;
+    // Clicking away from a box just drawn (its text being typed) finishes it and goes back to
+    // select, rather than starting another box; the click then selects as usual.
+    const typingNewBox = !!getState().editing && getState().tool === "box";
     finishEditing();
+    if (typingNewBox) setTool("select");
     toolActive = true;
     lastCell = p.cell;
     tool().down(p);

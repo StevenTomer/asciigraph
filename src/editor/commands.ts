@@ -4,6 +4,7 @@ import {
 } from "../model/arrange";
 import { autoLayout } from "../model/layout";
 import { lockTogether, locksOf, unlock } from "../model/locks";
+import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
 import { bringToFront, updateEdge } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
@@ -13,6 +14,16 @@ import { apply, getState, openTextDialog, select, startEditing } from "./store";
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? "⌘" : "Ctrl+";
 const shift = isMac ? "⇧" : "Shift+";
+
+/** "Normalize Size": make the selected boxes as wide and/or tall as the largest of them. */
+export const normalizeMenu = (ids: Id[]): MenuItem => ({
+  label: "Normalize Size",
+  submenu: [
+    { label: "Width", hint: "as the widest", run: () => apply((dd) => sameSize(dd, ids, { w: true, h: false })) },
+    { label: "Height", hint: "as the tallest", run: () => apply((dd) => sameSize(dd, ids, { w: false, h: true })) },
+    { label: "Both", hint: "as the largest", run: () => apply((dd) => sameSize(dd, ids, { w: true, h: true })) },
+  ],
+});
 
 export interface MenuItem {
   label: string;
@@ -119,6 +130,16 @@ export function contextMenu(at: Point): MenuEntry[] {
       // A graph drawn from text gets "Layout" (below), which lays it out from its text instead.
       ...(linkedLayout ? [] : [layoutMenu(nodes)]),
     );
+  }
+  // Sizes: all the same (as the largest), or each fitted to its text.
+  if (nodes.length) {
+    entries.push("separator");
+    if (nodes.length >= 2) entries.push(normalizeMenu(nodes));
+    const fits = canShrinkToText(d, nodes);
+    entries.push({
+      label: "Shrink to Text", run: () => apply((dd) => shrinkToText(dd, nodes)),
+      disabled: !fits, hint: fits ? undefined : "already fits",
+    });
   }
   // Locks: move together left–right, up–down, or both.
   const locked = nodes.some((id) => locksOf(d, id).length);

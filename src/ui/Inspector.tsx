@@ -7,6 +7,7 @@ import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
 import { apply, begin, commit, getState, openTextDialog, select, set, setPrefs, useEditor } from "../editor/store";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
+import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
 
 const BORDERS: [BorderStyle, string][] = [
   ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"],
@@ -145,6 +146,22 @@ export function Inspector() {
                 </Row>
               )}
             </>
+          )}
+          <Row label="size">
+            <Choice
+              active={false}
+              disabled={!canShrinkToText(diagram, nodes.map((n) => n.id))}
+              onClick={() => apply((d) => shrinkToText(d, nodes.map((n) => n.id)))}
+              title="The smallest size that shows the text without wrapping"
+            >
+              shrink to text
+            </Choice>
+          </Row>
+          {nodes.length > 1 && (
+            <Row label="">
+              <Choice active={false} onClick={() => apply((d) => sameSize(d, nodes.map((n) => n.id), { w: true, h: false }))} title="Normalize: all as wide as the widest">same width</Choice>
+              <Choice active={false} onClick={() => apply((d) => sameSize(d, nodes.map((n) => n.id), { w: false, h: true }))} title="Normalize: all as tall as the tallest">same height</Choice>
+            </Row>
           )}
           <Row label="order">
             <Choice active={false} onClick={arrange.sendToBack} title="Send to Back (Ctrl+Shift+[)">to back</Choice>
