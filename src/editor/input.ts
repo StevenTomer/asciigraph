@@ -65,11 +65,12 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
       return;
     }
     if (e.button !== 0) return;
-    // Clicking away from a box just drawn (its text being typed) finishes it and goes back to
-    // select, rather than starting another box; the click then selects as usual.
-    const typingNewBox = !!getState().editing && getState().tool === "box";
+    // Clicking away from something just made with a drawing tool (its text being typed: a box,
+    // a label) finishes it and goes back to select, rather than making another; the click then
+    // selects as usual.
+    const typingNew = !!getState().editing && getState().tool !== "select";
     finishEditing();
-    if (typingNewBox) setTool("select");
+    if (typingNew) setTool("select");
     toolActive = true;
     lastCell = p.cell;
     tool().down(p);

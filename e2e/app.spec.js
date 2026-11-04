@@ -233,6 +233,29 @@ test("after drawing a box, clicking away goes to select; Esc keeps the box tool 
   expect(s.selection.map((id) => s.diagram.nodes[id].text)).toEqual(["one"]);
 });
 
+test("after a label or connector, clicking away goes to select", async ({ page }) => {
+  // Text: type a label, click away: done, in select, and no second label.
+  await page.keyboard.press("t");
+  await click(page, 4, 4);
+  await page.keyboard.type("note");
+  await click(page, 20, 12);
+  let s = await state(page);
+  expect(s.tool).toBe("select");
+  expect(Object.values(s.diagram.nodes).map((n) => n.text)).toEqual(["note"]);
+
+  // Arrow and line: draw one (the tool stays on for another), then a click on empty space.
+  for (const key of ["a", "l"]) {
+    await page.keyboard.press(key);
+    await drag(page, [4, 16], [20, 16]);
+    expect((await state(page)).tool).not.toBe("select");
+    await click(page, 30, 20);
+    s = await state(page);
+    expect(s.tool).toBe("select");
+    expect(s.selection).toEqual([]);
+  }
+  expect(Object.keys((await state(page)).diagram.edges)).toHaveLength(2);
+});
+
 test("normalize sizes and shrink to text, from the right-click menu", async ({ page }) => {
   await box(page, [2, 2], [10, 4], "a");
   await box(page, [14, 2], [34, 8], "longer text");

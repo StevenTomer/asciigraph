@@ -322,7 +322,7 @@ const boxTool: Tool = {
 
 // ---------------------------------------------------------------------------------------------
 // Arrow / line: drag from one place to another; ends attach to nodes they start or end on.
-// Clicking (without dragging) a box or connector selects it and switches to select, as in box mode.
+// Clicking (without dragging) switches to select, selecting the box or connector clicked, if any.
 // ---------------------------------------------------------------------------------------------
 
 let drawing: { id: Id; start: Point; over: Id | null } | null = null;
@@ -379,9 +379,11 @@ function connectorTool(arrow: boolean): Tool {
       const byRow = !!fromNode && !!shapeOf(fromNode).attachByRow;
       if (eq(start, p.cell) || (selfLoop && !byRow)) {
         cancel();
-        if (eq(start, p.cell) && over) {
+        // A click without a drag goes back to select: selecting what was clicked, or (on empty
+        // space) nothing, as clicking away does after the other drawing tools.
+        if (eq(start, p.cell)) {
           setTool("select");
-          select([over]);
+          select(over ? [over] : []);
         }
         return;
       }
