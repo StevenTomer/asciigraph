@@ -368,3 +368,16 @@ it("draws Mermaid's crosses and open arrows, and keeps them through edits", () =
   expect(edgeByKey(again, "m:A>B#1").heads).toEqual({ end: "cross" });
   expect(edgeByKey(again, "m:A>B#2").heads).toEqual({ end: "triangle" });
 });
+
+it("lines connectors up straight wherever the drawing is placed (odd and even columns)", () => {
+  const text = `flowchart TD
+    B[Read order] --> C{In stock?}
+    C -->|yes| D[[Ship it]]
+    C -->|no| E[(Backorders)]`;
+  for (let x = 0; x < 6; x++) {
+    const { diagram } = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x, y: 0 });
+    for (const r of rasterize(diagram).edges.values()) {
+      expect(new Set(r.cells.map((c) => c.x)).size, `at x ${x}`).toBe(1);
+    }
+  }
+});

@@ -1,5 +1,5 @@
 import {
-  type Point, type Rect, type Side, SIDES, STEP, add, bottom, contains, key, right,
+  type Point, type Rect, type Side, OPPOSITE, SIDES, STEP, add, bottom, contains, key, right,
 } from "../geometry/geom";
 import type { Diagram, Edge, Endpoint, Node } from "../model/types";
 import { within } from "../model/containment";
@@ -33,15 +33,24 @@ function refRect(d: Diagram, ep: Endpoint): Rect | null {
   return d.nodes[ep.node]?.rect ?? null;
 }
 
-/** The cells an end could line up with: inside the border for a node (where it can attach), so
- * two auto ends facing each other pick the same column/row and the connector runs straight. */
-function alignRect(d: Diagram, ep: Endpoint): Rect | null {
+/**
+ * The cells an end on `side` could line up with at the other end: where a connector can attach
+ * on the other node's facing side (its side range: a decision's slanted top is narrower than the
+ * box), or inside the border. Both ends then work from the same overlap, pick the same
+ * column/row, and the connector runs straight.
+ */
+function alignRect(d: Diagram, ep: Endpoint, side: Side): Rect | null {
   if (ep.kind === "free") return { x: ep.at.x, y: ep.at.y, w: 1, h: 1 };
   const n = d.nodes[ep.node];
   if (!n) return null;
   const r = n.rect;
-  if (!shapeOf(n).hasBorder(n)) return r;
-  return { x: r.x + (r.w > 2 ? 1 : 0), y: r.y + (r.h > 2 ? 1 : 0), w: Math.max(1, r.w - 2), h: Math.max(1, r.h - 2) };
+  const shape = shapeOf(n);
+  const inner = shape.hasBorder(n)
+    ? { x: r.x + (r.w > 2 ? 1 : 0), y: r.y + (r.h > 2 ? 1 : 0), w: Math.max(1, r.w - 2), h: Math.max(1, r.h - 2) }
+    : r;
+  const [lo, hi] = shape.sideRange(n, OPPOSITE[side]);
+  if (hi < lo) return inner;
+  return side === "top" || side === "bottom" ? { ...inner, x: lo, w: hi - lo + 1 } : { ...inner, y: lo, h: hi - lo + 1 };
 }
 
 /**
@@ -119,7 +128,7 @@ export function resolveEndpoint(d: Diagram, ep: Endpoint, other: Endpoint): Anch
   const side = ep.side !== "auto" ? ep.side
     : ep.prefer && ahead(node.rect, otherRect, ep.prefer) ? ep.prefer
     : allowedSide(node, facingSide(node.rect, otherRect), refRect(d, other));
-  return anchorFor(node, side, ep.offset, alignRect(d, other));
+  return anchorFor(node, side, ep.offset, alignRect(d, other, side));
 }
 
 /**
@@ -258,6 +267,5 @@ function sideOptions(d: Diagram, ep: Endpoint, other: Endpoint): Anchor[] | null
   if (ep.kind !== "attached" || ep.side !== "auto") return null;
   const node = d.nodes[ep.node];
   if (!node) return null;
-  const otherRect = alignRect(d, other);
-  return (shapeOf(node).sides ?? SIDES).map((side) => anchorFor(node, side, ep.offset, otherRect));
+  return (shapeOf(node).sides ?? SIDES).map((side) => anchorFor(node, side, ep.offset, alignRect(d, other, side)));
 }
