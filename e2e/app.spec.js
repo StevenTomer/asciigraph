@@ -942,6 +942,35 @@ test("export shows the width, warns past a limit, and offers top to bottom", asy
   await expect(width).toHaveText("12 columns");
 });
 
+test("find text: Ctrl+F, Enter to step through, all to select every match", async ({ page }) => {
+  await box(page, [2, 2], [14, 4], "orders");
+  await box(page, [40, 2], [52, 4], "billing");
+  await box(page, [60, 30], [74, 32], "old orders");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+f");
+  const find = page.getByRole("search", { name: "Find" });
+  await find.getByLabel("Find text").fill("ORDER");
+  await expect(find.getByTestId("find-count")).toHaveText("1 of 2");
+  const textOf = async () => {
+    const s = await state(page);
+    return s.selection.map((id) => s.diagram.nodes[id].text);
+  };
+  expect(await textOf()).toEqual(["orders"]);
+  await find.getByLabel("Find text").press("Enter");
+  await expect(find.getByTestId("find-count")).toHaveText("2 of 2");
+  expect(await textOf()).toEqual(["old orders"]);
+  // Scrolled into view.
+  const p = await at(page, 67, 31);
+  expect(p.x).toBeLessThan(page.viewportSize().width);
+  expect(p.y).toBeLessThan(page.viewportSize().height);
+  await find.getByRole("button", { name: "all" }).click();
+  expect((await textOf()).sort()).toEqual(["old orders", "orders"]);
+  await find.getByLabel("Find text").fill("zzz");
+  await expect(find.getByTestId("find-count")).toHaveText("no matches");
+  await find.getByLabel("Find text").press("Escape");
+  await expect(find).toHaveCount(0);
+});
+
 test("markdown lists in a box", async ({ page }) => {
   await page.keyboard.press("b");
   await drag(page, [2, 2], [26, 4]);

@@ -138,6 +138,20 @@ function selectionBounds(): Rect | null {
   return union(rects);
 }
 
+/** If the selection isn't all on screen (clear of the toolbar and the panel), center it there,
+ * at the same zoom. */
+export function showSelection() {
+  const b = selectionBounds();
+  if (!b) return;
+  const { w, h } = canvasSize();
+  const right = w > 640 ? w - 316 : w, top = 60, bottom = w > 640 ? h : h * 0.55;
+  const s = rectToScreen(b);
+  if (s.x >= 8 && s.y >= top && s.x + s.w <= right - 8 && s.y + s.h <= bottom - 8) return;
+  const v = getState().view;
+  const cx = (b.x + b.w / 2) * metrics.cw, cy = (b.y + b.h / 2) * metrics.ch;
+  setView({ ...v, x: cx - right / 2 / v.zoom, y: cy - (top + bottom) / 2 / v.zoom });
+}
+
 /**
  * Scroll up or down so the selection is visible between `top` and `bottom` (screen px): used
  * when the properties sheet opens over it on a narrow screen. Moves as little as it can; if the

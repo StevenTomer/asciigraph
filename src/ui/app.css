@@ -303,6 +303,25 @@ html, body, #root {
   width: 7em;
 }
 
+/* Find */
+.find {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--color-bg-raised);
+  border: var(--border);
+  z-index: 5;
+  max-width: calc(100% - 16px);
+}
+.find .field {
+  width: 14em;
+}
+
 /* Stamps */
 .stamp-list {
   list-style: none;

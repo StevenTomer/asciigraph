@@ -53,6 +53,8 @@ export interface EditorState {
   textDialog: { sourceId: Id | null; adopt?: Id[] } | null;
   /** The stamps dialog: to insert one, or (with `save`) to save these objects as one. */
   stampsDialog: { save: Id[] | null } | null;
+  /** The find box is open. */
+  findOpen: boolean;
   /** The right-click menu: where it opened (screen px) and the cell under it. */
   menu: { x: number; y: number; cell: { x: number; y: number } } | null;
 }
@@ -79,6 +81,7 @@ export const useEditor = create<EditorState>(() => ({
   menu: null,
   textDialog: null,
   stampsDialog: null,
+  findOpen: false,
 }));
 
 export const getState = useEditor.getState;
@@ -203,6 +206,14 @@ export function openTextDialog(sourceId: Id | null, adopt?: Id[]) {
 
 export function openStampsDialog(save: Id[] | null = null) {
   setState({ stampsDialog: { save }, menu: null });
+}
+
+export function openFind() {
+  setState({ findOpen: true, menu: null });
+}
+
+export function closeFind() {
+  setState({ findOpen: false });
 }
 
 export function closeStampsDialog() {

@@ -27,6 +27,10 @@
   scroll, or pinch, to zoom.
 - **Properties panel** (right): the settings of whatever is selected. Changes apply to everything
   selected. Click its title bar to collapse it to a tab; that's remembered.
+- **Find** (toolbar, or <kbd>Ctrl</kbd>+<kbd>F</kbd>): type to search the text of boxes (and their
+  names) and connectors (labels and end labels), in any case. It shows "1 of 3"; <kbd>Enter</kbd>
+  goes to the next match (<kbd>Shift</kbd>+<kbd>Enter</kbd> the one before), selecting it and
+  scrolling it into view; **all** selects every match. <kbd>Esc</kbd> closes it.
 - **Zoom controls** (bottom right): zoom out and in, back to 100%, **fit** to show the whole
   diagram, and, with something selected, **selection** to zoom in on it (also right-click →
   **Zoom to Selection**).
@@ -718,6 +722,7 @@ On a Mac, use <kbd>⌘</kbd> for <kbd>Ctrl</kbd>.
 | <kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> / <kbd>Ctrl</kbd>+<kbd>0</kbd> | zoom in, zoom out, 100% |
 | <kbd>Shift</kbd>+<kbd>1</kbd> | zoom to fit |
 | <kbd>Shift</kbd>+<kbd>2</kbd> | zoom to the selection |
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> | find text |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | in the draw from text dialog: draw or update |
 
 While dragging:

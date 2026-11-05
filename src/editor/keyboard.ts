@@ -4,7 +4,7 @@ import { deleteSelection, duplicateCommand } from "./clipboard";
 import { arrange, selectAll } from "./commands";
 import { keys } from "./input";
 import {
-  type ToolId, apply, getState, redo, select, setOverlay, setTool, startEditing, undo,
+  type ToolId, apply, getState, openFind, redo, select, setOverlay, setTool, startEditing, undo,
 } from "./store";
 import { TOOLS } from "./tools";
 import { zoomReset, zoomStep, zoomToFit, zoomToSelection } from "./view";
@@ -32,6 +32,9 @@ export function attachKeyboard(): () => void {
         e.preventDefault();
       } else if (k === "a") {
         selectAll();
+        e.preventDefault();
+      } else if (k === "f") {
+        openFind();
         e.preventDefault();
       } else if (k === "=" || k === "+" || k === "-" || k === "0") {
         // Zoom the drawing, not the page.
