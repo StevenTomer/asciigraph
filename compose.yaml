@@ -7,3 +7,4 @@ services:
     ports:
       - "${ASCIIGRAPH_PORT:-8080}:8080"
     restart: unless-stopped
+

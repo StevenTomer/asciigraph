@@ -5,9 +5,11 @@
   "description": "Object-based ASCII/Unicode diagram editor: boxes, text and connectors, rendered as text.",
   "license": "MIT",
   "type": "module",
+  "bin": { "asciigraph": "cli/asciigraph.mjs" },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:cli": "vite build -c vite.cli.config.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

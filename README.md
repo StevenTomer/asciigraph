@@ -54,6 +54,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
 - **Export:** Text (plain, a Markdown code block, or a comment block for C, Python, shell or your
   own style; Unicode or ASCII only), PNG and SVG pictures (light or dark), JSON, or a share link.
   Export the whole diagram or just the selection.
+- **Command line:** draw text into text in scripts and build steps, or keep the drawings in a
+  Markdown file up to date with the Mermaid beside them.
 - **No server, no account.** Diagrams are kept in your browser, and undo history survives a
   reload.
 - **Phones too:** The properties panel becomes a bottom sheet, and you can pinch to zoom.
@@ -131,6 +133,56 @@ Diagrams are saved in your browser (localStorage), not in the container. The con
 no data, so you can rebuild or replace it without losing anything. But a diagram saved at
 http://localhost:8080 isn't visible at another address (another host or port). To move one
 across, export it as JSON or a share link.
+
+## Command line
+
+The same drawing works from the command line, for scripts, build steps and editors. Build the
+command-line image once, from the asciigraph folder:
+
+```bash
+docker build --target cli -t asciigraph-cli .
+```
+
+Then, from any folder:
+
+```bash
+docker run --rm -v "$PWD:/data" asciigraph-cli flow.mmd          # draw a file
+docker run --rm -v "$PWD:/data" asciigraph-cli flow.mmd --lr --ascii
+docker run --rm -i asciigraph-cli < flow.mmd                     # or standard input
+```
+
+In Windows PowerShell, write `${PWD}` for `$PWD`, and pipe input in with
+`Get-Content flow.mmd | docker run --rm -i asciigraph-cli`.
+
+It reads Mermaid, the shorthand and folder trees, like **from text**, and also diagrams saved from
+the app (**download .json**) and share links. What it can do:
+
+- `asciigraph flow.mmd`: draw it. `--lr` or `--td` sets a graph's direction, `--boxes` draws a
+  folder tree as boxes, `--ascii` uses ASCII only, and `--wrap markdown` (or `c-line`, `c-block`,
+  `python`, `bash`) wraps it for pasting. `-o FILE` writes it to a file.
+- `asciigraph markdown README.md --write`: after every ` ```mermaid ` block in a Markdown file,
+  put its drawing in a ` ```text ` block. Run it again after editing the Mermaid and the drawings
+  are updated in place. Without `--write` it prints the result.
+- `asciigraph mermaid diagram.json`: write Mermaid for a diagram saved from the app.
+- `asciigraph --help` lists everything.
+
+On Linux, if it can't read or write your files ("permission denied"), run it as yourself: add
+`--user "$(id -u):$(id -g)"` with Docker, or `--userns=keep-id` with Podman. Where SELinux is on
+(Fedora, RHEL), also add `:Z` to the mount: `-v "$PWD:/data:Z"`. Docker Desktop on Windows and
+Mac needs neither.
+
+### Without Docker
+
+With Node.js 22, in the asciigraph folder:
+
+```bash
+npm install
+npm run build:cli        # makes cli/asciigraph.mjs, a single file with no dependencies
+node cli/asciigraph.mjs flow.mmd
+npm install -g .         # optional: puts asciigraph on your PATH
+```
+
+In Vim, select some Mermaid and run `:'<,'>!asciigraph` to replace it with its drawing.
 
 ## A quick tour
 
@@ -244,6 +296,7 @@ npm run dev          # http://localhost:5173
 npm test             # unit tests (Vitest): rendering goldens, routing, ops, text parsing, sync
 npm run e2e          # build, then Playwright (first time: npx playwright install chromium)
 npm run build        # typecheck (strict) + production build into dist/ (what the image serves)
+npm run build:cli    # the command line, into cli/asciigraph.mjs
 npm run screenshots  # retake the pictures in docs/images
 ```
 

@@ -10,6 +10,7 @@
 - [Drawing from text](#drawing-from-text)
 - [Arranging](#arranging)
 - [Saving, sharing and exporting](#saving-sharing-and-exporting)
+- [The command line](#the-command-line)
 - [Phones and tablets](#phones-and-tablets)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 
@@ -372,6 +373,59 @@ file.
 
 With something selected, all of these can be just the selection (**selection only**, ticked by
 default).
+
+## The command line
+
+`asciigraph` draws text into text without the app, for scripts, build steps and editors. To set it
+up (with Docker, or with Node.js), see [Command line](../README.md#command-line) in the README.
+
+```
+asciigraph [render] [FILE] [options]   draw FILE (or standard input) as text
+asciigraph mermaid [FILE]              write Mermaid for a saved diagram
+asciigraph markdown FILE [--write]     draw every ```mermaid block in a Markdown file
+```
+
+FILE can be anything **from text** reads (Mermaid, the shorthand, a folder tree), a diagram saved
+from the app (**download .json**), or a share link. Options:
+
+| Option | What it does |
+|---|---|
+| `--kind auto\|sequence\|graph\|tree` | what the text describes (default: detected, as in the app) |
+| `--lr`, `--td` | lay a graph out left to right, or top to bottom |
+| `--boxes` | draw a folder tree as boxes and connectors |
+| `--ascii` | ASCII characters only |
+| `--wrap STYLE` | `plain`, `markdown`, `c-line` (`//`), `c-block` (`/* */`), `python` or `bash` (`#`) |
+| `-o FILE` | write to FILE instead of the screen |
+| `--write` | (`markdown`) update the file in place |
+
+Warnings (a line it couldn't read) go to standard error, so they don't end up in the drawing. It
+exits with 1 if there's nothing to draw or a file can't be read, and 2 for a mistake in the
+options.
+
+**Markdown files:** `asciigraph markdown` puts a ` ```text ` block with the drawing after each
+` ```mermaid ` block, between two comments:
+
+````
+```mermaid
+flowchart LR
+  A[Browser] --> B[API]
+```
+
+<!-- asciigraph: drawn from the mermaid block above; edit that, then run asciigraph markdown -->
+```text
+┌─────────┐          ┌─────┐
+│ Browser ├─────────►│ API │
+└─────────┘          └─────┘
+```
+<!-- /asciigraph -->
+````
+
+Edit the Mermaid and run it again: each drawing is replaced, not added again. Places that show
+Mermaid (GitHub, many editors) show the picture; everywhere else (a terminal, `cat`, a plain-text
+viewer) the drawing is there to read.
+
+**In an editor:** anything that can pipe a selection through a command can use it. In Vim, select
+some Mermaid and run `:'<,'>!asciigraph` to replace it with its drawing.
 
 ## Phones and tablets
 
