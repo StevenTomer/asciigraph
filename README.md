@@ -83,34 +83,40 @@ in the unzipped folder (`asciigraph-master`).
 
 ### Choosing the port
 
-It listens on port 8080 by default. To use another port, set `ASCIIGRAPH_PORT` when you start it:
+It listens on port 8080 by default. To use another port, set `ASCIIGRAPH_PORT` when you start it.
+By default it accepts connections from other machines too. To accept them only from this
+machine, or on one network interface, put an IP address in front of the port (`127.0.0.1:3000`).
+
+#### Mac and Linux
 
 ```bash
-ASCIIGRAPH_PORT=3000 docker compose up -d --build     # http://localhost:3000/
+ASCIIGRAPH_PORT=3000 docker compose up -d --build            # http://localhost:3000/
+ASCIIGRAPH_PORT=127.0.0.1:3000 docker compose up -d --build  # this machine only
 ```
 
-By default it accepts connections from other machines too. To accept them only from this machine,
-or on one network interface, put an IP address in front of the port:
+The setting applies to that one command. Compose only reads it when it creates the container,
+so include it each time you run `up`.
 
-```bash
-ASCIIGRAPH_PORT=127.0.0.1:3000 docker compose up -d --build
-```
-
-Those lines are for Mac and Linux. In Windows PowerShell, set it first:
+#### Windows (PowerShell)
 
 ```powershell
-$env:ASCIIGRAPH_PORT="3000"; docker compose up -d --build
+$env:ASCIIGRAPH_PORT="3000"; docker compose up -d --build            # http://localhost:3000/
+$env:ASCIIGRAPH_PORT="127.0.0.1:3000"; docker compose up -d --build  # this machine only
 ```
 
-Compose only reads the setting when it creates the container, so set it each time you run
-`up`. Or, on any system, put it in a file named `.env` next to `compose.yaml`, and compose will
-read it every time:
+The setting lasts until you close that PowerShell window, so set it again in a new one before
+running `up`.
+
+#### Any system: a `.env` file
+
+To set the port once and for all, put it in a file named `.env` next to `compose.yaml`. Compose
+reads it every time:
 
 ```
 ASCIIGRAPH_PORT=3000
 ```
 
-Without compose:
+Without compose (the same on every system):
 
 ```bash
 docker build -t asciigraph .

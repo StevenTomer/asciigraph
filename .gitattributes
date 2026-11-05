@@ -1,0 +1,6 @@
+# Keep LF line endings on every system, including Windows checkouts: the files are copied into a
+# Linux container, and the golden-text tests compare exact output.
+* text=auto eol=lf
+
+*.png   binary
+*.woff2 binary
