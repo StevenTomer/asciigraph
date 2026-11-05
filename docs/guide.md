@@ -222,7 +222,7 @@ Text…**. That writes Mermaid for it and links the two, so from then on you can
 
 ### Message sequences
 
-Mermaid's `sequenceDiagram`:
+Mermaid's `sequenceDiagram` ([Mermaid's documentation](https://mermaid.js.org/syntax/sequenceDiagram.html)):
 
 ```
 sequenceDiagram
@@ -264,7 +264,8 @@ API --> Web App: 200 OK
 
 ### Graphs and flowcharts
 
-Mermaid's `flowchart` (or `graph`), `TD`/`TB` (top to bottom) or `LR` (left to right):
+Mermaid's `flowchart` (or `graph`), `TD`/`TB` (top to bottom) or `LR` (left to right)
+([Mermaid's documentation](https://mermaid.js.org/syntax/flowchart.html)):
 
 ```
 flowchart TD

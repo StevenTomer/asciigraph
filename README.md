@@ -42,7 +42,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   lifelines and activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
   diamond, dot, circle, cross, bar); labels; bend points; and a turn point you can drag.
-- **Draw from text:** Mermaid sequence diagrams and flowcharts, a looser shorthand
+- **Draw from text:** [Mermaid](https://mermaid.js.org/) [sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html) and
+  [flowcharts](https://mermaid.js.org/syntax/flowchart.html), a looser shorthand
   (`Client -> API: GET /x`, `A -> B -> C`), and folder trees. The drawing stays linked to the
   text: edit the text and it redraws, keeping what you've moved or restyled. A hand-drawn diagram
   can be turned into Mermaid too.
