@@ -51,6 +51,9 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   (`Client -> API: GET /x`, `A -> B -> C`), and folder trees. The drawing stays linked to the
   text: edit the text and it redraws, keeping what you've moved or restyled. A hand-drawn diagram
   can be turned into Mermaid too.
+- **Existing drawings:** paste a diagram someone drew as text (box-drawing characters or `+--+`
+  ASCII) and it becomes boxes and connectors you can move. Sequence diagrams come back as
+  lifelines and messages.
 - **Arranging:** Snapping with guides, align and distribute, Auto Layout, locking boxes together,
   matching sizes, and shrinking a box to fit its text.
 - **Markdown lists** in boxes: bullets, numbering, nesting, and wrapped lines that hang under the
@@ -167,7 +170,10 @@ the app (**download .json**) and share links. What it can do:
 - `asciigraph markdown README.md --write`: after every ` ```mermaid ` block in a Markdown file,
   put its drawing in a ` ```text ` block. Run it again after editing the Mermaid and the drawings
   are updated in place. Without `--write` it prints the result.
-- `asciigraph mermaid diagram.json`: write Mermaid for a diagram saved from the app.
+- `asciigraph mermaid diagram.json`: write Mermaid for a diagram saved from the app, or for an
+  existing drawing (`asciigraph mermaid old.txt`).
+- `asciigraph import old.txt -o old.json`: read an existing drawing into a diagram the app can
+  import, to edit it as objects.
 - `asciigraph --help` lists everything.
 
 On Linux, if it can't read or write your files ("permission denied"), run it as yourself: add

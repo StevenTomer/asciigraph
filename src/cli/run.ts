@@ -2,6 +2,7 @@ import { emptyDiagram, isDiagram } from "../model/ops";
 import type { Diagram, SourceKind } from "../model/types";
 import { decodeShare } from "../storage/share";
 import { exportText, type Wrap, WRAPS } from "../export/text";
+import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
 import { drawSource } from "../text/sync";
@@ -27,16 +28,18 @@ export const USAGE = `asciigraph: draw diagrams as text.
 
 Usage:
   asciigraph [render] [FILE] [options]   draw FILE (or standard input) as text
-  asciigraph mermaid [FILE]              write Mermaid for a saved diagram
+  asciigraph mermaid [FILE]              write Mermaid for a saved diagram or a drawing
+  asciigraph import [FILE]               read a drawing into a diagram (.json) for the app
   asciigraph markdown FILE [--write]     draw every \`\`\`mermaid block in a Markdown file
 
 FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram), the
-shorthand (A -> B: message, A -> B -> C),
+shorthand (A -> B: message, A -> B -> C), a drawing (box-drawing or +--+ ASCII text),
 a folder tree, a diagram saved from the app (.json), or a share link. Without FILE, or with "-",
 it reads standard input.
 
 Options:
-  --kind auto|sequence|graph|tree   what the text describes (default: detected)
+  --kind auto|sequence|graph|tree|drawing
+                                    what the text is (default: detected)
   --lr, --td                        lay graphs out left to right, or top to bottom
   --boxes                           draw folder trees as boxes and connectors
   --ascii                           ASCII characters only (+ - | instead of box drawing)
@@ -48,12 +51,13 @@ Options:
 Examples:
   asciigraph flow.mmd
   echo 'Client -> API: GET /users' | asciigraph
+  asciigraph import old-diagram.txt -o diagram.json
   asciigraph markdown README.md --write`;
 
 interface Options {
-  command: "render" | "mermaid" | "markdown";
+  command: "render" | "mermaid" | "markdown" | "import";
   file: string | null;
-  kind: SourceKind | "auto";
+  kind: SourceKind | "auto" | "drawing";
   direction?: "down" | "right";
   boxes: boolean;
   ascii: boolean;
@@ -78,7 +82,7 @@ function parseArgs(args: string[]): Options | "help" {
     if (a === "-h" || a === "--help" || a === "help") return "help";
     else if (a === "--kind") {
       const k = value(a);
-      if (!["auto", "sequence", "graph", "tree"].includes(k)) throw new UsageError(`unknown kind "${k}"`);
+      if (!["auto", "sequence", "graph", "tree", "drawing"].includes(k)) throw new UsageError(`unknown kind "${k}"`);
       o.kind = k as Options["kind"];
     } else if (a === "--lr") o.direction = "right";
     else if (a === "--td" || a === "--tb") o.direction = "down";
@@ -91,7 +95,7 @@ function parseArgs(args: string[]): Options | "help" {
     } else if (a === "-o" || a === "--output") o.output = value(a);
     else if (a === "--write") o.write = true;
     else if (a.startsWith("-") && a !== "-") throw new UsageError(`unknown option ${a}`);
-    else if (positional === 0 && (a === "render" || a === "mermaid" || a === "markdown")) {
+    else if (positional === 0 && (a === "render" || a === "mermaid" || a === "markdown" || a === "import")) {
       o.command = a;
       positional++;
     } else if (o.file === null) {
@@ -123,6 +127,10 @@ function savedDiagram(input: string): Diagram | null {
 export function toDiagram(input: string, o: Pick<Options, "kind" | "direction" | "boxes">): { diagram: Diagram; warnings: string[] } {
   const saved = savedDiagram(input);
   if (saved) return { diagram: saved, warnings: [] };
+  if (o.kind === "drawing" || (o.kind === "auto" && looksLikeDrawing(input))) {
+    const r = importAscii(input);
+    return { diagram: r.diagram, warnings: r.warnings };
+  }
   const kind = o.kind === "auto" ? detectKind(input) : o.kind;
   const options = { direction: o.direction, treeStyle: o.boxes ? "boxes" as const : "text" as const };
   const r = drawSource(emptyDiagram(), { kind, text: input, options }, { x: 0, y: 0 });
@@ -138,8 +146,8 @@ function render(input: string, o: Options): { text: string; warnings: string[] }
 }
 
 function mermaid(input: string): string {
-  const d = savedDiagram(input);
-  if (!d) throw new Error("mermaid needs a diagram saved from the app (.json) or a share link");
+  const d = savedDiagram(input) ?? (looksLikeDrawing(input) ? importAscii(input).diagram : null);
+  if (!d) throw new Error("mermaid needs a diagram saved from the app (.json), a share link, or a drawing");
   const sources = Object.values(d.sources ?? {});
   const ids = [...d.order, ...Object.keys(d.edges)];
   // Drawn from one text and nothing else: that text is the answer.
@@ -221,6 +229,12 @@ export function cliRun(args: string[], io: CliIO): CliResult {
     let text: string;
     let warnings: string[] = [];
     if (o.command === "mermaid") text = mermaid(input);
+    else if (o.command === "import") {
+      const r = toDiagram(input, { ...o, kind: o.kind === "auto" ? "drawing" : o.kind });
+      if (isEmpty(r.diagram)) throw new Error("nothing to draw");
+      text = JSON.stringify({ name: o.file && o.file !== "-" ? o.file.replace(/^.*[\\/]/, "").replace(/\.[^.]*$/, "") : "Imported", diagram: r.diagram }, null, 1);
+      warnings = r.warnings;
+    }
     else if (o.command === "markdown") {
       const r = renderMarkdown(input, o);
       text = r.text;

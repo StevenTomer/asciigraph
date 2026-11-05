@@ -435,6 +435,42 @@ bottom or left to right.
 
 ![A folder tree drawn as boxes](images/tree.png)
 
+### Existing drawings (ASCII art)
+
+A diagram someone already drew as text, in box-drawing characters or `+--+` ASCII, can be read
+back into objects you can move and restyle. Paste it onto the canvas (<kbd>Ctrl</kbd>+<kbd>V</kbd>),
+or into **from text**, where it's detected as **ASCII art**. It isn't linked to the text
+afterwards: it's ordinary objects (right-click → **Edit as Text…** links them to Mermaid if you
+want that).
+
+```
++--------+      +--------+
+| Client | ---> | Server |
++--------+      +--------+
+```
+
+What it recognizes:
+
+- **Boxes:** single, double, heavy, rounded, dashed, dotted and ASCII borders, with a name in the
+  top border (`┌─ API ──┐`). A named box with nothing in it, or one holding only other boxes,
+  becomes a frame.
+- **Shapes** as asciigraph draws them: decisions (`< >`), input/output (`╱ ╱`), start/end
+  (`( )`), databases (a rim under the top), subroutines (`│ │ … │ │`), notes (a folded corner),
+  and class boxes (full-width `├──┤` rows divide them).
+- **Connectors:** lines between boxes, attached to the side they touch, with their heads
+  (`► ▷ ◆ ◊ ● ○ ×` and `> < ^ v`), line style, and a label in a gap in the line (`── yes ──►`)
+  or just beside a vertical one. A line a space or two short of a box (as ASCII often is) still
+  attaches. A line that branches (one trunk to several boxes) becomes a connector per branch.
+- **Sequence diagrams:** a three-row box with a line straight down from it is a lifeline (with
+  its activation bars); arrows between lifelines are messages at their rows.
+- **Text:** inside a box it's the box's text, with its alignment read from the margins; outside,
+  free labels.
+
+Connectors route themselves, the same way as ones you draw; where that would come out
+differently from the drawing, they keep the drawn positions and bends. Anything drawn by
+asciigraph reads back exactly as it was. Not recognized: document shapes (the wavy bottom), and
+lines dividing a box into columns (a table), which are left out.
+
 ## Arranging
 
 Right-click shows what applies to what's under the pointer and the selection.
@@ -481,16 +517,19 @@ up (with Docker, or with Node.js), see [Command line](../README.md#command-line)
 
 ```
 asciigraph [render] [FILE] [options]   draw FILE (or standard input) as text
-asciigraph mermaid [FILE]              write Mermaid for a saved diagram
+asciigraph mermaid [FILE]              write Mermaid for a saved diagram or a drawing
 asciigraph markdown FILE [--write]     draw every ```mermaid block in a Markdown file
+asciigraph import [FILE]               read a drawing into a diagram (.json) for the app
 ```
 
-FILE can be anything **from text** reads (Mermaid, the shorthand, a folder tree), a diagram saved
-from the app (**download .json**), or a share link. Options:
+FILE can be anything **from text** reads (Mermaid, the shorthand, a folder tree, an existing
+drawing), a diagram saved from the app (**download .json**), or a share link. `import` writes the
+`.json` the app imports (the name menu → **import**), so an old diagram in a README can be edited
+as objects; `mermaid` on a drawing turns it into Mermaid. Options:
 
 | Option | What it does |
 |---|---|
-| `--kind auto\|sequence\|graph\|tree` | what the text describes (default: detected, as in the app) |
+| `--kind auto\|sequence\|graph\|tree\|drawing` | what the text is (default: detected, as in the app) |
 | `--lr`, `--td` | lay a graph out left to right, or top to bottom |
 | `--boxes` | draw a folder tree as boxes and connectors |
 | `--ascii` | ASCII characters only |

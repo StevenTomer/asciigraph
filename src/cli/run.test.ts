@@ -162,3 +162,21 @@ describe("asciigraph markdown", () => {
     expect(run(["markdown", "doc.md"], { "doc.md": other }).stdout).toBe(other);
   });
 });
+
+describe("asciigraph import", () => {
+  const drawing = "┌───┐     ┌───┐\n│ A ├────►│ B │\n└───┘     └───┘";
+
+  it("reads a drawing into a diagram for the app", () => {
+    const r = run(["import", "old.txt"], { "old.txt": drawing });
+    expect(r.code).toBe(0);
+    const saved = JSON.parse(r.stdout);
+    expect(saved.name).toBe("old");
+    expect(Object.values(saved.diagram.nodes).map((n) => (n as { text: string }).text).sort()).toEqual(["A", "B"]);
+    expect(Object.keys(saved.diagram.edges)).toHaveLength(1);
+  });
+
+  it("draws a drawing again, and writes Mermaid for one", () => {
+    expect(run([], { "-": drawing }).stdout).toBe(drawing);
+    expect(run(["mermaid"], { "-": drawing }).stdout).toBe("flowchart LR\n  A[A]\n  B[B]\n  A --> B");
+  });
+});

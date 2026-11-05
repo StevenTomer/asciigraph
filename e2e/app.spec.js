@@ -797,6 +797,35 @@ test("draw state, class and ER diagrams from the examples; class boxes edit as t
   expect(await text(page)).toMatch(/│ +Point +│\n├─+┤\n│ \+x: int +│/);
 });
 
+test("paste a drawing from elsewhere: it becomes boxes and a connector", async ({ page }) => {
+  const drawing = "+--------+      +--------+\n| Client | ---> | Server |\n+--------+      +--------+";
+  await page.evaluate((text) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", text);
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+  }, drawing);
+  const s = await state(page);
+  const nodes = Object.values(s.diagram.nodes);
+  expect(nodes.map((n) => n.text).sort()).toEqual(["Client", "Server"]);
+  const [edge] = Object.values(s.diagram.edges);
+  expect(edge.from.kind).toBe("attached");
+  expect(edge.to.kind).toBe("attached");
+  expect(s.selection).toHaveLength(3);
+  // They're objects: moving the server takes the connector with it.
+  const server = nodes.find((n) => n.text === "Server");
+  await page.keyboard.press("Escape");
+  await drag(page, [server.rect.x + 2, server.rect.y + 1], [server.rect.x + 2, server.rect.y + 9]);
+  expect(await text(page)).toMatch(/\| Client \+-+\+/);
+
+  // The from text dialog reads drawings too.
+  await page.getByRole("button", { name: "from text" }).click();
+  const dialog = page.getByRole("dialog", { name: "Draw from text" });
+  await dialog.getByLabel("Diagram text").fill("┌───┐   ┌───┐\n│ A ├──►│ B │\n└───┘   └───┘");
+  await expect(dialog.getByRole("button", { name: /auto: ASCII art/ })).toBeVisible();
+  await dialog.getByRole("button", { name: "draw" }).click();
+  expect(await text(page)).toContain("│ A ├──►│ B │");
+});
+
 test("markdown lists in a box", async ({ page }) => {
   await page.keyboard.press("b");
   await drag(page, [2, 2], [26, 4]);

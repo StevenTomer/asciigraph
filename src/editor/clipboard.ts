@@ -3,14 +3,16 @@ import { exportText, subset } from "../export/text";
 import { withContents } from "../model/containment";
 import { addEdge, addNode, deleteObjects, makeNode, newId } from "../model/ops";
 import type { Diagram, Endpoint, Id } from "../model/types";
+import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { middleClickRecently } from "./input";
 import { apply, getState, select } from "./store";
 import { screenToCell } from "./view";
 
 /**
  * Copy puts the selection on the system clipboard as text (so it pastes as a diagram anywhere),
- * and remembers the objects. Pasting that same text back here pastes the objects; any other text
- * becomes a text label. Copying a box copies what's inside it too.
+ * and remembers the objects. Pasting that same text back here pastes the objects; a drawing
+ * (boxes in box-drawing or ASCII characters, from anywhere) is read back into objects; any other
+ * text becomes a text label. Copying a box copies what's inside it too.
  */
 let copied: { diagram: Diagram; text: string } | null = null;
 let pastes = 0;
@@ -80,6 +82,8 @@ function place(part: Diagram, at?: Point) {
 function pasteText(text: string, at?: Point) {
   if (copied && text === copied.text) {
     place(copied.diagram, at);
+  } else if (looksLikeDrawing(text)) {
+    place(importAscii(text).diagram, at ?? screenToCell(window.innerWidth / 3, window.innerHeight / 3));
   } else if (text.trim()) {
     const cell = at ?? screenToCell(window.innerWidth / 3, window.innerHeight / 3);
     const node = makeNode({ ...cell, w: 1, h: 1 }, {

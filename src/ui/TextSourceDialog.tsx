@@ -4,6 +4,8 @@ import { screenToCell } from "../editor/view";
 import { emptyDiagram } from "../model/ops";
 import type { SourceKind, TextSource } from "../model/types";
 import { diagramToText } from "../render/rasterize";
+import { pasteInto } from "../editor/clipboard";
+import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
 import { adopt, drawSource, membersOf, updateSource } from "../text/sync";
@@ -81,7 +83,12 @@ const EXAMPLES: { label: string; text: string }[] = [
   { label: "folder tree", text: EXAMPLE_TEXT.tree },
 ];
 
-const KIND_LABEL: Record<SourceKind, string> = { sequence: "message sequence", graph: "graph (flowchart, state, class, ER)", tree: "folder tree" };
+/** What the dialog can draw: a text source, or a drawing read back into objects (not linked). */
+type Kind = SourceKind | "drawing";
+
+const KIND_LABEL: Record<Kind, string> = {
+  sequence: "message sequence", graph: "graph (flowchart, state, class, ER)", tree: "folder tree", drawing: "ASCII art",
+};
 
 /**
  * Draw a diagram from text (Mermaid, a looser shorthand, or a folder tree), or edit the text of
@@ -100,29 +107,50 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
     ? getState().diagram.sources?.[sourceId]
     : described ? { kind: described.kind, text: described.text, options: described.options } : undefined;
   const editing = !!sourceId || !!described;
-  const [kind, setKind] = useState<SourceKind | "auto">(existing?.kind ?? "auto");
+  const [kind, setKind] = useState<Kind | "auto">(existing?.kind ?? "auto");
   const [text, setText] = useState(existing?.text ?? "");
   const [direction, setDirection] = useState<"auto" | "down" | "right">(existing?.options.direction ?? "auto");
   const [treeStyle, setTreeStyle] = useState<"text" | "boxes">(existing?.options.treeStyle ?? "text");
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => ref.current?.focus(), []);
 
-  const actual: SourceKind = kind === "auto" ? detectKind(text) : kind;
+  const actual: Kind = kind === "auto" ? (!editing && looksLikeDrawing(text) ? "drawing" : detectKind(text)) : kind;
   const options: TextSource["options"] = {
     ...((actual === "graph" || (actual === "tree" && treeStyle === "boxes")) && direction !== "auto" && { direction }),
     ...(actual === "tree" && { treeStyle }),
   };
   const preview = useMemo(() => {
-    if (!text.trim()) return { text: "", warnings: [] as string[] };
+    if (!text.trim()) return { text: "", warnings: [] as string[], drawing: null };
+    if (actual === "drawing") {
+      const r = importAscii(text);
+      return { text: diagramToText(r.diagram), warnings: r.warnings, drawing: r.diagram };
+    }
     const r = drawSource(emptyDiagram(), { kind: actual, text, options }, { x: 0, y: 0 });
-    return { text: diagramToText(r.diagram), warnings: r.warnings };
+    return { text: diagramToText(r.diagram), warnings: r.warnings, drawing: null };
   }, [text, actual, JSON.stringify(options)]);
 
   const draw = () => {
     if (!text.trim()) return;
     let ids: string[] = [];
+    if (actual === "drawing") {
+      // Ordinary objects, placed where the text was going to go.
+      const part = preview.drawing!;
+      const lines = preview.text.split("\n");
+      const w = Math.max(...lines.map((l) => l.length)), h = lines.length;
+      const c = screenToCell(window.innerWidth / 2, window.innerHeight / 2);
+      const at = { x: c.x - Math.floor(w / 2), y: Math.max(c.y - Math.floor(h / 2), screenToCell(0, 70).y) };
+      apply((d) => {
+        const [out, added] = pasteInto(d, part, at);
+        ids = added;
+        return out;
+      });
+      select(ids);
+      closeTextDialog();
+      return;
+    }
     if (sourceId && existing) {
-      apply((d) => updateSource(d, sourceId, { kind: actual, text, options: { ...existing.options, ...options } }).diagram);
+      const k = actual as SourceKind;
+      apply((d) => updateSource(d, sourceId, { kind: k, text, options: { ...existing.options, ...options } }).diagram);
       ids = membersOf(getState().diagram, sourceId);
     } else if (adoptIds && existing) {
       // Link the selection to the text, then redraw from the (possibly edited) text.
@@ -131,7 +159,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
         const a = adopt(d, adoptIds);
         if (!a) return d;
         id = a.id;
-        return updateSource(a.diagram, a.id, { kind: actual, text, options: { ...existing.options, ...options } }).diagram;
+        return updateSource(a.diagram, a.id, { kind: actual as SourceKind, text, options: { ...existing.options, ...options } }).diagram;
       });
       ids = id ? membersOf(getState().diagram, id) : [];
     } else {
@@ -142,7 +170,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
       const origin = { x: c.x - Math.floor(w / 2), y: Math.max(c.y - Math.floor(h / 2), screenToCell(0, 70).y) };
       let id = "";
       apply((d) => {
-        const r = drawSource(d, { kind: actual, text, options }, origin);
+        const r = drawSource(d, { kind: actual as SourceKind, text, options }, origin);
         id = r.id;
         return r.diagram;
       });
@@ -170,7 +198,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
         <div className="row">
           <span className="row-label">kind</span>
           <span className="row-items">
-            {(["auto", "sequence", "graph", "tree"] as const).map((k) => (
+            {(editing ? (["auto", "sequence", "graph", "tree"] as const) : (["auto", "sequence", "graph", "tree", "drawing"] as const)).map((k) => (
               <button key={k} className={"choice" + (kind === k ? " active" : "")} aria-pressed={kind === k} onClick={() => setKind(k)}>
                 {k === "auto" ? `auto${text.trim() ? `: ${KIND_LABEL[actual]}` : ""}` : KIND_LABEL[k]}
               </button>

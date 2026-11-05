@@ -252,7 +252,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt><Kbd>ctrl+]</Kbd> / <Kbd>ctrl+[</Kbd></dt><dd>bring forward / send backward (with <Kbd>shift</Kbd>: to front / to back)</dd>
         <dt><Kbd>ctrl+d</Kbd></dt><dd>duplicate</dd>
         <dt><Kbd>ctrl+z</Kbd> / <Kbd>ctrl+shift+z</Kbd></dt><dd>undo / redo</dd>
-        <dt><Kbd>ctrl+c</Kbd> <Kbd>ctrl+x</Kbd> <Kbd>ctrl+v</Kbd></dt><dd>copy, cut, paste (copies as text for other apps too)</dd>
+        <dt><Kbd>ctrl+c</Kbd> <Kbd>ctrl+x</Kbd> <Kbd>ctrl+v</Kbd></dt><dd>copy, cut, paste (copies as text for other apps too). Pasting a drawing made of box characters or <code>+--+</code> ASCII (from a README, a comment…) turns it into boxes and connectors you can move</dd>
         <dt>scroll, <Kbd>space</Kbd>+drag, middle-drag</dt><dd>pan; <Kbd>ctrl</Kbd>+scroll or pinch to zoom</dd>
         <dt><Kbd>ctrl+=</Kbd> / <Kbd>ctrl+-</Kbd> / <Kbd>ctrl+0</Kbd> / <Kbd>shift+1</Kbd></dt><dd>zoom in / out / back to 100% / to fit the drawing (also the buttons at bottom right)</dd>
       </dl>
