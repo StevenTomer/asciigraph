@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "npm run build && playwright test -c e2e/playwright.config.mjs"
+    "e2e": "npm run build && playwright test -c e2e/playwright.config.mjs",
+    "screenshots": "npm run build && playwright test -c docs/playwright.config.mjs"
   },
   "dependencies": {
     "js-base64": "^3.9.6",

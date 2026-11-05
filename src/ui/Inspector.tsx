@@ -57,7 +57,9 @@ export function Inspector() {
       const el = ref.current;
       if (!el) return;
       const top = document.querySelector(".toolbar-wrap")?.getBoundingClientRect().bottom ?? 0;
-      reveal(top, el.getBoundingClientRect().top);
+      // Clear of the zoom controls too, which sit just above the sheet.
+      const zoom = document.querySelector(".zoom")?.getBoundingClientRect().top ?? Infinity;
+      reveal(top, Math.min(el.getBoundingClientRect().top, zoom));
     });
   }, [selected, open, shown]);
   if (!shown) return null;
