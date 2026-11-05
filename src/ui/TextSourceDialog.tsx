@@ -31,13 +31,13 @@ const EXAMPLE_TEXT = {
     D --> F([Done])
     E --> F`,
   tree: `project/
-├── src/
-│   ├── main.ts
-│   └── util/
-│       └── format.ts
-├── tests/
-│   └── main.test.ts
-└── README.md`,
+  src/
+    main.ts
+    util/
+      format.ts
+  tests/
+    main.test.ts
+  README.md`,
   state: `stateDiagram-v2
     [*] --> Idle
     Idle --> Working : job arrives

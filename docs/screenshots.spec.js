@@ -114,13 +114,13 @@ test("sequence diagram, dark", async ({ page }) => {
 test("folder tree as boxes, and as text", async ({ page }) => {
   await open(page);
   const tree = `project/
-├── src/
-│   ├── main.ts
-│   └── util/
-│       └── format.ts
-├── tests/
-│   └── main.test.ts
-└── README.md`;
+  src/
+    main.ts
+    util/
+      format.ts
+  tests/
+    main.test.ts
+  README.md`;
   await drawFromText(page, tree, ["boxes"]);
   await deselect(page);
   await shot(page, "tree.png");
