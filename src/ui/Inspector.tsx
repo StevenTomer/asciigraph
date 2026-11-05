@@ -9,6 +9,7 @@ import { type BorderStyle, type Edge, type HAlign, type LineStyle, type Node, ty
 import { apply, begin, commit, getState, openTextDialog, select, set, setPrefs, useEditor } from "../editor/store";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
+import { autoSized, columnRooms, markdownTable, parseTable, withColumnWidth, withOptions, withTitle } from "../shapes/table";
 
 const BORDERS: [BorderStyle, string][] = [
   ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"],
@@ -158,6 +159,7 @@ export function Inspector() {
               )}
             </>
           )}
+          {nodes.length === 1 && n0.kind === "table" && <TableRows node={n0} />}
           <Row label="size">
             <Choice
               active={false}
@@ -328,6 +330,86 @@ export function Inspector() {
       </section>
       </div>}
     </aside>
+  );
+}
+
+/** A table's title, column widths, wrapping, and copying it as Markdown. */
+function TableRows({ node: n }: { node: Node }) {
+  const t = parseTable(n.text);
+  const rooms = columnRooms(n);
+  const patch = (p: (n: Node) => Partial<Node>) => apply((d) => updateNode(d, n.id, p(d.nodes[n.id])));
+  const copied = useRef<HTMLSpanElement>(null);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(markdownTable(n.text));
+      if (copied.current) copied.current.textContent = "copied";
+    } catch {
+      if (copied.current) copied.current.textContent = "couldn't copy here";
+    }
+  };
+  return (
+    <>
+      <Row label="title">
+        <input
+          className="field"
+          value={t.title ?? ""}
+          placeholder="(none)"
+          onFocus={begin}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          onChange={(e) => set(updateNode(getState().diagram, n.id, { text: withTitle(getState().diagram.nodes[n.id].text, e.target.value) }))}
+          aria-label="Table title"
+          title="The line before the table"
+        />
+      </Row>
+      {t.title && (
+        <>
+          <Row label="">
+            <Choice active={n.table?.title !== "border"} onClick={() => patch((m) => withOptions(m, { title: undefined }))} title="In a row of its own across the top">own row</Choice>
+            <Choice active={n.table?.title === "border"} onClick={() => patch((m) => withOptions(m, { title: "border" }))} title="Set into the top border: ┌─ Title ─┐">in the border</Choice>
+          </Row>
+          <Row label="">
+            {HALIGN.map(([v, l]) => (
+              <Choice key={v} active={(n.table?.titleAlign ?? "center") === v} onClick={() => patch((m) => withOptions(m, { titleAlign: v === "center" ? undefined : v }))}>{l}</Choice>
+            ))}
+          </Row>
+        </>
+      )}
+      <Row label="columns">
+        {rooms.map((w, c) => {
+          const set = n.table?.widths?.[c] ?? null;
+          return (
+            <input
+              key={c}
+              className="field tiny"
+              type="number"
+              min={1}
+              max={200}
+              value={set ?? ""}
+              placeholder={`${w}`}
+              title={set === null ? `Column ${c + 1}: sized to its text (${w}). Type a width, or drag its line on the table` : `Column ${c + 1}: ${set} wide. Clear it to size it to its text`}
+              aria-label={`Column ${c + 1} width`}
+              onChange={(e) => patch((m) => withColumnWidth(m, c, e.target.value ? Math.max(1, Number(e.target.value)) : null))}
+            />
+          );
+        })}
+        <Choice
+          active={!n.table?.widths && !!n.autosize}
+          onClick={() => patch(autoSized)}
+          title="Every column as wide as its text, and the table just big enough"
+        >
+          auto-size
+        </Choice>
+      </Row>
+      <Row label="long text">
+        <Choice active={n.table?.wrap !== false} onClick={() => patch((m) => withOptions(m, { wrap: undefined }))} title="Text that doesn't fit its column carries on on the next line">wrap</Choice>
+        <Choice active={n.table?.wrap === false} onClick={() => patch((m) => withOptions(m, { wrap: false }))} title="Text that doesn't fit its column is cut off with …">cut off …</Choice>
+      </Row>
+      <Row label="Markdown">
+        <Choice active={false} onClick={() => void copy()} title="As a Markdown table for a document: the title in bold, line breaks as <br>">copy table</Choice>
+        <span className="muted" ref={copied} aria-live="polite" />
+      </Row>
+    </>
   );
 }
 

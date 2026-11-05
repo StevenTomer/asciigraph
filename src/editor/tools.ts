@@ -8,6 +8,7 @@ import { lockMates, moveWithLocks } from "../model/locks";
 import type { Diagram, Id } from "../model/types";
 import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
+import { columnLeft, withColumnWidth } from "../shapes/table";
 import { type Handle, endpointAt, hitTest, nodeAt } from "./hitTest";
 import {
   type ToolId, apply, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, setTool, startEditing,
@@ -50,6 +51,8 @@ type Gesture =
   /** `carried` adds what's inside the selected boxes; Alt moves just `ids`. */
   | { kind: "move"; start: Point; base: Diagram; ids: Id[]; carried: Id[] }
   | { kind: "resize"; node: Id; handle: Handle; start: Point; orig: Rect }
+  /** Dragging a table's column line: that column's width. */
+  | { kind: "column"; node: Id; col: number }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
   /** Dragging a connector's label along it. */
   | { kind: "label"; edge: Id }
@@ -79,6 +82,9 @@ const selectTool: Tool = {
     if (hit.kind === "handle") {
       begin();
       gesture = { kind: "resize", node: hit.node, handle: hit.handle, start: p.cell, orig: diagram.nodes[hit.node].rect };
+    } else if (hit.kind === "column") {
+      begin();
+      gesture = { kind: "column", node: hit.node, col: hit.col };
     } else if (hit.kind === "endpoint") {
       begin();
       gesture = { kind: "endpoint", edge: hit.edge, which: hit.which };
@@ -155,6 +161,12 @@ const selectTool: Tool = {
       }
       set(resizeNode(d, g.node, rect));
       setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect, guides });
+    } else if (g.kind === "column") {
+      // The column's text runs from two cells past its left line to two before its right one.
+      const n = d.nodes[g.node];
+      const left = columnLeft(n, g.col);
+      set(updateNode(d, g.node, withColumnWidth(n, g.col, Math.max(1, p.cell.x - left - 3))));
+      setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect });
     } else if (g.kind === "label") {
       // The nearest point on the connector to the pointer, as a fraction of its length.
       const cells = rendered(d).edges.get(g.edge)?.cells ?? [];
@@ -212,7 +224,10 @@ const selectTool: Tool = {
 
   dblclick(p) {
     const hit = hitTest(p.sx, p.sy);
-    if (hit.kind === "via") {
+    if (hit.kind === "column") {
+      // Double-click a column line: that column sizes itself again.
+      apply((d) => updateNode(d, hit.node, withColumnWidth(d.nodes[hit.node], hit.col, null)));
+    } else if (hit.kind === "via") {
       // Double-click a bend point to remove it.
       apply((d) => {
         const via = (d.edges[hit.edge].via ?? []).filter((_, i) => i !== hit.index);
@@ -230,6 +245,7 @@ const selectTool: Tool = {
   cursor(p) {
     const hit = hitTest(p.sx, p.sy);
     if (hit.kind === "handle") return RESIZE_CURSORS[hit.handle];
+    if (hit.kind === "column") return "col-resize";
     if (hit.kind === "endpoint") return "crosshair";
     if (hit.kind === "via" || hit.kind === "label") return "move";
     if (hit.kind === "edge" && getState().selection.length === 1 && getState().selection[0] === hit.edge) {

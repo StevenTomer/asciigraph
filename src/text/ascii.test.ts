@@ -145,6 +145,26 @@ describe("reading a drawing back into objects", () => {
     expect(diagramToText(importAscii(unicode).diagram)).toBe(unicode);
   });
 
+  it("reads table titles (in a row or the top border) and rows spanning lines", () => {
+    const T = "Users\n| Name | Notes |\n|---|---|\n| id | primary key,\nauto-increment |\n| name | text |";
+    for (const table of [undefined, { title: "border" as const }, { title: "border" as const, titleAlign: "left" as const }, { titleAlign: "right" as const }]) {
+      const { rect, ...fields } = tableNode(T, { x: 0, y: 0 });
+      const drawing = diagramToText(addNode(emptyDiagram(), makeNode(rect, { ...fields, ...(table && { table }) })));
+      const [t] = nodes(importAscii(drawing).diagram);
+      expect(t.kind).toBe("table");
+      expect(t.text).toBe("Users\n| Name | Notes          |\n| ---- | -------------- |\n| id   | primary key,\n         auto-increment |\n| name | text           |");
+      expect(t.table).toEqual(table);
+      expect(diagramToText(importAscii(drawing).diagram)).toBe(drawing);
+    }
+    // Rows lined off only here and there: each line is a row.
+    const plain = ["┌───┬───┐", "│ a │ b │", "├───┼───┤", "│ 1 │ 2 │", "│   │ 3 │", "├───┼───┤", "│ 4 │ 5 │", "│ 6 │ 7 │", "└───┴───┘"].join("\n");
+    expect(nodes(importAscii(plain).diagram)[0].text).toBe("| a   | b   |\n| --- | --- |\n| 1   | 2   |\n|     | 3   |\n| --- | --- |\n| 4   | 5   |\n| 6   | 7   |");
+    expect(diagramToText(importAscii(plain).diagram)).toBe(plain);
+    // One row below the header, carrying on: a row spanning lines.
+    const one = ["┌─────┬─────┐", "│ a   │ b   │", "├─────┼─────┤", "│ 1   │ 2   │", "│     │ 3   │", "└─────┴─────┘"].join("\n");
+    expect(nodes(importAscii(one).diagram)[0].text).toBe("| a   | b   |\n| --- | --- |\n| 1   | 2\n        3   |");
+  });
+
   it("reads class compartments, alignment and labels in line gaps", () => {
     const d = importAscii([
       "┌──────────────┐",

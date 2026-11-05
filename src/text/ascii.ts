@@ -4,7 +4,7 @@ import type { BorderStyle, Diagram, Endpoint, HAlign, Head, Id, LineStyle, NodeK
 import { DIR_BITS, DOWN, LEFT, RIGHT, UP, lineGlyph } from "../render/charsets";
 import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
-import { tableNode, tableText } from "../shapes/table";
+import { table, tableNode, tableText } from "../shapes/table";
 
 /**
  * Reading a drawing back into objects: paste box-drawing (or +--+ ASCII) text and get boxes,
@@ -99,14 +99,19 @@ const HEADS: Map<string, { head: Head; points: Side | null; ascii?: boolean }> =
 interface Box {
   x0: number; y0: number; x1: number; y1: number;
   name?: string;
+  /** Where the name sits in the top border. */
+  nameAlign?: HAlign;
+  /** Its cells (x), the spaces either side included. */
+  nameSpan?: [number, number];
   border: BorderStyle;
   kind: NodeKind;
   dividers: number[];
   id: Id;
   /** Slanted shapes (decision, input/output): their outline cells and the side each is on. */
   cells?: Map<number, Side | null>;
-  /** A table's column lines (x). */
+  /** A table's column lines (x), and the line under its title row (y), if it has one. */
   columns?: number[];
+  titleRow?: number;
   /** A lifeline: its line's cells (messages attach on either side), and its last row. */
   life?: Set<number>;
   lineEnd?: number;
@@ -362,6 +367,10 @@ export function importAscii(input: string, probe = false): ImportResult {
     const isRounded = rounded.has(k(x0, y0)) || rounded.has(k(x1, y1));
     const border: BorderStyle = isRounded && st === "single" ? "rounded" : st;
     const b: Box = { x0, y0, x1, y1, name, border, kind: stadium ? "terminal" : "box", dividers: [], id: "" };
+    if (nameStart >= 0) {
+      b.nameSpan = [nameStart, nameEnd];
+      b.nameAlign = nameStart === x0 + 2 ? "left" : nameEnd === x1 - 2 ? "right" : "center";
+    }
     if (nameStart >= 0) for (let xx = nameStart; xx <= nameEnd; xx++) nameCells.add(k(xx, y0));
     return b;
   }
@@ -381,7 +390,9 @@ export function importAscii(input: string, probe = false): ImportResult {
     };
     const fullColumn = (x: number) => {
       for (let y = b.y0 + 1; y < b.y1; y++) if (!(has(x, y, "top") && has(x, y, "bottom"))) return false;
-      return has(x, b.y0, "bottom") && has(x, b.y1, "top");
+      // (Under a name set in the top border, the line's top end is hidden.)
+      const named = b.nameSpan && x >= b.nameSpan[0] && x <= b.nameSpan[1];
+      return (has(x, b.y0, "bottom") || !!named) && has(x, b.y1, "top");
     };
     const rows = [];
     for (let y = b.y0 + 1; y < b.y1; y++) if (fullRow(y)) rows.push(y);
@@ -415,6 +426,24 @@ export function importAscii(input: string, probe = false): ImportResult {
         columns.forEach(markColumn);
         rows.forEach(markRow);
         continue;
+      }
+      // Column lines from the first divider down, and none above: a table with a title row.
+      if (rows.length) {
+        const top = rows[0];
+        const fromTitle = (x: number) => {
+          for (let y = top + 1; y < b.y1; y++) if (!(has(x, y, "top") && has(x, y, "bottom"))) return false;
+          return has(x, top, "bottom") && !has(x, top, "top") && has(x, b.y1, "top");
+        };
+        for (let x = b.x0 + 1; x < b.x1; x++) if (fromTitle(x)) columns.push(x);
+        if (columns.length) {
+          b.kind = "table";
+          b.columns = columns;
+          b.titleRow = top;
+          b.dividers = rows.slice(1);
+          for (const x of columns) for (let y = top + 1; y < b.y1; y++) structure.add(k(x, y));
+          rows.forEach(markRow);
+          continue;
+        }
       }
     }
     if (rows.length) {
@@ -515,6 +544,12 @@ export function importAscii(input: string, probe = false): ImportResult {
       return false;
     });
   const isLine = (x: number, y: number) => mask.has(k(x, y)) && !structure.has(k(x, y)) && (!outline.has(k(x, y)) || crossing(x, y));
+  /** A head's character, unless it's a letter in a word (the o in "auto-increment"). */
+  const alnum = (x: number, y: number) => /[\p{L}\p{N}]/u.test(ch(x, y));
+  const headChar = (x: number, y: number) => {
+    const c = ch(x, y);
+    return HEADS.has(c) && !(/\p{L}/u.test(c) && (alnum(x - 1, y) || alnum(x + 1, y)));
+  };
   // ASCII strokes that don't join anything (a hyphen in a word, a | between words) are text.
   {
     const seen = new Set<number>();
@@ -532,14 +567,16 @@ export function importAscii(input: string, probe = false): ImportResult {
           for (const s of SIDES) {
             if (!has(p.x, p.y, s)) continue;
             const n = { x: p.x + STEP[s].x, y: p.y + STEP[s].y };
-            if (outline.has(k(n.x, n.y)) || HEADS.has(ch(n.x, n.y))) structural = true;
+            if (outline.has(k(n.x, n.y)) || headChar(n.x, n.y)) structural = true;
             if (isLine(n.x, n.y) && has(n.x, n.y, OPPOSITE[s]) && !seen.has(k(n.x, n.y))) {
               seen.add(k(n.x, n.y));
               stack.push(n);
             }
           }
         }
-        if (!structural && comp.length < 3) for (const p of comp) mask.delete(k(p.x, p.y));
+        // (A hyphen joining a word: x-ray.)
+        const hyphen = comp.length === 1 && ch(x, y) === "-" && alnum(x + 1, y) && (alnum(x - 1, y) || headChar(x - 1, y));
+        if ((!structural || hyphen) && comp.length < 3) for (const p of comp) mask.delete(k(p.x, p.y));
       }
     }
   }
@@ -547,7 +584,7 @@ export function importAscii(input: string, probe = false): ImportResult {
   const headAt = new Map<number, { head: Head; points: Side }>();
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const h = HEADS.get(ch(x, y));
+      const h = headChar(x, y) ? HEADS.get(ch(x, y)) : undefined;
       if (!h || outline.has(k(x, y))) continue;
       const backs = SIDES.filter((s) => {
         const n = { x: x + STEP[s].x, y: y + STEP[s].y };
@@ -744,27 +781,64 @@ export function importAscii(input: string, probe = false): ImportResult {
       // Its cells, row by row, as a Markdown table (dividers where it has them).
       const bounds = [b.x0, ...b.columns, b.x1];
       const divs = new Set(b.dividers);
-      const cellRows: string[][] = [], dividerAt = new Set<number>();
-      const pads: { l: number; r: number }[][] = bounds.slice(1).map(() => []);
-      for (let y = b.y0 + 1; y < b.y1; y++) {
-        if (divs.has(y)) {
-          dividerAt.add(cellRows.length);
-          continue;
+      const text = (x0: number, x1: number, y: number) => {
+        let raw = "";
+        for (let x = x0; x < x1; x++) raw += free(x, y) ? rows[y]?.[x] ?? " " : " ";
+        return raw;
+      };
+      // A title row: its lines, and where they sit.
+      let title: string | undefined, titleAlign: HAlign = "center";
+      if (b.titleRow !== undefined) {
+        const lines = Array.from({ length: b.titleRow - b.y0 - 1 }, (_, i) => text(b.x0 + 1, b.x1, b.y0 + 1 + i)).filter((l) => l.trim());
+        if (lines.length) {
+          title = lines.map((l) => l.trim()).join("\n");
+          const l = Math.min(...lines.map((s) => s.length - s.trimStart().length)), r = Math.min(...lines.map((s) => s.length - s.trimEnd().length));
+          titleAlign = l === 1 && r > 1 ? "left" : r === 1 && l > 1 ? "right" : "center";
         }
-        cellRows.push(bounds.slice(1).map((x1, c) => {
-          let raw = "";
-          for (let x = bounds[c] + 1; x < x1; x++) raw += free(x, y) ? rows[y]?.[x] ?? " " : " ";
+      }
+      // Lines between dividers.
+      const groups: string[][][] = [];
+      const pads: { l: number; r: number }[][] = bounds.slice(1).map(() => []);
+      for (let y = (b.titleRow ?? b.y0) + 1; y < b.y1; y++) {
+        if (divs.has(y) || !groups.length) {
+          groups.push([]);
+          if (divs.has(y)) continue;
+        }
+        groups[groups.length - 1].push(bounds.slice(1).map((x1, c) => {
+          const raw = text(bounds[c] + 1, x1, y);
           if (raw.trim()) pads[c].push({ l: raw.length - raw.trimStart().length, r: raw.length - raw.trimEnd().length });
           return raw.trim();
         }));
       }
+      // Every row lined off, and lines that start with an empty cell carrying on the one above:
+      // rows spanning lines (as a table whose rows span lines is drawn).
+      const joined = groups.map((g) => g.reduce<string[][]>((acc, line) => {
+        if (acc.length && !line[0]) acc[acc.length - 1] = acc[acc.length - 1].map((c, i) => (line[i] ? (c ? c + "\n" : "") + line[i] : c));
+        else acc.push(line);
+        return acc;
+      }, []));
+      const spans = groups.length > 1 && joined.every((g) => g.length === 1) && groups.some((g) => g.length > 1);
+      const cellRows: string[][] = [], dividerAt = new Set<number>();
+      (spans ? joined : groups).forEach((g, i) => {
+        // (Rows spanning lines are all lined off anyway: just the header's line is written.)
+        if (i > 0 && (!spans || i === 1)) dividerAt.add(cellRows.length);
+        cellRows.push(...g);
+      });
       // Each column's alignment, from where its text sits.
       const aligns: HAlign[] = pads.map((ps) =>
         ps.length && ps.every((p) => p.r === 1) && ps.some((p) => p.l > 1) ? "right"
         : ps.length && ps.every((p) => Math.abs(p.l - p.r) <= 1) && ps.some((p) => p.l > 1) ? "center"
         : "left");
-      const t = tableNode(tableText(cellRows, dividerAt, aligns), { x: b.x0, y: b.y0 });
-      const node = makeNode(t.rect, { ...t, border: b.border, ...(b.name && { name: b.name }) });
+      // A name in the top border is the table's title, there.
+      const options = {
+        ...(b.name && title === undefined && { title: "border" as const }),
+        ...(titleAlign !== "center" && { titleAlign }),
+        ...(b.name && title === undefined && b.nameAlign !== "center" && { titleAlign: b.nameAlign }),
+      };
+      title ??= b.name;
+      const fields = { ...tableNode(tableText({ rows: cellRows, dividers: dividerAt, aligns, title }), { x: b.x0, y: b.y0 }), border: b.border, ...(Object.keys(options).length && { table: options }) };
+      const t = { ...fields, rect: { ...fields.rect, ...table.fitSize({ ...makeNode(fields.rect, fields) }, fields.text) } };
+      const node = makeNode(t.rect, t);
       b.id = node.id;
       d = addNode(d, node);
       continue;
@@ -789,6 +863,7 @@ export function importAscii(input: string, probe = false): ImportResult {
         text,
         align: b.kind === "class" ? { h: first.h, v: "top" } : { h: first.h, v: first.v },
         ...(b.name && { name: b.name }),
+        ...(b.name && b.nameAlign && b.nameAlign !== "left" && { nameAlign: b.nameAlign }),
         ...(b.kind === "class" && { lists: false }),
       }
     );

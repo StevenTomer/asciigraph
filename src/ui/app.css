@@ -529,3 +529,9 @@ a {
     padding: 4px 8px;
   }
 }
+
+/* A table's column widths in the properties panel. */
+.field.tiny {
+  width: 4.2em;
+  flex: none;
+}

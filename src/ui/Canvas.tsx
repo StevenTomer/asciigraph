@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { type Rect, type Side, bottom, right } from "../geometry/geom";
 import { HANDLES, handlePositions } from "../editor/hitTest";
+import { columnLines } from "../shapes/table";
 import { lockMates } from "../model/locks";
 import { attachInput } from "../editor/input";
 import { type EditorState, useEditor } from "../editor/store";
@@ -138,6 +139,12 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
     for (const h of HANDLES) {
       ctx.fillRect(hp[h].x - 4, hp[h].y - 4, 8, 8);
       ctx.strokeRect(hp[h].x - 4, hp[h].y - 4, 8, 8);
+    }
+    // A table's column lines: drag one to set that column's width.
+    for (const line of columnLines(s.diagram.nodes[selectedNodes[0]])) {
+      const p = cellCenter({ x: line.x, y: Math.round((line.y0 + line.y1) / 2) });
+      ctx.fillRect(p.x - 3, p.y - 7, 6, 14);
+      ctx.strokeRect(p.x - 3, p.y - 7, 6, 14);
     }
   }
 

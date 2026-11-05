@@ -200,3 +200,31 @@ describe("asciigraph --max-width", () => {
     expect(run(["--max-width", "x"]).code).toBe(2);
   });
 });
+
+describe("asciigraph table", () => {
+  const drawn = [
+    "┌───────────────────────┐",
+    "│         Users         │",
+    "├──────┬────────────────┤",
+    "│ Name │ Notes          │",
+    "├──────┼────────────────┤",
+    "│ id   │ primary key,   │",
+    "│      │ auto-increment │",
+    "├──────┼────────────────┤",
+    "│ name │ text           │",
+    "└──────┴────────────────┘",
+  ].join("\n");
+  const md = "**Users**\n\n| Name | Notes                          |\n| ---- | ------------------------------ |\n| id   | primary key,<br>auto-increment |\n| name | text                           |";
+  it("writes a drawn table as Markdown, line breaks as <br>", () => {
+    const r = run(["table"], { "-": drawn });
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe(md);
+  });
+  it("and Markdown back as the drawing", () => {
+    expect(run([], { "-": md }).stdout).toBe(drawn);
+    expect(run(["table"], { "-": md }).stdout).toBe(md);
+  });
+  it("says so when there's no table", () => {
+    expect(run(["table"], { "-": "┌───┐\n│ a │\n└───┘" }).stderr).toBe("asciigraph: no table found");
+  });
+});

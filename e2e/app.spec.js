@@ -928,6 +928,44 @@ test("paste a Markdown table: it becomes a table that grows as you type", async 
   expect(await text(page)).toMatch(/│ database │ 5432 │\n└─+┴─+┘/);
 });
 
+test("tables: a title, column widths dragged or typed, wrapping, and Markdown out", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate((text) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", text);
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+  }, "**Users**\n\n| Name | Notes |\n|---|---|\n| id | primary key<br>auto-increment |");
+  const table = async () => Object.values((await state(page)).diagram.nodes)[0];
+  let t = await table();
+  expect(t.text).toBe("Users\n| Name | Notes          |\n| ---- | -------------- |\n| id   | primary key\n         auto-increment |");
+  expect(await text(page)).toMatch(/│ +Users +│\n├──────┬─+┤/);
+  // Drag the line after the first column three cells right.
+  const { x, y } = t.rect;
+  await drag(page, [x + 7, y + 5], [x + 10, y + 5], { ctrl: true });
+  t = await table();
+  expect(t.table.widths).toEqual([7]);
+  expect(await text(page)).toContain("│ Name    │ Notes          │");
+  // Type a narrower width for the second: its text wraps.
+  const panel = page.getByRole("complementary", { name: "Properties" });
+  await panel.getByLabel("Column 2 width").fill("8");
+  expect(await text(page)).toMatch(/│ id +│ primary  │\n│ +│ key      │\n│ +│ auto-inc │/);
+  await panel.getByRole("button", { name: "cut off …" }).click();
+  expect(await text(page)).toMatch(/│ id +│ primary… │\n│ +│ auto-in… │/);
+  // The title in the border, then everything back to its own size.
+  await panel.getByRole("button", { name: "in the border" }).click();
+  expect((await text(page)).split("\n")[0]).toMatch(/^┌─+ Users ─+┐$/);
+  await panel.getByRole("button", { name: "auto-size" }).click();
+  t = await table();
+  expect(t.table).toEqual({ title: "border", wrap: false });
+  expect(await text(page)).toContain("│ id   │ primary key    │");
+  // Out as Markdown, with <br>.
+  await panel.getByRole("button", { name: "copy table" }).click();
+  await expect(panel.getByText("copied")).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "**Users**\n\n| Name | Notes                         |\n| ---- | ----------------------------- |\n| id   | primary key<br>auto-increment |"
+  );
+});
+
 test("export shows the width, warns past a limit, and offers top to bottom", async ({ page }) => {
   await page.getByRole("button", { name: "from text" }).click();
   await page.getByLabel("Diagram text").fill("flowchart LR\n  A[Browser] --> B[API] --> C[Database]");

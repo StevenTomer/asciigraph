@@ -1,6 +1,7 @@
 import { deleteObjects } from "../model/ops";
 import type { Diagram, Id } from "../model/types";
 import { rasterize } from "../render/rasterize";
+import { markdownTable } from "../shapes/table";
 
 /**
  * How exported text is wrapped: as is, in a Markdown code block, or as a comment block for
@@ -64,4 +65,15 @@ export function subset(d: Diagram, ids: Id[]): Diagram {
   const keep = new Set(ids);
   const drop = [...d.order, ...Object.keys(d.edges)].filter((id) => !keep.has(id));
   return deleteObjects(d, drop);
+}
+
+/** The diagram's tables as Markdown tables for a document (top to bottom, then left to right),
+ * line breaks in cells as `<br>`; "" when it has none. */
+export function tablesMarkdown(d: Diagram): string {
+  return Object.values(d.nodes)
+    .filter((n) => n.kind === "table")
+    .sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x)
+    .map((n) => markdownTable(n.text))
+    .filter(Boolean)
+    .join("\n\n");
 }

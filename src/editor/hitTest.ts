@@ -2,6 +2,7 @@ import { type Point, type Rect, type Side, bottom, key, right } from "../geometr
 import { paintOrder } from "../model/containment";
 import type { Diagram, Endpoint, Id } from "../model/types";
 import { hits, shapeOf } from "../shapes/registry";
+import { columnLineAt } from "../shapes/table";
 import { getState } from "./store";
 import { borderToScreen, cellCenter, rendered, screenToCell } from "./view";
 
@@ -10,6 +11,8 @@ export const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
 export type Hit =
   | { kind: "handle"; node: Id; handle: Handle }
+  /** A selected table's column line: dragging it sets that column's width. */
+  | { kind: "column"; node: Id; col: number }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
   | { kind: "via"; edge: Id; index: number }
   | { kind: "label"; edge: Id }
@@ -59,6 +62,10 @@ export function hitTest(sx: number, sy: number): Hit {
     for (const h of HANDLES) if (near(p, positions[h])) return { kind: "handle", node: selection[0], handle: h };
   }
   const cell = screenToCell(sx, sy);
+  if (selection.length === 1 && d.nodes[selection[0]]?.kind === "table") {
+    const col = columnLineAt(d.nodes[selection[0]], cell);
+    if (col !== null) return { kind: "column", node: selection[0], col };
+  }
   // A connector wherever it's visible, even inside a box (one passing behind a box isn't); its
   // label is a handle of its own, for dragging along the connector.
   const edge = r.edgeCells.get(key(cell));

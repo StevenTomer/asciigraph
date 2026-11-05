@@ -121,8 +121,43 @@ and the table grows as you type:
                             └─────────┴──────┘
 ```
 
+- **A title:** a line before the table. It goes in a row of its own across the top, or (in the
+  properties panel, **title**: **in the border**) set into the top border, `┌─ Services ──┐`;
+  left, centered (the default) or right. The panel's **title** field changes it too.
+- **A cell over several lines:** press Enter where the line should break, before the `|` that
+  ends the cell. A row carries on until a line ends with `|`, so the rest of its cells follow on
+  the next line (indenting them is fine):
+
+  ```
+  Users                          ┌───────────────────────┐
+  | Name | Notes |               │         Users         │
+  |------|-------|        →      ├──────┬────────────────┤
+  | id   | primary key,          │ Name │ Notes          │
+           auto-increment |      ├──────┼────────────────┤
+  | name | text  |               │ id   │ primary key,   │
+                                 │      │ auto-increment │
+                                 ├──────┼────────────────┤
+                                 │ name │ text           │
+                                 └──────┴────────────────┘
+  ```
+
+  When any row has more than one line, every row gets a line under it, so you can see where each
+  row ends. `<br>` in a cell (as Markdown writes a line break) works too, and a pasted table's
+  `<br>`s are turned into line breaks.
+- **Column widths:** with the table selected, drag a line between two columns (it has a small
+  handle) to set the width of the column to its left; the table's right edge moves with it.
+  Or type a width under **columns** in the properties panel (each shows its current width).
+  Clear the width, or double-click the line, and that column sizes itself to its text again.
+  **auto-size** does that for every column, and makes the table fit its text again.
+- **Text too long for its column** wraps onto more lines (the default), or with **long text**:
+  **cut off …** in the panel, it's cut short with `…`. Resizing the whole table narrower wraps
+  the columns that size themselves, the widest first.
+- **As Markdown:** **copy table** in the properties panel, or **export** → **tables**, writes
+  Markdown for a document: the title in bold above it, line breaks in cells as `<br>`. (Markdown
+  has only the one divider, under the first row; the others are left out.)
+
 Pasting a Markdown table onto the canvas makes a table, as does **from text** (it's detected as
-**Markdown table**).
+**Markdown table**). A `**bold**` or `# heading` line just before it becomes the title.
 
 **Borders:** single, double, rounded, heavy, dashed, dotted, ASCII, or none. A box with no
 border is a free label.
@@ -554,7 +589,9 @@ What it recognizes:
   (`( )`), databases (a rim under the top), documents (a wavy bottom), subroutines
   (`│ │ … │ │`), notes (a folded corner), class boxes (full-width `├──┤` rows divide them), and
   tables (`┬ ┼ ┴` column lines all the way down, in box characters or `+---+` ASCII), whose text
-  is written as a Markdown table.
+  is written as a Markdown table. A row across the top with no column lines is its title, and so
+  is a name in its top border. When every row is lined off, a line starting with an empty cell
+  carries on the row above it (a cell over several lines).
 - **Connectors:** lines between boxes, attached to the side they touch, with their heads
   (`► ▷ ◆ ◊ ● ○ × ┤`, and in ASCII `> |> * o @ O x |`), line style, and a label in a gap in the line (`── yes ──►`)
   or just beside a vertical one. A line a space or two short of a box (as ASCII often is) still
@@ -626,6 +663,8 @@ file.
   Set a **limit** (say 80, for code comments; it's remembered) and it warns when the text is
   wider. If a graph drawn from text left to right would be narrower top to bottom, a button
   offers that, with the width it would be. Copy it, or download it.
+- **Tables:** when there are tables, **copy as Markdown** or **download .md** writes them as
+  Markdown tables for a document, top to bottom (titles in bold, line breaks in cells as `<br>`).
 - **Picture:** PNG (download or copy) or SVG (with the font embedded, so it looks the same
   anywhere), in light or dark colors, optionally with a transparent background.
 - **Diagram:** a `.json` file to import later, or a **share link**: the whole diagram is in the
@@ -645,12 +684,14 @@ asciigraph [render] [FILE] [options]   draw FILE (or standard input) as text
 asciigraph mermaid [FILE]              write Mermaid for a saved diagram or a drawing
 asciigraph markdown FILE [--write]     draw every ```mermaid block in a Markdown file
 asciigraph import [FILE]               read a drawing into a diagram (.json) for the app
+asciigraph table [FILE]                write the tables in it as Markdown tables
 ```
 
 FILE can be anything **from text** reads (Mermaid, the shorthand, a folder tree, an existing
 drawing), a diagram saved from the app (**download .json**), or a share link. `import` writes the
 `.json` the app imports (the name menu → **import**), so an old diagram in a README can be edited
-as objects; `mermaid` on a drawing turns it into Mermaid. Options:
+as objects; `mermaid` on a drawing turns it into Mermaid; `table` writes the tables in a drawing,
+a saved diagram or table text as Markdown tables (line breaks in cells as `<br>`). Options:
 
 | Option | What it does |
 |---|---|

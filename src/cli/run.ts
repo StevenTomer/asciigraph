@@ -1,7 +1,7 @@
 import { addNode, emptyDiagram, isDiagram, makeNode } from "../model/ops";
 import type { Diagram, SourceKind } from "../model/types";
 import { decodeShare } from "../storage/share";
-import { exportText, type Wrap, WRAPS } from "../export/text";
+import { exportText, tablesMarkdown, type Wrap, WRAPS } from "../export/text";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { isTableText, tableNode } from "../shapes/table";
 import { detectKind } from "../text/detect";
@@ -33,6 +33,8 @@ Usage:
   asciigraph mermaid [FILE]              write Mermaid for a saved diagram or a drawing
   asciigraph import [FILE]               read a drawing into a diagram (.json) for the app
   asciigraph markdown FILE [--write]     draw every \`\`\`mermaid block in a Markdown file
+  asciigraph table [FILE]                write the tables in a drawing, a saved diagram or table
+                                         text as Markdown tables (line breaks in cells as <br>)
 
 FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram), DOT, PlantUML
 sequence and class diagrams, the
@@ -58,10 +60,11 @@ Examples:
   asciigraph flow.mmd
   echo 'Client -> API: GET /users' | asciigraph
   asciigraph import old-diagram.txt -o diagram.json
-  asciigraph markdown README.md --write`;
+  asciigraph markdown README.md --write
+  asciigraph table drawn-table.txt`;
 
 interface Options {
-  command: "render" | "mermaid" | "markdown" | "import";
+  command: "render" | "mermaid" | "markdown" | "import" | "table";
   file: string | null;
   kind: SourceKind | "auto" | "drawing" | "table";
   direction?: "down" | "right";
@@ -107,7 +110,7 @@ function parseArgs(args: string[]): Options | "help" {
     }
     else if (a === "--write") o.write = true;
     else if (a.startsWith("-") && a !== "-") throw new UsageError(`unknown option ${a}`);
-    else if (positional === 0 && (a === "render" || a === "mermaid" || a === "markdown" || a === "import")) {
+    else if (positional === 0 && (a === "render" || a === "mermaid" || a === "markdown" || a === "import" || a === "table")) {
       o.command = a;
       positional++;
     } else if (o.file === null) {
@@ -265,6 +268,12 @@ export function cliRun(args: string[], io: CliIO): CliResult {
     let text: string;
     let warnings: string[] = [];
     if (o.command === "mermaid") text = mermaid(input);
+    else if (o.command === "table") {
+      const r = toDiagram(input, { ...o, kind: o.kind === "auto" && !isTableText(input) && !savedDiagram(input) ? "drawing" : o.kind });
+      text = tablesMarkdown(r.diagram);
+      if (!text) throw new Error("no table found");
+      warnings = r.warnings;
+    }
     else if (o.command === "import") {
       const r = toDiagram(input, { ...o, kind: o.kind === "auto" ? "drawing" : o.kind });
       if (isEmpty(r.diagram)) throw new Error("nothing to draw");

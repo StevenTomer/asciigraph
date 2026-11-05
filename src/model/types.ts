@@ -87,9 +87,24 @@ export interface Node {
   lists?: boolean;
   /** Size follows the text (text labels); resizing by hand turns it off. */
   autosize?: boolean;
+  /** A table's settings (shapes/table.ts). */
+  table?: TableOptions;
   /** Moving this box takes along what's inside it (default true). See model/containment.ts. */
   carry?: boolean;
   gen?: Generated;
+}
+
+/** How a table is drawn. */
+export interface TableOptions {
+  /** Where its title (the line before the table) goes: a row of its own (default), or set in the
+   * top border. */
+  title?: "row" | "border";
+  /** Default center. */
+  titleAlign?: HAlign;
+  /** Each column's text width; null (or missing): as wide as its widest line. */
+  widths?: (number | null)[];
+  /** false: text too wide for its column is cut off with … rather than wrapped. */
+  wrap?: boolean;
 }
 
 /** Connector ends: filled / hollow triangle, filled / hollow diamond, dot, circle, cross, bar. */

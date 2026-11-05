@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type ImageTheme, exportPng, exportSvg, fontBase64 } from "../export/image";
-import { type Wrap, WRAPS, exportText, subset } from "../export/text";
+import { type Wrap, WRAPS, exportText, subset, tablesMarkdown } from "../export/text";
 import { withContents } from "../model/containment";
 import { readJson, writeJson } from "../storage/local";
 import { forgetHistory, newDiagram, renameCurrent, repo } from "../editor/session";
@@ -57,6 +57,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const wrap: Wrap = kind === "custom" ? { kind, ...custom } : { kind };
   const text = useMemo(() => exportText(diagram, { ascii, wrap }), [diagram, ascii, JSON.stringify(wrap)]);
   useEffect(() => writeJson("export", { ascii, kind, ...custom, theme, transparent, maxWidth }), [ascii, kind, custom, theme, transparent, maxWidth]);
+  const tables = useMemo(() => tablesMarkdown(diagram), [diagram]);
   const width = textWidth(text);
   const over = maxWidth !== undefined && width > maxWidth;
   // Too wide: a left-to-right graph in it might fit top to bottom.
@@ -138,6 +139,13 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         <button className="tb accent" onClick={() => void copy(text, "the text")} data-testid="copy-text">copy text</button>
         <button className="tb" onClick={() => download(`${file}.${ext}`, text + "\n", "text/plain")}>download .{ext}</button>
       </div>
+      {tables && (
+        <div className="row buttons">
+          <span className="row-label">tables</span>
+          <button className="tb" onClick={() => void copy(tables, "the tables as Markdown")} title="As Markdown tables for a document: titles in bold, line breaks as <br>">copy as Markdown</button>
+          <button className="tb" onClick={() => download(`${file}-tables.md`, tables + "\n", "text/markdown")}>download .md</button>
+        </div>
+      )}
       <div className="row buttons">
         <span className="row-label">picture</span>
         <span className="row-items" role="group" aria-label="Picture colors">
@@ -265,7 +273,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt>connector ends</dt><dd>select a connector, then drag an end handle onto or off a box to attach or detach it. Each end can have a head (properties panel "start"/"end", or right-click → Start Head / End Head): arrow ►, hollow arrow ▷, diamond ◆, hollow diamond ◊, dot ●, circle ○, cross ×, bar ┤, or none. Reverse Direction moves the heads to the other ends</dd>
         <dt>where it turns</dt><dd>a connector that steps across (<code>─┐</code> … <code>└─</code>) turns halfway between its ends, or nearer the end when its label needs the room. Select it and drag the middle stretch to turn somewhere else; it keeps that fraction of the way as boxes move. "halfway" in the properties panel (or right-click → Reset Turn) puts it back</dd>
         <dt>bends</dt><dd>select a connector, then drag its line to add a bend point there; drag a bend point (square) to move it, double-click it to remove it. "Straighten" removes them all</dd>
-        <dt>tables</dt><dd>choose the "table" shape and type a Markdown table (<code>| a | b |</code>, then <code>|---|---|</code>, then rows; <code>--:</code> right-aligns a column), or paste one: it's drawn as a grid and grows as you type</dd>
+        <dt>tables</dt><dd>choose the "table" shape and type a Markdown table (<code>| a | b |</code>, then <code>|---|---|</code>, then rows; <code>--:</code> right-aligns a column), or paste one: it's drawn as a grid and grows as you type. A line before the table is its title (in its own row, or in the top border: properties panel). A row carries on over lines until one ends with <code>|</code>, for a cell on several lines (<code>&lt;br&gt;</code> works too). Drag a line between columns to set the width of the one on its left (double-click it: back to its text's width), or type widths in the panel; <b>auto-size</b> fits them all to their text. Text too long for its column wraps, or is cut off with …. <b>copy table</b> (panel) or export → tables writes Markdown, line breaks as <code>&lt;br&gt;</code></dd>
         <dt>end labels</dt><dd>short text by each end of a connector (1, 0..*, a role): select it and fill in "end labels" in the properties panel</dd>
         <dt>labels</dt><dd>double-click a connector (or select it and press <Kbd>enter</Kbd>) to label it; <Kbd>shift+enter</Kbd> starts a new line (lists work too); drag a label to move it along its connector</dd>
         <dt><Kbd>enter</Kbd> or <Kbd>F2</Kbd></dt><dd>edit the selected box's text (or connector's label); <Kbd>esc</Kbd> or click outside to finish</dd>

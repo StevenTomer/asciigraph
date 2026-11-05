@@ -80,7 +80,7 @@ export function drawBorder(grid: CharGrid, r: Rect, node: Node) {
 
 /** `┌─ Name ───┐`: name padded by a space each side, after one border character (or centered or
  * right-aligned), truncated with … when the box is too narrow. */
-function drawName(grid: CharGrid, r: Rect, name: string, align: Node["align"]["h"]) {
+export function drawName(grid: CharGrid, r: Rect, name: string, align: Node["align"]["h"]) {
   const room = r.w - 6; // corner, line, space … space, line, corner
   if (room < 1) return;
   let cs = chars(name.replace(/\n/g, " "));
