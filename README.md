@@ -8,6 +8,8 @@ diagrams and flowcharts (or a shorthand like `Client -> API: GET /x`, `A -> B ->
 trees. Markdown lists in boxes. Export as text (Unicode box drawing or ASCII), a
 Markdown code block, a share link, or JSON.
 
+It's a static web app: run it in a container (below), or build it and serve `dist/` from any
+web server or folder.
 
 ```
 ┌─ API ──────────┐        ┌───────────┐
@@ -47,7 +49,7 @@ of the mapping: `-p 3000:8080`, or `"3000:8080"` in `compose.yaml`. Podman works
 
 Diagrams are saved in your browser (localStorage), not in the container. The container holds
 no data, so you can rebuild or replace it without losing anything. But a diagram saved at
-http://localhost:8080 isn't visible at another address (example.com/graph or another port).
+http://localhost:8080 isn't visible at another address (another host or port).
 To move one across, export it as JSON or a share link.
 
 After pulling changes, run `docker compose up -d --build` again to rebuild.
@@ -59,8 +61,7 @@ npm install
 npm run dev          # http://localhost:5173
 npm test             # unit tests (Vitest): rendering goldens, routing, ops, history
 npm run e2e          # build, then Playwright (first time: npx playwright install chromium)
-npm run build        # typecheck (strict) + production build into dist/
-./deploy/install.sh  # build and publish to a web server folder (uses sudo)
+npm run build        # typecheck (strict) + production build into dist/ (static files: serve from any folder)
 ```
 
 ## Credits

@@ -3,8 +3,8 @@ import type { Diagram } from "../model/types";
 import type { DiagramMeta, DiagramRepository } from "./repository";
 
 /**
- * Diagrams in this browser's localStorage. Every key starts with "asciigraph/": the app shares
- * the example.com origin with other apps. Reads and writes are wrapped because storage can be
+ * Diagrams in this browser's localStorage. Every key starts with "asciigraph/": the app may share
+ * its origin with other apps. Reads and writes are wrapped because storage can be
  * unavailable (private windows, blocked site data) or full.
  */
 const NS = "asciigraph/";
