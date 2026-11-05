@@ -18,6 +18,11 @@ const BEND_COST = 4;
 const SKEW_COST = 12;
 const SOFT_SKEW_COST = 1;
 const skewCost = (end: RouteEnd) => (end.strict ? SKEW_COST : SOFT_SKEW_COST);
+/** Per cell a bend is from the preferred turn point: a tie-breaker between routes that are
+ * otherwise as good (where an S-shape's middle stretch goes), too small to add length or bends. */
+const TURN_COST = 1e-4;
+/** A bend right against a box's border (cramped): a tie-breaker too, but ahead of the turn point. */
+const HUG_COST = 0.05;
 
 export interface Route {
   cells: Point[];
@@ -33,9 +38,12 @@ const DIRS: Side[] = ["top", "right", "bottom", "left"];
  * ends, midpoints, and just outside each obstacle), so it stays cheap for diagram-sized inputs.
  * Falls back to a plain L (through whatever is in the way) when no clear path exists.
  * With `occupancy`, it also keeps off connectors already routed (see occupancy.ts); `groups` are
- * this connector's end cells, which it may share.
+ * this connector's end cells, which it may share. `turn`: where it should turn, given the choice
+ * (default: halfway between the ends).
  */
-export function route(start: RouteEnd, end: RouteEnd, obstacles: Rect[], occupancy?: Occupancy, groups: string[] = []): Route {
+export function route(
+  start: RouteEnd, end: RouteEnd, obstacles: Rect[], occupancy?: Occupancy, groups: string[] = [], turn?: Point,
+): Route {
   const s = start.cell, e = end.cell;
   if (eq(s, e)) return { cells: [s], cost: 0, clean: true };
   // An end that sits inside an obstacle (overlapping nodes) shouldn't make the route impossible.
@@ -46,20 +54,24 @@ export function route(start: RouteEnd, end: RouteEnd, obstacles: Rect[], occupan
   for (const margin of [8, 24, Infinity]) {
     const win = margin === Infinity ? null : { x: box.x - margin, y: box.y - margin, w: box.w + 2 * margin, h: box.h + 2 * margin };
     const obs = win ? all.filter((r) => intersects(r, win)) : all;
-    const found = search(start, end, obs, win, occupancy, groups);
+    const found = search(start, end, obs, win, occupancy, groups, turn ?? halfway(s, e));
     if (found) return found;
     if (!win || obs.length === all.length) break;
   }
   return { cells: expand([s, { x: e.x, y: s.y }, e]), cost: 1e9, clean: false };
 }
 
+const halfway = (a: Point, b: Point): Point => ({ x: Math.floor((a.x + b.x) / 2), y: Math.floor((a.y + b.y) / 2) });
+
 /** Dijkstra over a sparse grid of the coordinates that matter, within `win` (null: anywhere). */
-function search(start: RouteEnd, end: RouteEnd, obs: Rect[], win: Rect | null, occupancy: Occupancy | undefined, groups: string[]): Route | null {
+function search(
+  start: RouteEnd, end: RouteEnd, obs: Rect[], win: Rect | null, occupancy: Occupancy | undefined, groups: string[], turn: Point,
+): Route | null {
   const s = start.cell, e = end.cell;
 
-  // Room to loop around the ends themselves, too (a target behind the source).
-  const xs = new Set([s.x, e.x, Math.floor((s.x + e.x) / 2), s.x - 2, s.x + 2, e.x - 2, e.x + 2]);
-  const ys = new Set([s.y, e.y, Math.floor((s.y + e.y) / 2), s.y - 2, s.y + 2, e.y - 2, e.y + 2]);
+  // Room to loop around the ends themselves, too (a target behind the source), and the turn point.
+  const xs = new Set([s.x, e.x, turn.x, s.x - 2, s.x + 2, e.x - 2, e.x + 2]);
+  const ys = new Set([s.y, e.y, turn.y, s.y - 2, s.y + 2, e.y - 2, e.y + 2]);
   // Tracks one cell clear of each obstacle (a line right against a border looks cramped).
   for (const r of obs) {
     xs.add(r.x - 2).add(right(r) + 2);
@@ -76,6 +88,10 @@ function search(start: RouteEnd, end: RouteEnd, obs: Rect[], win: Rect | null, o
   const Y = [...ys].sort((a, b) => a - b);
   const W = X.length, H = Y.length;
   const at = (i: number, j: number) => j * W + i;
+  // Columns and rows right against a box: a bend there would run a line along its border.
+  const besideX = new Set(obs.flatMap((r) => [r.x - 1, right(r) + 1]));
+  const besideY = new Set(obs.flatMap((r) => [r.y - 1, bottom(r) + 1]));
+  const hugX = X.map((x) => besideX.has(x)), hugY = Y.map((y) => besideY.has(y));
 
   // Precompute which grid points are inside obstacles, and which grid segments (to the next point
   // right, and down) cross one, by letting each obstacle mark the indices it covers.
@@ -177,7 +193,9 @@ function search(start: RouteEnd, end: RouteEnd, obs: Rect[], win: Rect | null, o
       const crosses = nd === 1 ? crossRight[at(i, j)] : nd === 3 ? crossRight[at(ni, nj)] : nd === 2 ? crossDown[at(i, j)] : crossDown[at(ni, nj)];
       if (crosses) continue;
       const step = Math.abs(X[ni] - X[i]) + Math.abs(Y[nj] - Y[j]);
-      const bend = d < 4 && nd !== d ? BEND_COST : 0;
+      const bend = d < 4 && nd !== d
+        ? BEND_COST + TURN_COST * (Math.abs(X[i] - turn.x) + Math.abs(Y[j] - turn.y)) + (hugX[i] || hugY[j] ? HUG_COST : 0)
+        : 0;
       const skew = u === s0 && start.dir && nd !== startDir ? skewCost(start) : 0;
       const v = at(ni, nj) * 5 + nd;
       const nc = cost + step + bend + skew + crowd(i, j, nd);

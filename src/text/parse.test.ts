@@ -133,3 +133,15 @@ describe("multi-line labels in text", () => {
     expect(parseGraph("flowchart LR\nA -- yes<br>please --> B").edges[0].label).toBe("yes\nplease");
   });
 });
+
+describe("connector ends from Mermaid", () => {
+  it("reads -x (cross) and -) (open arrow) messages", () => {
+    const s = parseSequence("sequenceDiagram\nA-xB: lost\nA--)B: async\nA->>B: normal");
+    expect(s.events.map((e) => (e.type === "message" ? e.head : null))).toEqual(["cross", "triangle", undefined]);
+  });
+
+  it("reads --x and --o graph edges", () => {
+    const g = parseGraph("flowchart LR\nA --x B\nB --o C\nC --> D");
+    expect(g.edges.map((e) => e.heads?.end)).toEqual(["cross", "circle", undefined]);
+  });
+});

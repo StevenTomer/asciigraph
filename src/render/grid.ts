@@ -1,5 +1,5 @@
 import { type Point, type Rect, type Side, bottom, right } from "../geometry/geom";
-import type { LineStyle } from "../model/types";
+import type { Head, LineStyle } from "../model/types";
 import { DIR_BITS, SIDE_INDEX, STYLE_WEIGHT, arrowGlyph, asciiChar, lineGlyph } from "./charsets";
 
 export interface Cell {
@@ -13,6 +13,7 @@ export interface Cell {
   /** An arrowhead pointing this way; wins over strokes. */
   arrow?: Side;
   arrowStyle?: LineStyle;
+  head?: Head;
 }
 
 /** A sparse grid of cells, built by the rasterizer and read by the canvas and text export. */
@@ -48,10 +49,11 @@ export class CharGrid {
     this.cell(p).ch = ch;
   }
 
-  setArrow(p: Point, pointing: Side, style: LineStyle) {
+  setArrow(p: Point, pointing: Side, style: LineStyle, head: Head = "arrow") {
     const c = this.cell(p);
     c.arrow = pointing;
     c.arrowStyle = style;
+    c.head = head;
   }
 
   /** Blank out a rectangle (what's behind an opaque node). */
@@ -104,7 +106,7 @@ export class CharGrid {
 
 export function cellGlyph(c: Cell, ascii: boolean): string {
   if (c.ch !== undefined) return ascii ? asciiChar(c.ch) : c.ch;
-  if (c.arrow) return arrowGlyph(c.arrow, ascii ? "ascii" : (c.arrowStyle ?? "single"));
+  if (c.arrow) return arrowGlyph(c.arrow, ascii ? "ascii" : (c.arrowStyle ?? "single"), c.head);
   if (c.mask) return lineGlyph(c.styles, c.rounded, ascii);
   return "";
 }

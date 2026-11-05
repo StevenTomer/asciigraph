@@ -81,3 +81,15 @@ group("writing Mermaid from a drawing", () => {
     expect(diagramToText(updateSource(a.diagram, a.id, {}).diagram)).toBe(diagramToText(d));
   });
 });
+
+it("writes crosses and circles as Mermaid's --x and --o, and links without changing them", () => {
+  const box = (id: string, x: number) => makeNode({ x, y: 0, w: 7, h: 3 }, { id, text: id.toUpperCase() });
+  let d = [box("a", 0), box("b", 20), box("c", 40)].reduce(addNode, emptyDiagram());
+  d = addEdge(d, makeEdge(att("a"), att("b"), { id: "x", heads: { end: "cross" } }));
+  d = addEdge(d, makeEdge(att("b"), att("c"), { id: "o", heads: { end: "circle" } }));
+  const desc = describe(d, all(d))!;
+  expect(desc.text).toContain("A --x B");
+  expect(desc.text).toContain("B --o C");
+  const a = adopt(d, all(d))!;
+  expect(diagramToText(updateSource(a.diagram, a.id, {}).diagram)).toBe(diagramToText(d));
+});

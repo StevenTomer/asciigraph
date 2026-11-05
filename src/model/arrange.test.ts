@@ -59,12 +59,12 @@ describe("distribute", () => {
   });
 });
 
-it("reverses a connector, arrowheads included", () => {
+it("reverses a connector: the arrowhead moves to the other end", () => {
   const d = addEdge(diagram(n("a", 0, 0), n("b", 10, 0)), makeEdge(
     { kind: "attached", node: "a", side: "auto" }, { kind: "free", at: { x: 20, y: 9 } }, { id: "e" }
   ));
   const r = reverseEdge(d, "e").edges.e;
   expect(r.from).toEqual({ kind: "free", at: { x: 20, y: 9 } });
   expect(r.to).toEqual({ kind: "attached", node: "a", side: "auto" });
-  expect(r.arrows).toEqual({ start: true, end: false });
+  expect(r.arrows).toEqual({ start: false, end: true });
 });

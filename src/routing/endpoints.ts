@@ -169,6 +169,18 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
     return null;
   };
 
+  // Where to turn (the middle stretch of an S): where it was dragged to, else halfway, unless the
+  // label needs more room than half: then near the end, leaving the first stretch for it.
+  const labelWidth = edge.label ? Math.max(...edge.label.split("\n").map((l) => Array.from(l.trim()).length)) : 0;
+  const turnFor = (a: Point, b: Point): Point | undefined => {
+    const at = (t: number) => ({ x: Math.round(a.x + t * (b.x - a.x)), y: Math.round(a.y + t * (b.y - a.y)) });
+    if (edge.turnAt !== undefined) return at(edge.turnAt);
+    if (labelWidth && !via.length && Math.floor(Math.abs(b.x - a.x) / 2) < labelWidth + 4) {
+      return { x: b.x - 2 * Math.sign(b.x - a.x), y: Math.floor((a.y + b.y) / 2) };
+    }
+    return undefined;
+  };
+
   // A line may turn right outside a node (┌─┴─┐), but an arrowhead must be approached head-on.
   const routeEnds = (f0: Anchor, t0: Anchor) => {
     const fs = settle(f0, edge.from, "out"), ts = settle(t0, edge.to, "in");
@@ -183,7 +195,7 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
     let cells: Point[] = [];
     let cost = 0, clean = true;
     for (let i = 0; i + 1 < stops.length; i++) {
-      const r = route(stops[i], stops[i + 1], obstacles, occupancy, groups);
+      const r = route(stops[i], stops[i + 1], obstacles, occupancy, groups, turnFor(stops[i].cell, stops[i + 1].cell));
       cells = i === 0 ? r.cells : [...cells, ...r.cells.slice(1)];
       cost += r.cost;
       clean &&= r.clean;

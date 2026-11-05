@@ -1,7 +1,7 @@
 import type { Point, Rect, Side } from "../geometry/geom";
 import { autoLayout } from "../model/layout";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
-import type { Diagram, LineStyle, Node, SourceKind, TextSource } from "../model/types";
+import type { Diagram, Head, LineStyle, Node, SourceKind, TextSource } from "../model/types";
 import { chars, textLines } from "../render/textLayout";
 import { lifelineColumn } from "../shapes/lifeline";
 import { detectKind } from "./detect";
@@ -31,6 +31,7 @@ export interface DesiredEdge {
   label?: string;
   line: LineStyle;
   arrows: { start: boolean; end: boolean };
+  heads?: { start?: Head; end?: Head };
 }
 
 export interface Desired {
@@ -90,7 +91,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
   const pw = P.map((p) => Math.max(width(p.label) + 4, 10));
 
   // 1. Rows: walk the events, giving each a row (and collecting what needs columns).
-  type Msg = { from: number; to: number; row: number; label: string; dashed: boolean; arrow: boolean; n: number };
+  type Msg = { from: number; to: number; row: number; label: string; dashed: boolean; arrow: boolean; head?: Head; n: number };
   type Note = { side: "left" | "right" | "over"; who: number[]; text: string; row: number; w: number; h: number };
   type Frame = { label: string; top: number; bottom: number; parts: Set<number>; elses: { label: string; row: number }[] };
   const msgs: Msg[] = [], notes: Note[] = [], frames: Frame[] = [];
@@ -114,7 +115,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       // A label of several lines is centered on the arrow: leave room above and below it.
       const extra = label.split("\n").length - 1;
       row += Math.floor(extra / 2);
-      msgs.push({ from, to, row, label, dashed: e.dashed, arrow: e.arrow, n: count });
+      msgs.push({ from, to, row, label, dashed: e.dashed, arrow: e.arrow, head: e.head, n: count });
       touch(from, to);
       if (e.activate) start(to, row);
       if (e.deactivate) stop(from, row);
@@ -247,6 +248,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       label: m.label || undefined,
       line: m.dashed ? "dashed" : "single",
       arrows: { start: false, end: m.arrow },
+      ...(m.head && { heads: { end: m.head } }),
     };
   });
   // A note beside (or over) one lifeline moves left–right with it (rows stay, like messages).
@@ -365,6 +367,7 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
       label: e.label || undefined,
       line: e.line,
       arrows: e.arrows,
+      ...(e.heads && { heads: e.heads }),
     };
   });
   return { nodes, edges, warnings: g.warnings };

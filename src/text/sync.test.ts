@@ -91,8 +91,8 @@ describe("drawing from text", () => {
 └─┴──┬───┴─┘    │ Backorders │
      │          ╰─────┬──────╯
      │                │
-     │                │
      └────────┬───────┘
+              │
               ▼
            ╭─────╮
            ( End )
@@ -252,13 +252,13 @@ it("keeps labels on a shared trunk apart (the sample flowchart, left to right)",
   const s = drawSource(emptyDiagram(), { kind: "graph", options: {}, text }, { x: 0, y: 0 });
   expect(show(setDirection(s.diagram, s.id, "right").diagram)).toBe(`
                                                                     ┌─┬─────────┬─┐
-                                                                  ┌►│ │ Ship it │ ├────────┐
-                                                                  │ └─┴─────────┴─┘        │
-╭───────╮          ┌────────────┐           ╱───────────╲         │ yes                    │ ╭──────╮
-( Start )─────────►│ Read order ├─────────►<  In stock?  >────────┤                        ├►( Done )
-╰───────╯          └────────────┘           ╲───────────╱      no │ ╭────────────╮         │ ╰──────╯
-                                                                  │ ├────────────┤         │
-                                                                  └►│ Backorders ├─────────┘
+                                                                 ┌─►│ │ Ship it │ ├────┐
+                                                                 │  └─┴─────────┴─┘    │
+╭───────╮          ┌────────────┐           ╱───────────╲        │ yes                 │     ╭──────╮
+( Start )─────────►│ Read order ├─────────►<  In stock?  >───────┤                     ├────►( Done )
+╰───────╯          └────────────┘           ╲───────────╱     no │  ╭────────────╮     │     ╰──────╯
+                                                                 │  ├────────────┤     │
+                                                                 └─►│ Backorders ├─────┘
                                                                     ╰────────────╯
 `);
 });
@@ -357,4 +357,14 @@ describe("notes stay with their lifeline", () => {
     d = updateSource(d, s.id, { text: text + "\n    A-->>C: 200" }).diagram;
     expect(Object.values(d.locks!)).toHaveLength(1);
   });
+});
+
+it("draws Mermaid's crosses and open arrows, and keeps them through edits", () => {
+  const text = "sequenceDiagram\n  A-xB: lost\n  A-)B: ping";
+  const s = drawSource(emptyDiagram(), { kind: "sequence", options: {}, text }, { x: 0, y: 0 });
+  const rows = (d: Diagram) => diagramToText(d).split("\n").filter((l) => /lost|ping|[×▷]/.test(l));
+  expect(rows(s.diagram).join("\n")).toMatch(/×[\s\S]*▷/);
+  const again = updateSource(s.diagram, s.id, { text: text + "\n  B->>A: back" }).diagram;
+  expect(edgeByKey(again, "m:A>B#1").heads).toEqual({ end: "cross" });
+  expect(edgeByKey(again, "m:A>B#2").heads).toEqual({ end: "triangle" });
 });

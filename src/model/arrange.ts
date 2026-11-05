@@ -100,12 +100,14 @@ export function distribute(d: Diagram, ids: Id[], axis: "horizontal" | "vertical
   return out;
 }
 
-/** Swap a connector's ends (and its arrowheads with them, so it points the other way). */
+/** Swap a connector's ends, so it points the other way (its start and end heads stay start and
+ * end: the arrowhead moves to the other node). */
 export function reverseEdge(d: Diagram, id: Id): Diagram {
   const e = d.edges[id];
   if (!e) return d;
-  const reversed = { ...e, from: e.to, to: e.from, arrows: { start: e.arrows.end, end: e.arrows.start } };
+  const reversed = { ...e, from: e.to, to: e.from };
   if (e.via) reversed.via = [...e.via].reverse();
   if (e.labelAt !== undefined) reversed.labelAt = 1 - e.labelAt;
+  if (e.turnAt !== undefined) reversed.turnAt = 1 - e.turnAt;
   return { ...d, edges: { ...d.edges, [id]: reversed } };
 }

@@ -76,7 +76,12 @@ const ARROWS: Record<"plain" | "heavy" | "dotted", { both: string; end: string; 
 function arrow(e: Edge, swap: boolean): string {
   const start = swap ? e.arrows.end : e.arrows.start, end = swap ? e.arrows.start : e.arrows.end;
   const set = ARROWS[e.line === "heavy" ? "heavy" : e.line === "dotted" || e.line === "dashed" ? "dotted" : "plain"];
-  return start && end ? set.both : end ? set.end : set.none;
+  if (start && end) return set.both;
+  if (!end) return set.none;
+  // Mermaid's other ends: --x (cross) and --o (circle), on plain lines. (Others stay as styling.)
+  const head = e.heads?.[swap ? "start" : "end"];
+  if (set === ARROWS.plain && (head === "cross" || head === "circle")) return head === "cross" ? "--x" : "--o";
+  return set.end;
 }
 
 function graph(d: Diagram, ids: Id[]): Described {
@@ -189,7 +194,9 @@ function sequence(d: Diagram, ids: Id[]): Described {
     const a = participantOf(e.from.node), b = participantOf(e.to.node);
     if (!a || !b) continue;
     const row = resolveEdge(d, e).from.cell.y;
-    const op = (e.line === "dashed" || e.line === "dotted" ? "--" : "-") + (e.arrows.end ? ">>" : ">");
+    const head = e.arrows.end ? e.heads?.end ?? "arrow" : null;
+    const tip = head === "cross" ? "x" : head === "triangle" ? ")" : head ? ">>" : ">";
+    const op = (e.line === "dashed" || e.line === "dotted" ? "--" : "-") + tip;
     events.push({ row, order: 3, text: `${a}${op}${b}: ${inline(e.label ?? "")}`.trimEnd(), key: [e.id, `${a}>${b}`] });
   }
   for (const b of bars) {

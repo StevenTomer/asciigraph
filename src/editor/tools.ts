@@ -53,6 +53,9 @@ type Gesture =
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
   /** Dragging a connector's label along it. */
   | { kind: "label"; edge: Id }
+  /** Sliding the middle stretch of an S-shaped connector (where it turns) along `axis`, between
+   * the ends' coordinates `a` and `b`. */
+  | { kind: "turn"; edge: Id; axis: "x" | "y"; a: number; b: number }
   /** Dragging a bend point; `index` null until the pointer moves (then a new bend is added). */
   | { kind: "bend"; edge: Id; index: number | null; insertAt: number }
   /** Rubber-band selection. `click`: the object pressed on with Ctrl/⌘ held (a marquee started
@@ -86,6 +89,10 @@ const selectTool: Tool = {
       select([hit.edge]);
       begin();
       gesture = { kind: "label", edge: hit.edge };
+    } else if (hit.kind === "edge" && !p.shift && selection.length === 1 && selection[0] === hit.edge && turnSegment(diagram, hit.edge, p.cell)) {
+      // Dragging the middle stretch of the selected connector moves where it turns.
+      begin();
+      gesture = { kind: "turn", edge: hit.edge, ...turnSegment(diagram, hit.edge, p.cell)! };
     } else if (hit.kind === "edge" && !p.shift && selection.length === 1 && selection[0] === hit.edge) {
       // Dragging the line of the selected connector bends it there.
       begin();
@@ -162,6 +169,11 @@ const selectTool: Tool = {
         });
         set(updateEdge(d, g.edge, { labelAt: best / (cells.length - 1) }));
       }
+    } else if (g.kind === "turn") {
+      // A fraction of the way from start to end, kept a cell clear of both.
+      const lo = Math.min(g.a, g.b) + 1, hi = Math.max(g.a, g.b) - 1;
+      const v = Math.max(lo, Math.min(hi, g.axis === "x" ? p.cell.x : p.cell.y));
+      set(updateEdge(d, g.edge, { turnAt: Math.round(((v - g.a) / (g.b - g.a)) * 1000) / 1000 }));
     } else if (g.kind === "bend") {
       const via = [...(d.edges[g.edge].via ?? [])];
       if (g.index === null) {
@@ -220,12 +232,43 @@ const selectTool: Tool = {
     if (hit.kind === "handle") return RESIZE_CURSORS[hit.handle];
     if (hit.kind === "endpoint") return "crosshair";
     if (hit.kind === "via" || hit.kind === "label") return "move";
-    if (hit.kind === "edge" && getState().selection.length === 1 && getState().selection[0] === hit.edge) return "copy";
+    if (hit.kind === "edge" && getState().selection.length === 1 && getState().selection[0] === hit.edge) {
+      const turn = turnSegment(getState().diagram, hit.edge, p.cell);
+      return turn ? (turn.axis === "x" ? "ew-resize" : "ns-resize") : "copy";
+    }
     if ((hit.kind === "node" || hit.kind === "edge") && p.mod) return "crosshair"; // Ctrl/⌘: select box
     if (hit.kind === "node" || hit.kind === "edge") return "move";
     return "default";
   },
 };
+
+/**
+ * If `cell` is on the middle stretch of a connector shaped like an S (`─┐ └─`: three straight
+ * runs, no bend points), the way that stretch slides and the ends' coordinates along it.
+ */
+export function turnSegment(d: Diagram, edgeId: Id, cell: Point): { axis: "x" | "y"; a: number; b: number } | null {
+  const r = rendered(d).edges.get(edgeId);
+  if (!r || d.edges[edgeId]?.via?.length) return null;
+  const cells = r.cells;
+  const corners: number[] = [];
+  for (let i = 1; i + 1 < cells.length; i++) {
+    const straight = (cells[i - 1].x === cells[i + 1].x) || (cells[i - 1].y === cells[i + 1].y);
+    if (!straight) corners.push(i);
+  }
+  if (corners.length !== 2) return null;
+  const [c1, c2] = corners;
+  // An S, not a U (which turns back: its middle stretch isn't between the ends).
+  const n = cells.length;
+  if (stepDir(cells[0], cells[1]) !== stepDir(cells[n - 2], cells[n - 1])) return null;
+  const at = cells.findIndex((c) => eq(c, cell));
+  if (at < c1 || at > c2) return null;
+  // A vertical middle stretch slides left–right, a horizontal one up–down.
+  const axis = cells[c1].x === cells[c2].x ? "x" : "y";
+  const a = r.from.cell[axis], b = r.to.cell[axis];
+  return Math.abs(b - a) >= 2 ? { axis, a, b } : null;
+}
+
+const stepDir = (a: Point, b: Point) => `${Math.sign(b.x - a.x)},${Math.sign(b.y - a.y)}`;
 
 /** Where a new bend at `cell` goes among the existing ones: after those the path reaches first. */
 function bendIndex(d: Diagram, edgeId: Id, cell: Point): number {

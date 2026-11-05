@@ -1,5 +1,5 @@
-import type { Side } from "../geometry/geom";
-import type { LineStyle } from "../model/types";
+import { type Side, OPPOSITE } from "../geometry/geom";
+import type { Head, LineStyle } from "../model/types";
 
 /**
  * Glyphs by connection directions. Each cell records, per direction (up, right, down, left), the
@@ -111,14 +111,38 @@ export function lineGlyph(styles: readonly (LineStyle | undefined)[], rounded: b
   return TABLES[style].get(mask) ?? " ";
 }
 
-/** Arrowheads, by the direction they point. */
-const ARROWS: Record<"unicode" | "ascii", Record<Side, string>> = {
-  unicode: { top: "▲", right: "►", bottom: "▼", left: "◄" },
-  ascii: { top: "^", right: ">", bottom: "v", left: "<" },
+/** Connector heads, by the direction they point (diamonds, dots and crosses look the same every
+ * way). Only characters the editor's font has (no ◇: ◊ instead), each one cell wide. */
+const HEAD_GLYPHS: Record<Exclude<Head, "bar">, { unicode: Record<Side, string> | string; ascii: Record<Side, string> | string }> = {
+  arrow: { unicode: { top: "▲", right: "►", bottom: "▼", left: "◄" }, ascii: { top: "^", right: ">", bottom: "v", left: "<" } },
+  triangle: { unicode: { top: "△", right: "▷", bottom: "▽", left: "◁" }, ascii: { top: "^", right: ">", bottom: "v", left: "<" } },
+  diamond: { unicode: "◆", ascii: "#" },
+  "hollow-diamond": { unicode: "◊", ascii: "o" },
+  dot: { unicode: "●", ascii: "*" },
+  circle: { unicode: "○", ascii: "o" },
+  cross: { unicode: "×", ascii: "x" },
 };
 
-export function arrowGlyph(pointing: Side, style: LineStyle): string {
-  return ARROWS[style === "ascii" ? "ascii" : "unicode"][pointing];
+/** What each head is called in the panel and menus. */
+export const HEAD_NAMES: Record<Head | "none", string> = {
+  none: "no head", arrow: "arrow", triangle: "hollow arrow", diamond: "diamond", "hollow-diamond": "hollow diamond",
+  dot: "dot", circle: "circle", cross: "cross", bar: "bar",
+};
+
+export function arrowGlyph(pointing: Side, style: LineStyle, head: Head = "arrow"): string {
+  const ascii = style === "ascii";
+  if (head === "bar") {
+    // The line runs into a crossbar: ─┤  ├─  ┴  ┬ (in the line's own style).
+    const horizontal = pointing === "left" || pointing === "right";
+    if (ascii) return horizontal ? "|" : "-";
+    const styles: (LineStyle | undefined)[] = [undefined, undefined, undefined, undefined];
+    const back = SIDE_INDEX[OPPOSITE[pointing]];
+    styles[back] = style;
+    for (const i of horizontal ? [0, 2] : [1, 3]) styles[i] = style;
+    return lineGlyph(styles, false, false);
+  }
+  const g = HEAD_GLYPHS[head][ascii ? "ascii" : "unicode"];
+  return typeof g === "string" ? g : g[pointing];
 }
 
 /** ASCII stand-ins for the drawing characters shapes use, for ASCII-only output. (People's own

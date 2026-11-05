@@ -1,10 +1,11 @@
+import type { Head } from "../model/types";
 import { logicalLines, unquote } from "./mermaid";
 
 /**
  * Message sequences from text: Mermaid `sequenceDiagram`, and a looser shorthand.
  *
  * Mermaid: participant / actor (with "as" aliases); messages ->> (arrow), -->> (dashed arrow),
- * -> and --> (lines without arrowheads), -x / --x / -) / --) (drawn as arrows); + / - after the
+ * -> and --> (lines without arrowheads), -x / --x (a cross: lost or failed) and -) / --) (an open arrow: asynchronous); + / - after the
  * arrow to activate the target / deactivate the sender; activate / deactivate; Note left of /
  * right of / over A[,B]: text; loop / alt / else / opt / par / and / critical / break … end
  * frames; autonumber.
@@ -18,7 +19,7 @@ export interface Participant {
 }
 
 export type SeqEvent =
-  | { type: "message"; from: string; to: string; label: string; dashed: boolean; arrow: boolean; activate: boolean; deactivate: boolean }
+  | { type: "message"; from: string; to: string; label: string; dashed: boolean; arrow: boolean; head?: Head; activate: boolean; deactivate: boolean }
   | { type: "note"; side: "left" | "right" | "over"; who: string[]; text: string }
   | { type: "activate" | "deactivate"; who: string }
   | { type: "frame"; kind: string; label: string }
@@ -101,9 +102,10 @@ export function parseSequence(text: string): ParsedSequence {
       const dashed = op.startsWith("--");
       // In Mermaid, -> and --> are lines without arrowheads; in the shorthand they're arrows.
       const arrow = mermaid ? !/^--?>$/.test(op) : true;
+      const head: Head | undefined = op.endsWith("x") ? "cross" : op.endsWith(")") ? "triangle" : undefined;
       seq.events.push({
         type: "message", from: participant(a.trim()), to: participant(b.trim()), label: unquote(label ?? ""),
-        dashed, arrow, activate: mod === "+", deactivate: mod === "-",
+        dashed, arrow, ...(head && { head }), activate: mod === "+", deactivate: mod === "-",
       });
       return;
     }

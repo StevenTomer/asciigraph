@@ -1,5 +1,6 @@
 import { type Point, type Rect, type Side, OPPOSITE, contains, key, stepSide } from "../geometry/geom";
 import { paintOrder, within } from "../model/containment";
+import { headOf } from "../model/ops";
 import type { Diagram } from "../model/types";
 import { type ResolvedEdge, resolveEdge } from "../routing/endpoints";
 import { Occupancy } from "../routing/occupancy";
@@ -53,8 +54,8 @@ export function rasterize(d: Diagram, quick = false): Rendered {
       if (!hidden(b)) grid.stroke(b, OPPOSITE[dir], style);
     }
     for (const [anchor, arrow, end] of [
-      [r.from, edge.arrows.start, cells[0]],
-      [r.to, edge.arrows.end, cells[cells.length - 1]],
+      [r.from, headOf(edge, "start"), cells[0]],
+      [r.to, headOf(edge, "end"), cells[cells.length - 1]],
     ] as const) {
       if (hidden(end)) continue;
       const neighbor = cells.length > 1 ? (end === cells[0] ? cells[1] : cells[cells.length - 2]) : null;
@@ -63,7 +64,7 @@ export function rasterize(d: Diagram, quick = false): Rendered {
         ? OPPOSITE[anchor.dir]
         : neighbor ? stepSide(neighbor, end) : "right";
       if (arrow) {
-        grid.setArrow(end, pointing, style);
+        grid.setArrow(end, pointing, style, arrow);
       } else if (anchor.dir) {
         // Run the line into the border and join it there.
         grid.stroke(end, OPPOSITE[anchor.dir], style);

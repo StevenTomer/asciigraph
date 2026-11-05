@@ -1,4 +1,4 @@
-import type { LineStyle, NodeKind } from "../model/types";
+import type { Head, LineStyle, NodeKind } from "../model/types";
 import { logicalLines, unquote } from "./mermaid";
 
 /**
@@ -40,6 +40,8 @@ export interface GraphEdge {
   label: string;
   line: LineStyle;
   arrows: { start: boolean; end: boolean };
+  /** --x: a cross, --o: a circle (otherwise arrowheads). */
+  heads?: { end?: Head };
 }
 
 export interface Subgraph {
@@ -216,7 +218,9 @@ export function parseGraph(text: string): ParsedGraph {
           label = unquote(pipe[1].trim());
           rest = rest.slice(pipe[0].length);
         }
-        return { label, line, arrows: { start, end } };
+        const tip = m[0].trimEnd().slice(-1);
+        const head: Head | undefined = tip === "x" ? "cross" : tip === "o" ? "circle" : undefined;
+        return { label, line, arrows: { start, end }, ...(head && { heads: { end: head } }) };
       }
       return null;
     };

@@ -89,7 +89,7 @@ export function adopt(d: Diagram, ids: Id[]): (SyncResult & { id: Id; source: Te
     } else if (edges[objId]) {
       // Written the other way round (Mermaid arrows point forward): compare styles that way too.
       const spec = edgeSpecs.get(key);
-      const style = spec && (desc.swapped.has(objId) ? edgeStyle({ ...spec, arrows: { start: spec.arrows.end, end: spec.arrows.start } }) : edgeStyle(spec));
+      const style = spec && (desc.swapped.has(objId) ? edgeStyle(flipEnds(spec)) : edgeStyle(spec));
       edges[objId] = { ...edges[objId], gen: { source: id, key, placed: true, ...(style && { style }) } };
     }
   }
@@ -102,7 +102,15 @@ export function membersOf(d: Diagram, id: Id): Id[] {
 }
 
 const nodeStyle = (n: Pick<Node, "border" | "align">) => JSON.stringify({ border: n.border, align: n.align });
-const edgeStyle = (e: Pick<Edge, "line" | "arrows">) => JSON.stringify({ line: e.line, arrows: e.arrows });
+const edgeStyle = (e: Pick<Edge, "line" | "arrows" | "heads">) =>
+  // (Heads only when there are some, so styles recorded before heads existed still match.)
+  JSON.stringify({ line: e.line, arrows: e.arrows, ...(e.heads && Object.keys(e.heads).length && { heads: e.heads }) });
+/** The same connector pointing the other way (its ends' arrows and heads swapped). */
+const flipEnds = <T extends Pick<Edge, "arrows" | "heads">>(e: T): T => ({
+  ...e,
+  arrows: { start: e.arrows.end, end: e.arrows.start },
+  heads: e.heads && { ...(e.heads.end && { start: e.heads.end }), ...(e.heads.start && { end: e.heads.start }) },
+});
 const sameXY = (a: Rect, b: Rect) => a.x === b.x && a.y === b.y;
 const sameSize = (a: Rect, b: Rect) => a.w === b.w && a.h === b.h;
 
@@ -190,7 +198,7 @@ function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
     const f0 = end(d0.from), t0 = end(d0.to);
     const flipped = !!ex0 && !!f0 && !!t0 && f0.kind === "attached" && t0.kind === "attached" &&
       ex0.from.kind === "attached" && ex0.to.kind === "attached" && ex0.from.node === t0.node && ex0.to.node === f0.node;
-    const de = flipped ? { ...d0, from: d0.to, to: d0.from, arrows: { start: d0.arrows.end, end: d0.arrows.start } } : d0;
+    const de = flipped ? { ...flipEnds(d0), from: d0.to, to: d0.from } : d0;
     const from = end(de.from), to = end(de.to);
     if (!from || !to) {
       warnings.push(`couldn't connect ${de.key}`);
@@ -208,11 +216,11 @@ function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
         && sameNodes(ex.from, from) && sameNodes(ex.to, to);
       out = updateEdge(out, ex.id, {
         ...(ownEnds ? {} : { from, to }), label: de.label,
-        ...(restyled ? {} : { line: de.line, arrows: de.arrows }),
+        ...(restyled ? {} : { line: de.line, arrows: de.arrows, heads: de.heads }),
         gen: { source: source.id, key: de.key, style, ends, ...(!relayout && ex.gen!.placed && { placed: true }) },
       });
     } else {
-      out = addEdge(out, makeEdge(from, to, { label: de.label, line: de.line, arrows: de.arrows, gen: { source: source.id, key: de.key, style, ends } }));
+      out = addEdge(out, makeEdge(from, to, { label: de.label, line: de.line, arrows: de.arrows, ...(de.heads && { heads: de.heads }), gen: { source: source.id, key: de.key, style, ends } }));
     }
   }
 

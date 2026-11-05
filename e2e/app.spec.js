@@ -84,7 +84,7 @@ test("drag an end off a box to detach it, and onto another to attach", async ({ 
   await page.keyboard.press("a");
   await drag(page, [6, 3], [28, 3]);
   const edgeId = (await state(page)).selection[0];
-  await page.keyboard.press("s"); // the arrow tool stays on; switch to select (keeps the selection)
+  await page.keyboard.press("s"); // (already back in select, with the arrow selected)
 
   // The arrow is selected; its end handle is in the cell left of B. Drag it to empty space.
   await drag(page, [23, 3], [18, 7]);
@@ -98,7 +98,7 @@ test("drag an end off a box to detach it, and onto another to attach", async ({ 
   const cId = Object.values((await state(page)).diagram.nodes).find((n) => n.text === "C").id;
   expect(edge.to.node).toBe(cId);
   // C is further across than down, so the arrow comes in from the left.
-  expect(await text(page)).toContain("└►│    C    │");
+  expect(await text(page)).toMatch(/└─+►│    C    │/);
 });
 
 test("alt keeps an end free; deleting a box frees its connectors", async ({ page }) => {
@@ -1100,4 +1100,33 @@ test("F2 edits the selected box; lists can be turned off, or escaped per line", 
   expect(await text(page)).toContain("\\- two");
   // Text alignment says "center".
   await expect(page.getByRole("button", { name: "center", exact: true })).toBeVisible();
+});
+
+test("pick connector heads in the panel; drag the middle stretch to move where it turns", async ({ page }) => {
+  await box(page, [2, 2], [8, 4], "A");
+  await box(page, [30, 6], [36, 8], "B");
+  await page.keyboard.press("a");
+  await drag(page, [5, 3], [33, 7]);
+  const id = (await state(page)).selection[0];
+  const edge = async () => (await state(page)).diagram.edges[id];
+  // Halfway between A's side (x 9) and B's (x 29): the line goes down at x 19.
+  const col = async (y) => (await text(page)).split("\n")[y - 2].indexOf("│", 8) + 2;
+  expect(await col(5)).toBe(19);
+
+  await page.getByRole("button", { name: "diamond at end", exact: true }).click();
+  await page.getByRole("button", { name: "dot at start", exact: true }).click();
+  expect(await edge()).toMatchObject({ arrows: { start: true, end: true }, heads: { start: "dot", end: "diamond" } });
+  expect(await text(page)).toMatch(/│●─+┐/);
+  expect(await text(page)).toMatch(/└─+◆│\s+B/);
+  await page.getByRole("button", { name: "no head at start" }).click();
+  expect((await edge()).arrows.start).toBe(false);
+
+  // Drag the vertical stretch left: it turns earlier, and stays there as B moves.
+  await drag(page, [19, 5], [13, 5]);
+  expect((await edge()).turnAt).toBeCloseTo(0.2, 2);
+  expect(await col(5)).toBe(13);
+  await expect(page.locator(".inspector")).toContainText("20% of the way");
+  await page.getByRole("button", { name: "halfway" }).click();
+  expect((await edge()).turnAt).toBeUndefined();
+  expect(await col(5)).toBe(19);
 });

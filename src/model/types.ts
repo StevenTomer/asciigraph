@@ -91,6 +91,10 @@ export interface Node {
   gen?: Generated;
 }
 
+/** Connector ends: filled / hollow triangle, filled / hollow diamond, dot, circle, cross, bar. */
+export type Head = "arrow" | "triangle" | "diamond" | "hollow-diamond" | "dot" | "circle" | "cross" | "bar";
+export const HEADS: Head[] = ["arrow", "triangle", "diamond", "hollow-diamond", "dot", "circle", "cross", "bar"];
+
 /** A connector. Its path is computed (routing/orthogonal.ts), never stored. */
 export interface Edge {
   id: Id;
@@ -98,6 +102,12 @@ export interface Edge {
   to: Endpoint;
   line: LineStyle;
   arrows: { start: boolean; end: boolean };
+  /** Which head each end with an arrow has (default "arrow", the filled triangle). */
+  heads?: { start?: Head; end?: Head };
+  /** Where the connector turns, as a fraction of the way from start to end (0.5: halfway), when
+   * it's been dragged there. It's where the middle stretch of an S-shaped route goes (`─┐ └─`).
+   * Without it: halfway, or nearer the end when the label needs the room. */
+  turnAt?: number;
   /** Text shown on (or beside) the line: `── yes ──►`. */
   label?: string;
   /** Where along the connector the label sits, 0 (start) to 1 (end), when dragged there.

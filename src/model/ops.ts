@@ -3,7 +3,7 @@ import { within } from "./containment";
 import { resolveEndpoint } from "../routing/endpoints";
 import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
-import type { Diagram, Edge, Endpoint, Id, Node } from "./types";
+import type { Diagram, Edge, Endpoint, Head, Id, Node } from "./types";
 
 /**
  * Pure document edits: each takes a diagram and returns a new one, sharing whatever didn't change.
@@ -32,6 +32,19 @@ export function makeNode(rect: Rect, patch: Partial<Node> = {}): Node {
 
 export function makeEdge(from: Endpoint, to: Endpoint, patch: Partial<Edge> = {}): Edge {
   return { id: newId("e"), from, to, line: "single", arrows: { start: false, end: true }, ...patch };
+}
+
+/** The head at one end of a connector, or null for none. */
+export function headOf(e: Edge, which: "start" | "end"): Head | null {
+  return e.arrows[which] ? e.heads?.[which] ?? "arrow" : null;
+}
+
+/** The fields that give one end of a connector this head (null: none). */
+export function withHead(e: Edge, which: "start" | "end", head: Head | null): Pick<Edge, "arrows" | "heads"> {
+  const heads = { ...e.heads };
+  if (head && head !== "arrow") heads[which] = head;
+  else delete heads[which];
+  return { arrows: { ...e.arrows, [which]: !!head }, heads: Object.keys(heads).length ? heads : undefined };
 }
 
 /** Clamp to the shape's minimum size, and apply autosize. */

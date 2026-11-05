@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { reveal, whenIdle } from "../editor/view";
-import { deleteObjects, freeEndpoint, updateEdge, updateNode } from "../model/ops";
+import { deleteObjects, freeEndpoint, headOf, updateEdge, updateNode, withHead } from "../model/ops";
+import { HEAD_NAMES, arrowGlyph } from "../render/charsets";
 import { arrange } from "../editor/commands";
 import { locksOf, unlock } from "../model/locks";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
-import type { BorderStyle, Edge, HAlign, LineStyle, Node, VAlign } from "../model/types";
+import { type BorderStyle, type Edge, type HAlign, type LineStyle, type Node, type VAlign, HEADS } from "../model/types";
 import { apply, begin, commit, getState, openTextDialog, select, set, setPrefs, useEditor } from "../editor/store";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
@@ -189,10 +190,24 @@ export function Inspector() {
               <Choice key={v} active={e0.line === v} onClick={() => eachEdge(() => ({ line: v }))} title={v} label={v}>{sample}</Choice>
             ))}
           </Row>
-          <Row label="arrows">
-            <Choice active={e0.arrows.start} onClick={() => eachEdge((e) => ({ arrows: { ...e.arrows, start: !e0.arrows.start } }))} title="arrow at start" label="arrow at start">◄─</Choice>
-            <Choice active={e0.arrows.end} onClick={() => eachEdge((e) => ({ arrows: { ...e.arrows, end: !e0.arrows.end } }))} title="arrow at end" label="arrow at end">─►</Choice>
-          </Row>
+          {(["start", "end"] as const).map((which) => (
+            <Row key={which} label={which}>
+              {[null, ...HEADS].map((h) => {
+                const glyph = h ? arrowGlyph(which === "start" ? "left" : "right", "single", h) : "─";
+                return (
+                  <Choice
+                    key={h ?? "none"}
+                    active={headOf(e0, which) === h}
+                    onClick={() => eachEdge((e) => withHead(e, which, h))}
+                    title={`${HEAD_NAMES[h ?? "none"]} at ${which}`}
+                    label={`${HEAD_NAMES[h ?? "none"]} at ${which}`}
+                  >
+                    {which === "start" ? glyph + "─" : "─" + glyph}
+                  </Choice>
+                );
+              })}
+            </Row>
+          ))}
           {edges.length === 1 && (
             <Row label="label">
               <textarea
@@ -214,6 +229,12 @@ export function Inspector() {
               />
             </Row>
           )}
+          {edges.length === 1 && e0.turnAt !== undefined ? (
+            <Row label="turn">
+              <span className="row-text">{Math.round(e0.turnAt * 100)}% of the way</span>
+              <Choice active={false} onClick={() => apply((d) => updateEdge(d, e0.id, { turnAt: undefined }))} title="Turn halfway between the ends again">halfway</Choice>
+            </Row>
+          ) : null}
           {edges.length === 1 && e0.via?.length ? (
             <Row label="bends">
               <span className="row-text">{e0.via.length}</span>

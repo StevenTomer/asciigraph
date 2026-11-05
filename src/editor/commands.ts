@@ -5,8 +5,9 @@ import {
 import { autoLayout } from "../model/layout";
 import { lockTogether, locksOf, unlock } from "../model/locks";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
-import { bringToFront, updateEdge } from "../model/ops";
-import type { Diagram, Id } from "../model/types";
+import { bringToFront, headOf, updateEdge, withHead } from "../model/ops";
+import { HEAD_NAMES } from "../render/charsets";
+import { type Diagram, type Id, HEADS } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { apply, getState, openTextDialog, select, startEditing } from "./store";
@@ -160,7 +161,21 @@ export function contextMenu(at: Point): MenuEntry[] {
   if (edges.length === 1 && !nodes.length) {
     const e = d.edges[edges[0]];
     entries.unshift({ label: "Edit Label", shortcut: "Enter", run: () => startEditing(e.id, "label") }, "separator");
-    entries.push("separator", { label: "Reverse Direction", run: () => apply((dd) => reverseEdge(dd, e.id)) });
+    entries.push("separator");
+    for (const which of ["start", "end"] as const) {
+      entries.push({
+        label: which === "start" ? "Start Head" : "End Head",
+        submenu: [null, ...HEADS].map((h) => ({
+          label: HEAD_NAMES[h ?? "none"].replace(/^./, (c) => c.toUpperCase()),
+          hint: headOf(e, which) === h ? "✓" : undefined,
+          run: () => apply((dd) => updateEdge(dd, e.id, withHead(dd.edges[e.id], which, h))),
+        })),
+      });
+    }
+    entries.push({ label: "Reverse Direction", run: () => apply((dd) => reverseEdge(dd, e.id)) });
+    if (e.turnAt !== undefined) {
+      entries.push({ label: "Reset Turn", hint: "halfway", run: () => apply((dd) => updateEdge(dd, e.id, { turnAt: undefined })) });
+    }
     if (e.via?.length) {
       entries.push({ label: "Straighten", hint: "remove bends", run: () => apply((dd) => updateEdge(dd, e.id, { via: undefined })) });
     }
