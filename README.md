@@ -16,7 +16,7 @@ auto-generate a result.  You can then move and reposition objects, lines, and ar
 You can then export the result as Unicode box drawing or plain ASCII, ready to paste into a README,
 a code comment, a commit message or a chat.
 
-![A flowchart in asciigraph, with the properties panel open](docs/images/overview.png)
+![A class diagram in asciigraph, drawn from Mermaid, with a class selected and the properties panel open](docs/images/overview.png)
 
 Here is what a sample textual export looks like, for a diagram drawn from four lines of Mermaid
 (`A[Browser] -->|HTTPS| B[API]` …):

@@ -59,11 +59,40 @@ const SEQUENCE = `sequenceDiagram
     end
     C-xA: cancel (lost)`;
 
-test("overview: a flowchart with the properties panel", async ({ page }) => {
+const CLASSES = `classDiagram
+    class Order {
+      +String id
+      +Date placed
+      +total() Money
+      +ship()
+    }
+    class LineItem {
+      +int quantity
+      +Money price
+    }
+    class Customer {
+      +String name
+      +String email
+    }
+    class Payment {
+      <<interface>>
+      +pay(Money amount) bool
+    }
+    class CardPayment {
+      +String last4
+    }
+    Customer "1" --> "*" Order : places
+    Order "1" *-- "1..*" LineItem : contains
+    Order ..> Payment : uses
+    Payment <|.. CardPayment`;
+
+test("overview: a class diagram with the properties panel", async ({ page }) => {
   await open(page);
-  await drawFromText(page, FLOWCHART);
+  await drawFromText(page, CLASSES);
   await deselect(page);
-  await clickNode(page, "Ship it");
+  await page.getByRole("button", { name: "fit" }).click();
+  await page.waitForTimeout(200);
+  await clickNode(page, "Order");
   await shot(page, "overview.png");
 });
 
