@@ -86,7 +86,8 @@ afterwards in the properties panel.
 | document | a box with a wavy bottom | files, reports |
 | subroutine | `│ │ Ship it │ │` | a predefined step |
 | note | a box with a folded corner | comments |
-| class | a box in compartments, `├───┤` between them | UML classes, database tables |
+| class | a box in compartments, `├───┤` between them | UML classes, ER entities |
+| table | a grid of cells, from a Markdown table | tables |
 | frame | a named box drawn behind things | grouping; boxes inside it aren't hidden |
 | lifeline, activation | see [Sequence diagrams](#sequence-diagrams) | |
 
@@ -102,6 +103,22 @@ name) is centered and the rest left-aligned:
 │ +eat()        │
 └───────────────┘
 ```
+
+**Tables:** the text is a Markdown table: cells between `|`, and a row of dashes for a divider
+(`:--:` centers that column, `--:` right-aligns it). Columns are as wide as their widest cell,
+and the table grows as you type:
+
+```
+| Service | Port |          ┌─────────┬──────┐
+|---------|-----:|    →     │ Service │ Port │
+| api     | 8080 |          ├─────────┼──────┤
+| db      | 5432 |          │ api     │ 8080 │
+                            │ db      │ 5432 │
+                            └─────────┴──────┘
+```
+
+Pasting a Markdown table onto the canvas makes a table, as does **from text** (it's detected as
+**Markdown table**).
 
 **Borders:** single, double, rounded, heavy, dashed, dotted, ASCII, or none. A box with no
 border is a free label.
@@ -472,7 +489,9 @@ What it recognizes:
   becomes a frame.
 - **Shapes** as asciigraph draws them: decisions (`< >`), input/output (`╱ ╱`), start/end
   (`( )`), databases (a rim under the top), documents (a wavy bottom), subroutines
-  (`│ │ … │ │`), notes (a folded corner), and class boxes (full-width `├──┤` rows divide them).
+  (`│ │ … │ │`), notes (a folded corner), class boxes (full-width `├──┤` rows divide them), and
+  tables (`┬ ┼ ┴` column lines all the way down, in box characters or `+---+` ASCII), whose text
+  is written as a Markdown table.
 - **Connectors:** lines between boxes, attached to the side they touch, with their heads
   (`► ▷ ◆ ◊ ● ○ × ┤`, and in ASCII `> |> * o @ O x |`), line style, and a label in a gap in the line (`── yes ──►`)
   or just beside a vertical one. A line a space or two short of a box (as ASCII often is) still
@@ -486,8 +505,8 @@ What it recognizes:
 
 Connectors route themselves, the same way as ones you draw; where that would come out
 differently from the drawing, they keep the drawn positions and bends. Anything drawn by
-asciigraph reads back exactly as it was. Not recognized: lines dividing a box into columns (a
-table), which are left out.
+asciigraph reads back exactly as it was. Lines inside a box that don't make a whole table are
+left out.
 
 ## Arranging
 

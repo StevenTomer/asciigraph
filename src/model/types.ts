@@ -62,11 +62,11 @@ export type BorderStyle = "single" | "double" | "rounded" | "heavy" | "dashed" |
 export type LineStyle = "single" | "double" | "heavy" | "dashed" | "dotted" | "ascii";
 export type HAlign = "left" | "center" | "right";
 /** Node shapes: plain box; flowchart decision, input/output, start/end, database, document,
- * subroutine; notes; a class (or ER entity) in compartments; sequence-diagram lifelines and
- * activation bars. */
+ * subroutine; notes; a class (or ER entity) in compartments; a table (its text a Markdown table);
+ * sequence-diagram lifelines and activation bars. */
 export type NodeKind =
   | "box" | "decision" | "io" | "terminal" | "database" | "document" | "subroutine" | "note"
-  | "class" | "frame" | "lifeline" | "activation";
+  | "class" | "table" | "frame" | "lifeline" | "activation";
 export type VAlign = "top" | "middle" | "bottom";
 
 /**

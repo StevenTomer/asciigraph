@@ -39,7 +39,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   restyle. Connectors route around other boxes and follow the boxes to which they're attached.
 - **Shapes:** Boxes with eight border styles, named boxes, flowchart shapes (decision,
   input/output, start/end, database, document, subroutine), notes, frames, class boxes in
-  compartments, and sequence-diagram lifelines and activation bars.
+  compartments, tables (written as Markdown tables), and sequence-diagram lifelines and
+  activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
   diamond, dot, circle, cross, bar); labels, and end labels by each end (`1`, `0..*`); bend
   points; and a turn point you can drag.

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { addEdge, addNode, emptyDiagram, headOf, makeEdge, makeNode } from "../model/ops";
 import { type Diagram, type Node, HEADS } from "../model/types";
 import { diagramToText } from "../render/rasterize";
+import { tableNode } from "../shapes/table";
 import { importAscii, looksLikeDrawing } from "./ascii";
 import { detectKind } from "./detect";
 import { describe as toMermaid } from "./fromDiagram";
@@ -125,6 +126,23 @@ describe("reading a drawing back into objects", () => {
     expect(link("Server", "DB")).toBe(true);
     expect(link("DB", "Cache")).toBe(true);
     expect(edges(d)).toHaveLength(4);
+  });
+
+  it("reads tables, drawn or in ASCII, as tables", () => {
+    const d = importAscii([
+      "+--------+-------+",
+      "| Header | Value |",
+      "+--------+-------+",
+      "| a      |     1 |",
+      "| bb     |    22 |",
+      "+--------+-------+",
+    ].join("\n")).diagram;
+    const [t] = nodes(d);
+    expect(t.kind).toBe("table");
+    expect(t.text).toBe("| Header | Value |\n| ------ | ----: |\n| a      | 1     |\n| bb     | 22    |");
+    const { rect, ...fields } = tableNode("| a | b |\n|---|--:|\n| 1 | 22 |", { x: 0, y: 0 });
+    const unicode = diagramToText(addNode(emptyDiagram(), makeNode(rect, fields)));
+    expect(diagramToText(importAscii(unicode).diagram)).toBe(unicode);
   });
 
   it("reads class compartments, alignment and labels in line gaps", () => {

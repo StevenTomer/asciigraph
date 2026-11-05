@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apply, closeTextDialog, getState, select, useEditor } from "../editor/store";
 import { screenToCell } from "../editor/view";
-import { emptyDiagram } from "../model/ops";
+import { addNode, emptyDiagram, makeNode } from "../model/ops";
 import type { SourceKind, TextSource } from "../model/types";
 import { diagramToText } from "../render/rasterize";
 import { pasteInto } from "../editor/clipboard";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
+import { isTableText, tableNode } from "../shapes/table";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
 import { adopt, drawSource, membersOf, updateSource } from "../text/sync";
@@ -81,13 +82,15 @@ const EXAMPLES: { label: string; text: string }[] = [
   { label: "class", text: EXAMPLE_TEXT.class },
   { label: "ER", text: EXAMPLE_TEXT.er },
   { label: "folder tree", text: EXAMPLE_TEXT.tree },
+  { label: "table", text: "| Service | Port | Owner |\n|---------|-----:|-------|\n| web     | 443  | web team |\n| api     | 8080 | platform |\n| db      | 5432 | data  |" },
 ];
 
-/** What the dialog can draw: a text source, or a drawing read back into objects (not linked). */
-type Kind = SourceKind | "drawing";
+/** What the dialog can draw: a text source, or (not linked) a drawing read back into objects, or
+ * a Markdown table as a table. */
+type Kind = SourceKind | "drawing" | "table";
 
 const KIND_LABEL: Record<Kind, string> = {
-  sequence: "message sequence", graph: "graph (flowchart, state, class, ER)", tree: "folder tree", drawing: "ASCII art",
+  sequence: "message sequence", graph: "graph (flowchart, state, class, ER)", tree: "folder tree", drawing: "ASCII art", table: "Markdown table",
 };
 
 /**
@@ -114,7 +117,10 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => ref.current?.focus(), []);
 
-  const actual: Kind = kind === "auto" ? (!editing && looksLikeDrawing(text) ? "drawing" : detectKind(text)) : kind;
+  const actual: Kind = kind !== "auto" ? kind
+    : !editing && isTableText(text) ? "table"
+    : !editing && looksLikeDrawing(text) ? "drawing"
+    : detectKind(text);
   const options: TextSource["options"] = {
     ...((actual === "graph" || (actual === "tree" && treeStyle === "boxes")) && direction !== "auto" && { direction }),
     ...(actual === "tree" && { treeStyle }),
@@ -125,6 +131,11 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
       const r = importAscii(text);
       return { text: diagramToText(r.diagram), warnings: r.warnings, drawing: r.diagram };
     }
+    if (actual === "table") {
+      const t = tableNode(text, { x: 0, y: 0 });
+      const d = addNode(emptyDiagram(), makeNode(t.rect, t));
+      return { text: diagramToText(d), warnings: [] as string[], drawing: d };
+    }
     const r = drawSource(emptyDiagram(), { kind: actual, text, options }, { x: 0, y: 0 });
     return { text: diagramToText(r.diagram), warnings: r.warnings, drawing: null };
   }, [text, actual, JSON.stringify(options)]);
@@ -132,7 +143,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
   const draw = () => {
     if (!text.trim()) return;
     let ids: string[] = [];
-    if (actual === "drawing") {
+    if (actual === "drawing" || actual === "table") {
       // Ordinary objects, placed where the text was going to go.
       const part = preview.drawing!;
       const lines = preview.text.split("\n");
@@ -198,7 +209,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
         <div className="row">
           <span className="row-label">kind</span>
           <span className="row-items">
-            {(editing ? (["auto", "sequence", "graph", "tree"] as const) : (["auto", "sequence", "graph", "tree", "drawing"] as const)).map((k) => (
+            {(editing ? (["auto", "sequence", "graph", "tree"] as const) : (["auto", "sequence", "graph", "tree", "drawing", "table"] as const)).map((k) => (
               <button key={k} className={"choice" + (kind === k ? " active" : "")} aria-pressed={kind === k} onClick={() => setKind(k)}>
                 {k === "auto" ? `auto${text.trim() ? `: ${KIND_LABEL[actual]}` : ""}` : KIND_LABEL[k]}
               </button>

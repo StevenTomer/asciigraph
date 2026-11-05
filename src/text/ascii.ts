@@ -4,6 +4,7 @@ import type { BorderStyle, Diagram, Endpoint, HAlign, Head, Id, LineStyle, NodeK
 import { DIR_BITS, DOWN, LEFT, RIGHT, UP, lineGlyph } from "../render/charsets";
 import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
+import { tableNode, tableText } from "../shapes/table";
 
 /**
  * Reading a drawing back into objects: paste box-drawing (or +--+ ASCII) text and get boxes,
@@ -104,6 +105,8 @@ interface Box {
   id: Id;
   /** Slanted shapes (decision, input/output): their outline cells and the side each is on. */
   cells?: Map<number, Side | null>;
+  /** A table's column lines (x). */
+  columns?: number[];
   /** A lifeline: its line's cells (messages attach on either side), and its last row. */
   life?: Set<number>;
   lineEnd?: number;
@@ -396,10 +399,23 @@ export function importAscii(input: string, probe = false): ImportResult {
       b.kind = "database";
       markRow(b.y0 + 1);
       rows.shift();
-    } else if (b.x1 - b.x0 >= 6 && fullColumn(b.x0 + 2) && fullColumn(b.x1 - 2)) {
+    } else if (b.x1 - b.x0 >= 6 && fullColumn(b.x0 + 2) && fullColumn(b.x1 - 2) && !rows.length
+      && !Array.from({ length: b.x1 - b.x0 - 5 }, (_, i) => b.x0 + 3 + i).some(fullColumn)) {
       b.kind = "subroutine";
       markColumn(b.x0 + 2);
       markColumn(b.x1 - 2);
+    } else {
+      // Column lines all the way down: a table (with any full-width rows its dividers).
+      const columns: number[] = [];
+      for (let x = b.x0 + 1; x < b.x1; x++) if (fullColumn(x)) columns.push(x);
+      if (columns.length) {
+        b.kind = "table";
+        b.columns = columns;
+        b.dividers = rows;
+        columns.forEach(markColumn);
+        rows.forEach(markRow);
+        continue;
+      }
     }
     if (rows.length) {
       b.kind = "class";
@@ -724,6 +740,35 @@ export function importAscii(input: string, probe = false): ImportResult {
   for (const b of byArea) {
     const insideOthers = inner(b);
     const free = (x: number, y: number) => !taken(x, y) && innermostAt(x, y) === b && !insideOthers.some((o) => x >= o.x0 && x <= o.x1 && y >= o.y0 && y <= o.y1);
+    if (b.kind === "table" && b.columns) {
+      // Its cells, row by row, as a Markdown table (dividers where it has them).
+      const bounds = [b.x0, ...b.columns, b.x1];
+      const divs = new Set(b.dividers);
+      const cellRows: string[][] = [], dividerAt = new Set<number>();
+      const pads: { l: number; r: number }[][] = bounds.slice(1).map(() => []);
+      for (let y = b.y0 + 1; y < b.y1; y++) {
+        if (divs.has(y)) {
+          dividerAt.add(cellRows.length);
+          continue;
+        }
+        cellRows.push(bounds.slice(1).map((x1, c) => {
+          let raw = "";
+          for (let x = bounds[c] + 1; x < x1; x++) raw += free(x, y) ? rows[y]?.[x] ?? " " : " ";
+          if (raw.trim()) pads[c].push({ l: raw.length - raw.trimStart().length, r: raw.length - raw.trimEnd().length });
+          return raw.trim();
+        }));
+      }
+      // Each column's alignment, from where its text sits.
+      const aligns: HAlign[] = pads.map((ps) =>
+        ps.length && ps.every((p) => p.r === 1) && ps.some((p) => p.l > 1) ? "right"
+        : ps.length && ps.every((p) => Math.abs(p.l - p.r) <= 1) && ps.some((p) => p.l > 1) ? "center"
+        : "left");
+      const t = tableNode(tableText(cellRows, dividerAt, aligns), { x: b.x0, y: b.y0 });
+      const node = makeNode(t.rect, { ...t, border: b.border, ...(b.name && { name: b.name }) });
+      b.id = node.id;
+      d = addNode(d, node);
+      continue;
+    }
     const parts: { y0: number; y1: number }[] = [];
     let top = b.y0 + 1;
     for (const dy of [...b.dividers, b.y1]) {

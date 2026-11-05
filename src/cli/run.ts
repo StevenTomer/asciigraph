@@ -1,8 +1,9 @@
-import { emptyDiagram, isDiagram } from "../model/ops";
+import { addNode, emptyDiagram, isDiagram, makeNode } from "../model/ops";
 import type { Diagram, SourceKind } from "../model/types";
 import { decodeShare } from "../storage/share";
 import { exportText, type Wrap, WRAPS } from "../export/text";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
+import { isTableText, tableNode } from "../shapes/table";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
 import { drawSource } from "../text/sync";
@@ -33,12 +34,13 @@ Usage:
   asciigraph markdown FILE [--write]     draw every \`\`\`mermaid block in a Markdown file
 
 FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram), the
-shorthand (A -> B: message, A -> B -> C), a drawing (box-drawing or +--+ ASCII text),
+shorthand (A -> B: message, A -> B -> C), a drawing (box-drawing or +--+ ASCII text), a
+Markdown table,
 a folder tree, a diagram saved from the app (.json), or a share link. Without FILE, or with "-",
 it reads standard input.
 
 Options:
-  --kind auto|sequence|graph|tree|drawing
+  --kind auto|sequence|graph|tree|drawing|table
                                     what the text is (default: detected)
   --lr, --td                        lay graphs out left to right, or top to bottom
   --boxes                           draw folder trees as boxes and connectors
@@ -57,7 +59,7 @@ Examples:
 interface Options {
   command: "render" | "mermaid" | "markdown" | "import";
   file: string | null;
-  kind: SourceKind | "auto" | "drawing";
+  kind: SourceKind | "auto" | "drawing" | "table";
   direction?: "down" | "right";
   boxes: boolean;
   ascii: boolean;
@@ -82,7 +84,7 @@ function parseArgs(args: string[]): Options | "help" {
     if (a === "-h" || a === "--help" || a === "help") return "help";
     else if (a === "--kind") {
       const k = value(a);
-      if (!["auto", "sequence", "graph", "tree", "drawing"].includes(k)) throw new UsageError(`unknown kind "${k}"`);
+      if (!["auto", "sequence", "graph", "tree", "drawing", "table"].includes(k)) throw new UsageError(`unknown kind "${k}"`);
       o.kind = k as Options["kind"];
     } else if (a === "--lr") o.direction = "right";
     else if (a === "--td" || a === "--tb") o.direction = "down";
@@ -127,6 +129,10 @@ function savedDiagram(input: string): Diagram | null {
 export function toDiagram(input: string, o: Pick<Options, "kind" | "direction" | "boxes">): { diagram: Diagram; warnings: string[] } {
   const saved = savedDiagram(input);
   if (saved) return { diagram: saved, warnings: [] };
+  if (o.kind === "table" || (o.kind === "auto" && isTableText(input))) {
+    const t = tableNode(input, { x: 0, y: 0 });
+    return { diagram: addNode(emptyDiagram(), makeNode(t.rect, t)), warnings: [] };
+  }
   if (o.kind === "drawing" || (o.kind === "auto" && looksLikeDrawing(input))) {
     const r = importAscii(input);
     return { diagram: r.diagram, warnings: r.warnings };

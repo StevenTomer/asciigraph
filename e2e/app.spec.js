@@ -911,6 +911,23 @@ test("end labels: type them in the panel; they sit by each end", async ({ page }
   expect(await text(page)).toMatch(/^┌─+┐ 1 +0\.\.\* ┌─+┐$/m);
 });
 
+test("paste a Markdown table: it becomes a table that grows as you type", async ({ page }) => {
+  await page.evaluate((text) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", text);
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+  }, "| Name | Port |\n|------|-----:|\n| api  | 8080 |");
+  const [t] = Object.values((await state(page)).diagram.nodes);
+  expect(t.kind).toBe("table");
+  expect(await text(page)).toContain("│ api  │ 8080 │");
+  // Add a row by editing its text.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\n| database | 5432 |");
+  await page.keyboard.press("Escape");
+  expect(await text(page)).toMatch(/│ database │ 5432 │\n└─+┴─+┘/);
+});
+
 test("markdown lists in a box", async ({ page }) => {
   await page.keyboard.press("b");
   await drag(page, [2, 2], [26, 4]);
