@@ -34,6 +34,24 @@ New node kinds (flowchart shapes, sequence-diagram lifelines…) plug in through
 Diagrams are saved in the browser (localStorage) behind a `DiagramRepository` interface
 (`src/storage`), so a server-backed store can be added without changing the editor.
 
+## Running it locally with Docker
+
+```bash
+docker compose up -d --build      # or: docker build -t asciigraph . && docker run -d -p 8080:8080 asciigraph
+```
+
+Then open http://localhost:8080/. The image builds the app and serves the static files with
+nginx (unprivileged, port 8080 inside the container). To use another port, change the left side
+of the mapping: `-p 3000:8080`, or `"3000:8080"` in `compose.yaml`. Podman works the same way
+(`podman build` / `podman run`).
+
+Diagrams are saved in your browser (localStorage), not in the container. The container holds
+no data, so you can rebuild or replace it without losing anything. But a diagram saved at
+http://localhost:8080 isn't visible at another address (example.com/graph or another port).
+To move one across, export it as JSON or a share link.
+
+After pulling changes, run `docker compose up -d --build` again to rebuild.
+
 ## Developing
 
 ```bash

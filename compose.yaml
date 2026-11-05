@@ -1,0 +1,8 @@
+# docker compose up -d   →  http://localhost:8080/
+services:
+  asciigraph:
+    build: .
+    image: asciigraph
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
