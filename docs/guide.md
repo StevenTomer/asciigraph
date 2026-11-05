@@ -450,6 +450,35 @@ Character-cell drawings have no crow's feet, so how many are at each end goes in
 
 `--` is a solid line (identifying), `..` a dashed one. `ENTITY["Label"]` sets the name shown.
 
+### Graphviz DOT
+
+Graphviz's DOT language ([its documentation](https://graphviz.org/doc/info/lang.html)) is drawn
+as a graph, laid out by asciigraph (not by Graphviz):
+
+```
+digraph {
+  rankdir=LR;
+  web [label="Web"];
+  db [shape=cylinder, label="Postgres"];
+  subgraph cluster_backend { label="Backend"; api; worker }
+  web -> api [label="HTTPS"];
+  api -> db [taillabel="1", headlabel="*"];
+  api -> worker [style=dashed];
+}
+```
+
+- `graph` (lines) or `digraph` (arrows); chains (`a -> b -> c`) and groups (`{a b} -> c`);
+  `node [...]` and `edge [...]` defaults; `rankdir=LR` (or the **layout** choice).
+- Subgraphs named `cluster…` are frames, named by their `label`.
+- Shapes: `box` and the like → box; `ellipse` (the default), `circle` → rounded box; `diamond` →
+  decision; `cylinder` → database; `note`; `parallelogram` → input/output; `doublecircle` →
+  start/end; `record` / `Mrecord` → class box (fields as compartments); `plaintext`, `none` →
+  text.
+- Edges: `label`; `taillabel` / `headlabel` as end labels; `style=dashed / dotted / bold`;
+  `dir`, `arrowhead`, `arrowtail` (`normal`, `empty`, `diamond`, `odiamond`, `dot`, `odot`,
+  `tee`, `none`).
+- Colors, fonts, sizes and ports are ignored.
+
 ### Folder trees
 
 Any of these:

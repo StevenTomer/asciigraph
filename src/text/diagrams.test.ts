@@ -229,3 +229,52 @@ describe("state, class and ER diagrams in the app", () => {
     expect(back.sources![id].text).toBe("stateDiagram-v2\n  direction TB\n  [*] --> A\n  A --> B");
   });
 });
+
+describe("Graphviz DOT", () => {
+  it("reads nodes, shapes, edges, clusters and rankdir", () => {
+    const g = parseGraph(`digraph G {
+      rankdir=LR; // left to right
+      node [shape=box];
+      web [label="Web\\nfront end"];
+      db [shape=cylinder, label="Postgres"];
+      q [shape=diamond];
+      subgraph cluster_back { label="Backend"; api; worker }
+      web -> api -> db [label="calls"];
+      api -> worker [style=dashed, arrowhead=empty, taillabel="1", headlabel="*"];
+      {web api} -> q [dir=none];
+    }`);
+    expect(g.warnings).toEqual([]);
+    expect(g.direction).toBe("right");
+    const node = (id: string) => g.nodes.find((n) => n.id === id)!;
+    expect(node("web")).toMatchObject({ text: "Web\nfront end", kind: "box" });
+    expect(node("db").kind).toBe("database");
+    expect(node("q").kind).toBe("decision");
+    expect(g.subgraphs).toMatchObject([{ id: "cluster_back", title: "Backend", members: ["api", "worker"] }]);
+    expect(g.edges.filter((e) => e.label === "calls").map((e) => `${e.from}>${e.to}`)).toEqual(["web>api", "api>db"]);
+    expect(g.edges.find((e) => e.to === "worker")).toMatchObject({
+      line: "dashed", arrows: { start: false, end: true }, heads: { end: "triangle" }, endLabels: { start: "1", end: "*" },
+    });
+    expect(g.edges.filter((e) => e.to === "q").map((e) => [e.from, e.arrows.end])).toEqual([["web", false], ["api", false]]);
+  });
+
+  it("reads undirected graphs, records and HTML labels", () => {
+    const g = parseGraph(`graph {
+      a [shape=record, label="{Order|+id\\l|+total()\\l}"];
+      b [label=<<b>Bold</b><br/>text>];
+      a -- b;
+    }`);
+    expect(g.nodes.find((n) => n.id === "a")).toMatchObject({ kind: "class", text: "Order\n---\n+id\n---\n+total()" });
+    expect(g.nodes.find((n) => n.id === "b")?.text).toBe("Bold\ntext");
+    expect(g.edges[0].arrows).toEqual({ start: false, end: false });
+  });
+
+  it("is detected, and switches direction with rankdir", () => {
+    const text = "digraph {\n  a -> b\n}";
+    expect(detectKind(text)).toBe("graph");
+    expect(detectKind("graph TD\n  A --> B")).toBe("graph");
+    const { diagram, id } = drawSource(emptyDiagram(), { kind: "graph", text, options: {} }, { x: 0, y: 0 });
+    const lr = setDirection(diagram, id, "right").diagram;
+    expect(lr.sources![id].text).toBe("digraph {\n  rankdir=LR;\n  a -> b\n}");
+    expect(setDirection(lr, id, "down").diagram.sources![id].text).toBe("digraph {\n  rankdir=TB;\n  a -> b\n}");
+  });
+});

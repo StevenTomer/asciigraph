@@ -49,7 +49,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   [flowcharts](https://mermaid.js.org/syntax/flowchart.html),
   [state diagrams](https://mermaid.js.org/syntax/stateDiagram.html),
   [class diagrams](https://mermaid.js.org/syntax/classDiagram.html) and
-  [entity–relationship diagrams](https://mermaid.js.org/syntax/entityRelationshipDiagram.html), a looser shorthand
+  [entity–relationship diagrams](https://mermaid.js.org/syntax/entityRelationshipDiagram.html),
+  [Graphviz DOT](https://graphviz.org/doc/info/lang.html), a looser shorthand
   (`Client -> API: GET /x`, `A -> B -> C`), and folder trees. The drawing stays linked to the
   text: edit the text and it redraws, keeping what you've moved or restyled. A hand-drawn diagram
   can be turned into Mermaid too.
