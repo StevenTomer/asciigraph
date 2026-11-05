@@ -60,12 +60,15 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
   // Edges between laid-out boxes.
   const pairs: [Id, Id][] = [];
   const touched: Id[] = [];
+  /** Labelled connectors' ends and label widths (left to right, layers move apart to fit them). */
+  const labelled: [Id, Id, number][] = [];
   for (const e of Object.values(d.edges)) {
     if (e.from.kind !== "attached" || e.to.kind !== "attached") continue;
     const a = owner(e.from.node), b = owner(e.to.node);
     if (a && b && a !== b) {
       pairs.push([a, b]);
       touched.push(e.id);
+      if (e.label) labelled.push([a, b, Math.max(...e.label.split("\n").map((l) => [...l].length))]);
     }
   }
 
@@ -134,8 +137,20 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
   let result = d;
   // Everything laid out is placed by the layout; lock-mates outside it follow, each once.
   const settled = new Set(boxes);
+  // What each unit carries (what's inside it), worked out before anything moves: a box placed
+  // early may land inside one not yet placed, and mustn't then be carried off with it.
+  const contents = new Map(nodes.map((n) => [n, withContents(d, members.get(n)!)]));
+  // Left to right, a label goes on the connector between two layers: leave room for the widest
+  // (with a line each side of it and the arrowhead).
+  const gapAfter = layers.map(() => gap.main);
+  if (!down) {
+    for (const [a, b, w] of labelled) {
+      const [ra, rb] = [rank.get(a)!, rank.get(b)!];
+      if (Math.abs(ra - rb) === 1) gapAfter[Math.min(ra, rb)] = Math.max(gapAfter[Math.min(ra, rb)], w + 6);
+    }
+  }
   let main = down ? origin.y : origin.x;
-  for (const layer of layers) {
+  for (const [li, layer] of layers.entries()) {
     let c = (down ? origin.x : origin.y) + Math.floor((widest - span(layer)) / 2);
     const depth = Math.max(...layer.map((n) => mainSize(rect(n))));
     for (const n of layer) {
@@ -145,10 +160,10 @@ export function autoLayout(d: Diagram, ids: Id[], direction: LayoutDirection): D
       const [x, y] = down ? [c, m] : [m, c];
       const group = members.get(n)!;
       const now = union(group.map((m) => result.nodes[m].rect))!;
-      result = moveWithLocks(result, withContents(result, group), { x: x - now.x, y: y - now.y }, settled);
+      result = moveWithLocks(result, contents.get(n)!, { x: x - now.x, y: y - now.y }, settled);
       c += crossSize(r) + gap.cross;
     }
-    main += depth + gap.main;
+    main += depth + gapAfter[li];
   }
 
   // The rearranged connectors route themselves; old bend points would be in the wrong place.

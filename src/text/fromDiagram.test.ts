@@ -93,3 +93,16 @@ it("writes crosses and circles as Mermaid's --x and --o, and links without chang
   const a = adopt(d, all(d))!;
   expect(diagramToText(updateSource(a.diagram, a.id, {}).diagram)).toBe(diagramToText(d));
 });
+
+it("keeps a hand-drawn class box a class box when linked to text", () => {
+  let d = addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 17, h: 7 }, { id: "c", kind: "class", text: "Animal\n---\n+name\n---\n+eat()", align: { h: "center", v: "top" }, lists: false }));
+  d = addNode(d, makeNode({ x: 30, y: 2, w: 7, h: 3 }, { id: "z", text: "Zoo" }));
+  d = addEdge(d, makeEdge(att("z"), att("c"), { id: "e" }));
+  const before = diagramToText(d);
+  const r = adopt(d, all(d))!;
+  expect(r.source.text).toContain(`@{ shape: class, label: "Animal<br>---<br>+name<br>---<br>+eat()" }`);
+  expect(diagramToText(r.diagram)).toBe(before);
+  // Redrawn from the text, it's still a class box.
+  const redrawn = updateSource(r.diagram, r.id, { text: r.source.text + "\n  Zoo --> Keeper" }).diagram;
+  expect(Object.values(redrawn.nodes).find((n) => n.text.startsWith("Animal"))?.kind).toBe("class");
+});

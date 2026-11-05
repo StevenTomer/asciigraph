@@ -89,3 +89,24 @@ describe("auto layout with locks", () => {
     expect(rects(autoLayout(d, ["a", "b", "c"], "down"))).toEqual(rects(autoLayout(chain(), ["a", "b", "c"], "down")));
   });
 });
+
+describe("auto layout, placing boxes of different sizes", () => {
+  it("doesn't carry off a box placed inside one not yet placed", () => {
+    // z → big: z goes in the first layer, where big still is, and lands inside it.
+    let d = addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 30, h: 12 }, { id: "big", text: "big" }));
+    d = addNode(d, makeNode({ x: 100, y: 0, w: 5, h: 3 }, { id: "z", text: "z" }));
+    d = addEdge(d, makeEdge(att("z"), att("big")));
+    const out = autoLayout(d, [], "down");
+    const z = out.nodes.z.rect, big = out.nodes.big.rect;
+    expect(z.y + z.h).toBeLessThanOrEqual(big.y);
+  });
+
+  it("leaves room between layers for labels, left to right", () => {
+    let d = addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 5, h: 3 }, { id: "a", text: "a" }));
+    d = addNode(d, makeNode({ x: 0, y: 20, w: 5, h: 3 }, { id: "b", text: "b" }));
+    d = addEdge(d, makeEdge(att("a"), att("b"), { label: "a rather long label" }));
+    expect(diagramToText(autoLayout(d, [], "right"))).toBe(
+      ["┌───┐                         ┌───┐", "│ a ├── a rather long label ─►│ b │", "└───┘                         └───┘"].join("\n")
+    );
+  });
+});

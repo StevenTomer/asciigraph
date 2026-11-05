@@ -771,6 +771,32 @@ test("draw a graph from shorthand, left to right, and a folder tree as boxes", a
   expect(await text(page)).toContain("│ main.ts │");
 });
 
+test("draw state, class and ER diagrams from the examples; class boxes edit as text", async ({ page }) => {
+  for (const [example, expected] of [["state", /●[\s\S]*Idle[\s\S]*◉/], ["class", /│ +«abstract» +│[\s\S]*├─+┤[\s\S]*│ \+area\(\) float │/], ["ER", /places \(1 to 0\.\.\*\)/]]) {
+    await page.getByRole("button", { name: "from text" }).click();
+    const dialog = page.getByRole("dialog", { name: "Draw from text" });
+    await dialog.getByRole("button", { name: example, exact: true }).click();
+    await expect(dialog.getByRole("button", { name: /auto: graph/ })).toBeVisible();
+    await dialog.getByRole("button", { name: "draw" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(await text(page)).toMatch(expected);
+    // Start the next one on an empty page.
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Delete");
+  }
+  // A class box's text: --- divides it.
+  await page.keyboard.press("b");
+  await drag(page, [2, 2], [20, 9]);
+  await page.keyboard.type("Point");
+  await page.keyboard.press("Escape");
+  await page.getByRole("complementary", { name: "Properties" }).getByRole("button", { name: "class", exact: true }).click();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\n---\n+x: int");
+  await page.keyboard.press("Escape");
+  expect(await text(page)).toMatch(/│ +Point +│\n├─+┤\n│ \+x: int +│/);
+});
+
 test("markdown lists in a box", async ({ page }) => {
   await page.keyboard.press("b");
   await drag(page, [2, 2], [26, 4]);

@@ -3,6 +3,7 @@ import { autoLayout } from "../model/layout";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
 import type { Diagram, Head, LineStyle, Node, SourceKind, TextSource } from "../model/types";
 import { chars, textLines } from "../render/textLayout";
+import { compartments } from "../shapes/compartments";
 import { lifelineColumn } from "../shapes/lifeline";
 import { detectKind } from "./detect";
 import { type ParsedGraph, parseGraph } from "./graph";
@@ -268,6 +269,12 @@ function nodeSize(kind: Node["kind"], text: string, plain?: boolean): { w: numbe
   const tw = Math.max(1, ...shown.map((l) => chars(l).length)), lines = shown.length;
   if (plain) return { w: tw, h: lines };
   switch (kind) {
+    case "class": {
+      // Each compartment's lines, plus a divider between them.
+      const parts = compartments(text).map((p) => textLines(p, 1000, true));
+      const w = Math.max(1, ...parts.flat().map((l) => chars(l).length));
+      return { w: w + 4, h: parts.reduce((sum, p) => sum + Math.max(1, p.length), 0) + parts.length - 1 + 2 };
+    }
     case "decision": {
       const h = lines + 2 + ((lines + 2) % 2 === 0 ? 1 : 0);
       return { w: tw + 2 * Math.floor(h / 2) + 4, h };
@@ -285,7 +292,7 @@ const PAD = 2;
 
 function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kind"> {
   const dir = direction ?? g.direction;
-  const sizes = new Map(g.nodes.map((n) => [n.id, nodeSize(n.kind, n.text, n.plain)]));
+  const sizes = new Map(g.nodes.map((n) => [n.id, n.size ?? nodeSize(n.kind, n.text, n.plain)]));
   const subs = new Map(g.subgraphs.map((s) => [s.id, s]));
   const parentOf = new Map<string, string>();
   for (const s of g.subgraphs) for (const m of s.members) parentOf.set(m, s.id);
@@ -308,15 +315,19 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
         size = { w: Math.max(inner.w + 2 * PAD + 2, chars(subs.get(id)!.title).length + 8), h: inner.h + 2 * PAD + 1 };
         sizes.set(id, size);
       }
-      // Start in a row, so nothing is inside anything else before layout.
-      scratch = addNode(scratch, makeNode({ x: i * 1000, y: 0, ...size! }, { id }));
+      // Start in a row, so nothing is inside anything else before layout. (Borderless, so tiny
+      // nodes like a state diagram's ● keep their size.)
+      scratch = addNode(scratch, makeNode({ x: i * 1000, y: 0, ...size! }, { id, border: "none" }));
     });
     const seen = new Set<string>();
     for (const e of g.edges) {
       const a = memberFor(e.from, memberSet), b = memberFor(e.to, memberSet);
       if (!a || !b || a === b || seen.has(`${a}>${b}`)) continue;
       seen.add(`${a}>${b}`);
-      scratch = addEdge(scratch, makeEdge({ kind: "attached", node: a, side: "auto" }, { kind: "attached", node: b, side: "auto" }));
+      // With the label, so left-to-right layers leave room for it.
+      const label = g.edges.filter((x) => memberFor(x.from, memberSet) === a && memberFor(x.to, memberSet) === b && x.label)
+        .map((x) => x.label).sort((p, q) => q.length - p.length)[0];
+      scratch = addEdge(scratch, makeEdge({ kind: "attached", node: a, side: "auto" }, { kind: "attached", node: b, side: "auto" }, { label }));
     }
     scratch = autoLayout(scratch, [], dir);
     const bounds = members.map((id) => scratch.nodes[id].rect);
@@ -349,7 +360,11 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
       key: `n:${n.id}`,
       node: n.plain
         ? spec(absolute.get(n.id)!, { text: n.text, border: "none", align: { h: "left", v: "top" } })
-        : spec(absolute.get(n.id)!, { kind: n.kind, text: n.text, border: n.rounded ? "rounded" : "single" }),
+        : spec(absolute.get(n.id)!, {
+            kind: n.kind, text: n.text, border: n.border ?? (n.rounded ? "rounded" : "single"),
+            // A class's name heads it; its members are code, not Markdown lists.
+            ...(n.kind === "class" && { align: { h: "center", v: "top" }, lists: false }),
+          }),
     })),
   ];
   const keyOf = (id: string) => (subs.has(id) ? `g:${id}` : `n:${id}`);

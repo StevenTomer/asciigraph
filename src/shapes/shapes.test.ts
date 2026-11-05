@@ -162,3 +162,36 @@ describe("more shapes", () => {
 `);
   });
 });
+
+describe("class boxes", () => {
+  const cls = (text: string, rect = { x: 0, y: 0, w: 17, h: 8 }) =>
+    makeNode(rect, { id: "c", kind: "class", text, align: { h: "center", v: "top" }, lists: false });
+
+  it("draws compartments: the name centered, members on the left", () => {
+    const d = addNode(emptyDiagram(), cls("Animal\n---\n+name: String\n---\n+eat()\n+sleep()"));
+    expect(show(d)).toBe(`
+┌───────────────┐
+│    Animal     │
+├───────────────┤
+│ +name: String │
+├───────────────┤
+│ +eat()        │
+│ +sleep()      │
+└───────────────┘
+`);
+  });
+
+  it("keeps connectors on the sides off the dividers", () => {
+    let d = addNode(emptyDiagram(), cls("A\n---\nx", { x: 0, y: 0, w: 7, h: 5 }));
+    // The other box's middle row is the divider's row.
+    d = addNode(d, makeNode({ x: 14, y: 1, w: 5, h: 3 }, { id: "b", text: "B" }));
+    d = addEdge(d, makeEdge(att("b"), att("c")));
+    expect(show(d)).toBe(`
+┌─────┐
+│  A  │◄──┐   ┌───┐
+├─────┤   └───┤ B │
+│ x   │       └───┘
+└─────┘
+`);
+  });
+});

@@ -1,5 +1,8 @@
-import type { Head, LineStyle, NodeKind } from "../model/types";
+import type { BorderStyle, Head, LineStyle, NodeKind } from "../model/types";
+import { parseClass } from "./classes";
+import { parseEr } from "./er";
 import { logicalLines, unquote } from "./mermaid";
+import { parseState } from "./state";
 
 /**
  * Graphs from text: Mermaid flowcharts (`flowchart TD`, `graph LR`) and a looser shorthand
@@ -18,6 +21,12 @@ export interface GraphNode {
   rounded: boolean;
   /** Mermaid's `text` shape: no outline. */
   plain?: boolean;
+  /** An outline other than single (or rounded). */
+  border?: BorderStyle;
+  /** A fixed size, instead of fitting the text. */
+  size?: { w: number; h: number };
+  /** While parsing: a state diagram's fork/join bar. */
+  bar?: boolean;
 }
 
 /** Mermaid's expanded shape names (`A@{ shape: doc }`), and their aliases, to our shapes. */
@@ -32,6 +41,8 @@ const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolea
   doc: ["document"], document: ["document"],
   brace: ["note"], comment: ["note"], "brace-r": ["note"], braces: ["note"], note: ["note"],
   text: ["box", { plain: true }],
+  // asciigraph's own (written for hand-drawn class boxes by fromDiagram.ts).
+  class: ["class"],
 };
 
 export interface GraphEdge {
@@ -40,8 +51,8 @@ export interface GraphEdge {
   label: string;
   line: LineStyle;
   arrows: { start: boolean; end: boolean };
-  /** --x: a cross, --o: a circle (otherwise arrowheads). */
-  heads?: { end?: Head };
+  /** --x: a cross, --o: a circle (otherwise arrowheads); class diagrams have them at either end. */
+  heads?: { start?: Head; end?: Head };
 }
 
 export interface Subgraph {
@@ -95,7 +106,18 @@ const EDGES: [RegExp, LineStyle, boolean, boolean][] = [
   [/^--(?=\s)/, "single", false, false],
 ];
 
+/** Graph-like Mermaid diagrams, each by its header: state, class and ER diagrams, flowcharts. */
 export function parseGraph(text: string): ParsedGraph {
+  const first = text.split("\n").map((l) => l.replace(/%%.*$/, "").trim()).find((l) => l) ?? "";
+  if (/^stateDiagram(-v2)?\b/.test(first)) return parseState(text);
+  if (/^classDiagram(-v2)?\b/.test(first)) return parseClass(text);
+  if (/^erDiagram\b/.test(first)) return parseEr(text);
+  return parseFlowchart(text);
+}
+
+export const GRAPH_HEADER = /^(flowchart|graph|stateDiagram(-v2)?|classDiagram(-v2)?|erDiagram)\b/;
+
+function parseFlowchart(text: string): ParsedGraph {
   const g: ParsedGraph = { direction: "down", nodes: [], edges: [], subgraphs: [], warnings: [] };
   const byId = new Map<string, GraphNode>();
   const stack: Subgraph[] = [];

@@ -38,12 +38,16 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
 - **Objects, not characters.** Boxes, labels and connectors are things you move, resize and
   restyle. Connectors route around other boxes and follow the boxes to which they're attached.
 - **Shapes:** Boxes with eight border styles, named boxes, flowchart shapes (decision,
-  input/output, start/end, database, document, subroutine), notes, frames, and sequence-diagram
-  lifelines and activation bars.
+  input/output, start/end, database, document, subroutine), notes, frames, class boxes in
+  compartments, and sequence-diagram lifelines and activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
   diamond, dot, circle, cross, bar); labels; bend points; and a turn point you can drag.
-- **Draw from text:** [Mermaid](https://mermaid.js.org/) [sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html) and
-  [flowcharts](https://mermaid.js.org/syntax/flowchart.html), a looser shorthand
+- **Draw from text:** [Mermaid](https://mermaid.js.org/)
+  [sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html),
+  [flowcharts](https://mermaid.js.org/syntax/flowchart.html),
+  [state diagrams](https://mermaid.js.org/syntax/stateDiagram.html),
+  [class diagrams](https://mermaid.js.org/syntax/classDiagram.html) and
+  [entity–relationship diagrams](https://mermaid.js.org/syntax/entityRelationshipDiagram.html), a looser shorthand
   (`Client -> API: GET /x`, `A -> B -> C`), and folder trees. The drawing stays linked to the
   text: edit the text and it redraws, keeping what you've moved or restyled. A hand-drawn diagram
   can be turned into Mermaid too.

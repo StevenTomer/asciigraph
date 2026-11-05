@@ -47,10 +47,33 @@ export function setDirection(d: Diagram, id: Id, direction: "down" | "right"): S
   const src = d.sources?.[id];
   if (!src) return { diagram: d, warnings: [] };
   const code = direction === "right" ? "LR" : "TD";
-  const text = src.kind === "graph"
-    ? src.text.replace(/^(\s*)(flowchart|graph)\b[ \t]*(TD|TB|BT|LR|RL)?/m, `$1$2 ${code}`)
-    : src.text;
+  const text = src.kind === "graph" ? withDirection(src.text, code) : src.text;
   return updateSource(d, id, { text, options: { direction } }, { relayout: true });
+}
+
+/**
+ * The text with its direction set: in a flowchart's header (`flowchart LR`), or for state, class
+ * and ER diagrams on a `direction LR` line (replaced if there is one at the top level, else added
+ * after the header).
+ */
+function withDirection(text: string, code: "LR" | "TD"): string {
+  if (/^\s*(flowchart|graph)\b/m.test(text)) return text.replace(/^(\s*)(flowchart|graph)\b[ \t]*(TD|TB|BT|LR|RL)?/m, `$1$2 ${code}`);
+  const header = /^(\s*)(stateDiagram(-v2)?|classDiagram(-v2)?|erDiagram)\b.*$/m.exec(text);
+  if (!header) return text;
+  const lines = text.split("\n");
+  let depth = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].replace(/%%.*$/, "").trim();
+    if (depth === 0 && /^direction\s+(TB|TD|BT|LR|RL)\s*$/i.test(t)) {
+      lines[i] = lines[i].replace(/direction\s+\w+/i, `direction ${code === "TD" ? "TB" : "LR"}`);
+      return lines.join("\n");
+    }
+    depth += (t.match(/\{/g) ?? []).length - (t.match(/\}/g) ?? []).length;
+  }
+  const at = text.slice(0, header.index).split("\n").length;
+  const indent = (lines[at] ?? "").match(/^\s*/)![0] || header[1] + "  ";
+  lines.splice(at, 0, `${indent}direction ${code === "TD" ? "TB" : "LR"}`);
+  return lines.join("\n");
 }
 
 /** Keep what was drawn, but forget the text: everything becomes ordinary objects. */

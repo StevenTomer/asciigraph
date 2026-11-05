@@ -84,8 +84,22 @@ afterwards in the properties panel.
 | document | a box with a wavy bottom | files, reports |
 | subroutine | `│ │ Ship it │ │` | a predefined step |
 | note | a box with a folded corner | comments |
+| class | a box in compartments, `├───┤` between them | UML classes, database tables |
 | frame | a named box drawn behind things | grouping; boxes inside it aren't hidden |
 | lifeline, activation | see [Sequence diagrams](#sequence-diagrams) | |
+
+**Class boxes:** a line of just `---` in the text divides the box there. The first part (the
+name) is centered and the rest left-aligned:
+
+```
+┌───────────────┐
+│    Animal     │
+├───────────────┤
+│ +name: String │
+├───────────────┤
+│ +eat()        │
+└───────────────┘
+```
 
 **Borders:** single, double, rounded, heavy, dashed, dotted, ASCII, or none. A box with no
 border is a free label.
@@ -315,7 +329,93 @@ The **shorthand**: `A -> B -> C`, and `A -> B: label`.
 Graphs are laid out automatically, top to bottom or left to right (choose in the dialog, in the
 text, or afterwards with **layout** in the properties panel). Connectors keep following the
 flow, out of the bottom and into the top (or out of the right and into the left), however you
-drag the boxes.
+drag the boxes. State, class and ER diagrams below are graphs too, and lay out the same way;
+their direction is a `direction LR` (or `TB`) line.
+
+### State diagrams
+
+Mermaid's `stateDiagram-v2` ([Mermaid's documentation](https://mermaid.js.org/syntax/stateDiagram.html)):
+
+```
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Working : job arrives
+    Working --> Idle : done
+    Working --> Failed : error
+    Failed --> [*]
+```
+
+| Syntax | Drawn as |
+|---|---|
+| `[*] --> A`, `A --> [*]` | the start `●` and the end `◉` (each composite state has its own) |
+| `A --> B : label` | a labeled arrow |
+| `state "Long name" as A`, `A : more text` | the state's text (each `A :` line adds a line) |
+| `state Busy { … }` | a composite state: a frame around its states |
+| `state C <<choice>>` | a decision |
+| `state F <<fork>>`, `<<join>>` | a heavy bar `━━━━━━━━━` |
+| `note right of A : text`, or over lines ending `end note` | a note, joined to its state by a dotted line |
+
+Concurrency dividers (`--`) inside composite states are ignored.
+
+### Class diagrams
+
+Mermaid's `classDiagram` ([Mermaid's documentation](https://mermaid.js.org/syntax/classDiagram.html)),
+drawn with class boxes: the name, then attributes, then methods (members with `(`):
+
+```
+classDiagram
+    class Shape {
+      <<abstract>>
+      +String name
+      +area() float
+    }
+    Shape <|-- Circle
+    Circle : +float radius
+    Canvas "1" o-- "*" Shape : draws
+```
+
+| Syntax | Connector |
+|---|---|
+| `A <\|-- B` | inheritance: a hollow arrow `△` at A |
+| `A *-- B` | composition: a diamond `◆` at A |
+| `A o-- B` | aggregation: a hollow diamond `◊` at A |
+| `A --> B` | association: an arrow |
+| `A ..> B` | dependency: a dashed arrow |
+| `A ..\|> B` | realization: a dashed hollow arrow |
+| `A -- B`, `A .. B` | a line, a dashed line |
+| `A "1" --> "*" B : has` | labeled `has (1 to *)` |
+
+Members go in a `class A { … }` block or one at a time (`A : +eat()`). `<<interface>>` (in the
+block, or `<<interface>> A`) is drawn above the name as `«interface»`. Generics `List~T~` show as
+`List<T>`; `class A["Label"]` sets the name shown. `namespace N { … }` draws a frame, and
+`note for A "text"` a note.
+
+### Entity–relationship diagrams
+
+Mermaid's `erDiagram` ([Mermaid's documentation](https://mermaid.js.org/syntax/entityRelationshipDiagram.html)):
+
+```
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    CUSTOMER {
+      string name
+      string email PK
+    }
+```
+
+Entities are class boxes with their attributes in columns (type, name, keys, comment).
+Character-cell drawings have no crow's feet, so how many are at each end goes in the label:
+`places (1 to 0..*)`.
+
+| End | Means |
+|---|---|
+| `\|\|` | exactly one: `1` |
+| `\|o`, `o\|` | zero or one: `0..1` |
+| `}o`, `o{` | zero or more: `0..*` |
+| `}\|`, `\|{` | one or more: `1..*` |
+
+`--` is a solid line (identifying), `..` a dashed one. `ENTITY["Label"]` sets the name shown.
 
 ### Folder trees
 

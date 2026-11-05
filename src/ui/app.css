@@ -379,6 +379,13 @@ a {
 .toolbar.sub {
   font-size: 13px;
 }
+/* The shape picker sits level with the top of the properties panel (300px wide, on the right):
+   it wraps rather than running under it. */
+@media (min-width: 641px) {
+  .toolbar.sub {
+    max-width: calc(100vw - 340px);
+  }
+}
 
 /* Draw from text */
 .dialog.wide {

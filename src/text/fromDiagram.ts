@@ -62,6 +62,8 @@ function shapeText(n: Node, id: string, indent: string): string {
     case "subroutine": return `${id}[[${q}]]`;
     case "document": return `${id}@{ shape: doc, label: ${attr(n.text)} }`;
     case "note": return `${id}@{ shape: comment, label: ${attr(n.text)} }`;
+    // Not a Mermaid flowchart shape: asciigraph's own, so a class box stays one.
+    case "class": return `${id}@{ shape: class, label: ${attr(n.text)} }`;
     default: return n.border === "rounded" ? `${id}(${q})` : `${id}[${q}]`;
   }
 }

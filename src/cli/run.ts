@@ -30,7 +30,8 @@ Usage:
   asciigraph mermaid [FILE]              write Mermaid for a saved diagram
   asciigraph markdown FILE [--write]     draw every \`\`\`mermaid block in a Markdown file
 
-FILE can be Mermaid (sequenceDiagram, flowchart), the shorthand (A -> B: message, A -> B -> C),
+FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram), the
+shorthand (A -> B: message, A -> B -> C),
 a folder tree, a diagram saved from the app (.json), or a share link. Without FILE, or with "-",
 it reads standard input.
 

@@ -60,7 +60,7 @@ export const box: ShapeDef = {
   },
 };
 
-function drawBorder(grid: CharGrid, r: Rect, node: Node) {
+export function drawBorder(grid: CharGrid, r: Rect, node: Node) {
   const style = node.border === "rounded" ? "single" : (node.border as Exclude<Node["border"], "rounded" | "none">);
   const rounded = node.border === "rounded";
   const x1 = right(r), y1 = bottom(r);

@@ -9,7 +9,7 @@ export function detectKind(text: string): SourceKind {
   const lines = text.split("\n").map((l) => l.replace(/%%.*$/, "")).filter((l) => l.trim());
   const first = lines[0]?.trim() ?? "";
   if (/^sequenceDiagram\b/.test(first)) return "sequence";
-  if (/^(flowchart|graph)\b/i.test(first)) return "graph";
+  if (/^(flowchart|graph)\b/i.test(first) || /^(stateDiagram(-v2)?|classDiagram(-v2)?|erDiagram)\b/.test(first)) return "graph";
   if (lines.some((l) => /[├└]──/.test(l))) return "tree";
   // Indentation is the strongest sign of a folder tree (names may well contain "->" or "---"):
   // a good share of lines indented under the first, and nothing sequence-like.

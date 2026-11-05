@@ -8,7 +8,7 @@ import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
 import { adopt, drawSource, membersOf, updateSource } from "../text/sync";
 
-const EXAMPLES: Record<SourceKind, string> = {
+const EXAMPLE_TEXT = {
   sequence: `sequenceDiagram
     participant C as Client
     participant A as API
@@ -36,9 +36,52 @@ const EXAMPLES: Record<SourceKind, string> = {
 ├── tests/
 │   └── main.test.ts
 └── README.md`,
+  state: `stateDiagram-v2
+    [*] --> Idle
+    Idle --> Working : job arrives
+    Working --> Idle : done
+    Working --> Failed : error
+    Failed --> Idle : retry
+    Failed --> [*]`,
+  class: `classDiagram
+    class Shape {
+      <<abstract>>
+      +String name
+      +area() float
+    }
+    class Circle {
+      +float radius
+    }
+    class Square {
+      +float side
+    }
+    Shape <|-- Circle
+    Shape <|-- Square
+    Canvas "1" o-- "*" Shape : draws`,
+  er: `erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    CUSTOMER {
+      string name
+      string email PK
+    }
+    ORDER {
+      int number PK
+      date placed
+    }`,
 };
 
-const KIND_LABEL: Record<SourceKind, string> = { sequence: "message sequence", graph: "graph", tree: "folder tree" };
+/** The examples buttons, in order. */
+const EXAMPLES: { label: string; text: string }[] = [
+  { label: "message sequence", text: EXAMPLE_TEXT.sequence },
+  { label: "flowchart", text: EXAMPLE_TEXT.graph },
+  { label: "state", text: EXAMPLE_TEXT.state },
+  { label: "class", text: EXAMPLE_TEXT.class },
+  { label: "ER", text: EXAMPLE_TEXT.er },
+  { label: "folder tree", text: EXAMPLE_TEXT.tree },
+];
+
+const KIND_LABEL: Record<SourceKind, string> = { sequence: "message sequence", graph: "graph (flowchart, state, class, ER)", tree: "folder tree" };
 
 /**
  * Draw a diagram from text (Mermaid, a looser shorthand, or a folder tree), or edit the text of
@@ -190,8 +233,8 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
         <div className="row buttons">
           <button className="tb accent" onClick={draw} disabled={!text.trim()} title="Ctrl+Enter">{editing ? "update" : "draw"}</button>
           <span className="muted">examples:</span>
-          {(["sequence", "graph", "tree"] as const).map((k) => (
-            <button key={k} className="tb" onClick={() => { setText(EXAMPLES[k]); setKind("auto"); }}>{KIND_LABEL[k]}</button>
+          {EXAMPLES.map((x) => (
+            <button key={x.label} className="tb" onClick={() => { setText(x.text); setKind("auto"); }}>{x.label}</button>
           ))}
         </div>
         {editing && <p className="note muted">Things you've moved, resized or restyled stay as they are; the rest is redrawn from the text. {described && "Connectors with a loose end, or to boxes outside the selection, aren't included and stay as they are."}</p>}

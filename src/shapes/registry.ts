@@ -2,6 +2,7 @@ import { type Point, type Rect, type Side, contains, intersects } from "../geome
 import type { Node, NodeKind } from "../model/types";
 import type { CharGrid } from "../render/grid";
 import { box, frame } from "./box";
+import { classBox } from "./compartments";
 import { decision, io, terminal } from "./flowchart";
 import { activation, lifeline } from "./lifeline";
 import { database, document, note, subroutine } from "./more";
@@ -48,7 +49,7 @@ export interface ShapeDef {
 
 /** In picker order. */
 const SHAPES: Record<NodeKind, ShapeDef> = {
-  box, decision, io, terminal, database, document, subroutine, note, frame, lifeline, activation,
+  box, decision, io, terminal, database, document, subroutine, note, class: classBox, frame, lifeline, activation,
 };
 
 export const SHAPE_KINDS = Object.keys(SHAPES) as NodeKind[];
