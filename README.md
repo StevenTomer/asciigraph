@@ -180,6 +180,40 @@ Distribute and Normalize Size; Shrink to Text; Lock Together; Auto Layout.
 
 <img src="docs/images/phone.png" alt="asciigraph on a phone, with the properties panel as a bottom sheet" width="300">
 
+## How it compares
+
+There are good tools for ASCII diagrams already. Most either let you draw by hand, or turn text
+into a drawing once. asciigraph does both, and keeps the two linked.
+
+|  | asciigraph | [Asciio](https://github.com/nkh/P5-App-Asciio) | [Monodraw](https://monodraw.helftone.com/) | [ASCIIFlow](https://asciiflow.com/) | Mermaid-to-ASCII tools |
+|---|---|---|---|---|---|
+| Runs on | any browser; locally in Docker | Linux desktop (Gtk3), and a terminal version | macOS | any browser | command line or library |
+| Price | free, open source | free, open source | paid | free, open source | free, open source |
+| You edit | objects | objects | objects | characters | text only |
+| Connectors stay attached when boxes move | yes, and reroute around other boxes | yes | yes | no | — |
+| Draw from Mermaid | yes, and stays linked: edit the text and it redraws, keeping your changes | not built in | not built in | no | yes, once |
+| Turn a drawing into Mermaid | yes | not built in | not built in | no | no |
+| Export | text (Unicode or ASCII, comment styles), PNG, SVG, JSON, share link | text, SVG (with goat) | text (comment styles), PNG, SVG | text | text |
+
+**Asciio** is the closest open-source relative. Like asciigraph, it treats boxes and arrows as
+objects, and its connections hold as you move things. It's a desktop and terminal app, driven
+largely from the keyboard with vim-like bindings, and it has custom stencils (shape libraries)
+and a command that builds a drawing from text. Choose it if you live in a terminal or in Vim.
+asciigraph runs in a browser, on phones too, and works mostly with the mouse; its connectors find
+their own way around other boxes, and it reads and writes Mermaid.
+
+**Monodraw** is a polished Mac app with lines that attach to shapes, and much more besides
+(a pencil, fill and eraser for freehand text art, and SVG export). It's the one to beat on a Mac, if you don't mind paying.
+
+**ASCIIFlow** is where asciigraph started: its text rendering, input handling and fonts are
+adapted here. It's a free hand-drawing tool that edits characters, so lines don't follow boxes.
+
+**Mermaid-to-ASCII tools** such as
+[mermaid-ascii](https://github.com/AlexanderGrooff/mermaid-ascii) and
+[beautiful-mermaid](https://github.com/lukilabs/beautiful-mermaid) turn Mermaid into text in a
+single step. They suit scripts and pipelines; to change the result, you change the text and
+render it again.
+
 ## How it works
 
 The document is objects, not characters. Nodes (boxes, labels) and edges (connectors) live in an
