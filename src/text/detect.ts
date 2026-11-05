@@ -1,4 +1,5 @@
 import type { SourceKind } from "../model/types";
+import { isPlantClass } from "./classes";
 import { isDot } from "./dot";
 
 /**
@@ -7,7 +8,8 @@ import { isDot } from "./dot";
  * messages a graph. Indented names are a tree.
  */
 export function detectKind(text: string): SourceKind {
-  if (isDot(text)) return "graph";
+  if (isDot(text) || isPlantClass(text)) return "graph";
+  if (/^\s*@startuml\b/m.test(text)) return "sequence";
   const lines = text.split("\n").map((l) => l.replace(/%%.*$/, "")).filter((l) => l.trim());
   const first = lines[0]?.trim() ?? "";
   if (/^sequenceDiagram\b/.test(first)) return "sequence";

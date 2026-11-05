@@ -94,7 +94,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
   const pw = P.map((p) => Math.max(width(p.label) + 4, 10));
 
   // 1. Rows: walk the events, giving each a row (and collecting what needs columns).
-  type Msg = { from: number; to: number; row: number; label: string; dashed: boolean; arrow: boolean; head?: Head; n: number };
+  type Msg = { from: number; to: number; row: number; label: string; dashed: boolean; arrow: boolean; head?: Head; both?: boolean; n: number };
   type Note = { side: "left" | "right" | "over"; who: number[]; text: string; row: number; w: number; h: number };
   type Frame = { label: string; top: number; bottom: number; parts: Set<number>; elses: { label: string; row: number }[] };
   const msgs: Msg[] = [], notes: Note[] = [], frames: Frame[] = [];
@@ -118,7 +118,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       // A label of several lines is centered on the arrow: leave room above and below it.
       const extra = label.split("\n").length - 1;
       row += Math.floor(extra / 2);
-      msgs.push({ from, to, row, label, dashed: e.dashed, arrow: e.arrow, head: e.head, n: count });
+      msgs.push({ from, to, row, label, dashed: e.dashed, arrow: e.arrow, head: e.head, both: e.both, n: count });
       touch(from, to);
       if (e.activate) start(to, row);
       if (e.deactivate) stop(from, row);
@@ -250,7 +250,7 @@ function sequence(s: ParsedSequence): Omit<Desired, "kind"> {
       to: { key: b.key, side: self ? "right" : "auto", offset: (self ? m.row + 2 : m.row) - b.y },
       label: m.label || undefined,
       line: m.dashed ? "dashed" : "single",
-      arrows: { start: false, end: m.arrow },
+      arrows: { start: !!m.both, end: m.arrow },
       ...(m.head && { heads: { end: m.head } }),
     };
   });

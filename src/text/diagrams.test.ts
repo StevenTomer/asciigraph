@@ -278,3 +278,80 @@ describe("Graphviz DOT", () => {
     expect(setDirection(lr, id, "down").diagram.sources![id].text).toBe("digraph {\n  rankdir=TB;\n  a -> b\n}");
   });
 });
+
+describe("PlantUML", () => {
+  it("reads sequence diagrams: participants, arrows each way, activation, notes, groups", async () => {
+    const { parseSequence } = await import("./sequence");
+    const s = parseSequence(`@startuml
+      skinparam monochrome true
+      actor User
+      participant "Web app" as W
+      database DB
+      User -> W ++ : sign in
+      W <-- DB : row
+      W ->x User : rejected
+      User <-> W : ping
+      == checks ==
+      note right of W
+        two
+        lines
+      end note
+      group retry
+        W --> User -- : done
+      end
+      @enduml`);
+    expect(s.warnings).toEqual([]);
+    expect(s.participants.map((p) => [p.key, p.label])).toEqual([["User", "User"], ["W", "Web app"], ["DB", "DB"]]);
+    const msgs = s.events.filter((e) => e.type === "message");
+    expect(msgs.map((m) => [m.from, m.to, m.dashed, m.arrow, m.head ?? null, m.both ?? false, m.activate, m.deactivate])).toEqual([
+      ["User", "W", false, true, null, false, true, false],
+      ["DB", "W", true, true, null, false, false, false],
+      ["W", "User", false, true, "cross", false, false, false],
+      ["User", "W", false, true, null, true, false, false],
+      ["W", "User", true, true, null, false, false, true],
+    ]);
+    expect(s.events.find((e) => e.type === "note")).toMatchObject({ side: "right", who: ["W"], text: "two\nlines" });
+    expect(s.events.find((e) => e.type === "frame")).toMatchObject({ kind: "group", label: "retry" });
+    expect(detectKind("@startuml\nA -> B : hi\n@enduml")).toBe("sequence");
+  });
+
+  it("reads class diagrams: kinds, separators, layout hints in arrows, packages", () => {
+    const text = `@startuml
+      abstract class Shape {
+        +name : String
+        --
+        +area() : double
+      }
+      interface Drawable
+      enum Color {
+        RED
+      }
+      package geometry {
+        class Circle
+      }
+      Shape <|-- Circle
+      Drawable <|.. Shape
+      Circle "1" *-up- "1" Color : fill
+      left to right direction
+      @enduml`;
+    expect(detectKind(text)).toBe("graph");
+    const g = parseGraph(text);
+    expect(g.warnings).toEqual([]);
+    expect(g.direction).toBe("right");
+    const node = (id: string) => g.nodes.find((n) => n.id === id)!;
+    expect(node("Shape").text).toBe("«abstract»\nShape\n---\n+name : String\n---\n+area() : double");
+    expect(node("Drawable").text).toBe("«interface»\nDrawable");
+    expect(node("Color").text).toBe("«enumeration»\nColor\n---\nRED");
+    expect(g.subgraphs).toMatchObject([{ id: "geometry", members: ["Circle"] }]);
+    expect(g.edges.find((e) => e.to === "Color")).toMatchObject({ label: "fill", heads: { start: "diamond" }, endLabels: { start: "1", end: "1" } });
+    expect(g.edges.find((e) => e.from === "Drawable")).toMatchObject({ line: "dashed", heads: { start: "triangle" } });
+  });
+
+  it("switches direction with a direction line", () => {
+    const text = "@startuml\nclass A\nA <|-- B\n@enduml";
+    const { diagram, id } = drawSource(emptyDiagram(), { kind: "graph", text, options: {} }, { x: 0, y: 0 });
+    const lr = setDirection(diagram, id, "right").diagram;
+    expect(lr.sources![id].text).toBe("@startuml\nleft to right direction\nclass A\nA <|-- B\n@enduml");
+    expect(setDirection(lr, id, "down").diagram.sources![id].text).toBe(text);
+  });
+});

@@ -33,7 +33,8 @@ Usage:
   asciigraph import [FILE]               read a drawing into a diagram (.json) for the app
   asciigraph markdown FILE [--write]     draw every \`\`\`mermaid block in a Markdown file
 
-FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram), DOT, the
+FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram), DOT, PlantUML
+sequence and class diagrams, the
 shorthand (A -> B: message, A -> B -> C), a drawing (box-drawing or +--+ ASCII text), a
 Markdown table,
 a folder tree, a diagram saved from the app (.json), or a share link. Without FILE, or with "-",

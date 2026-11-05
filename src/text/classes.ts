@@ -24,9 +24,21 @@ const ID = String.raw`[\p{L}\p{N}_]+(?:~[^~]+~)?`;
 const HEAD_LEFT: Record<string, Head> = { "<|": "triangle", "*": "diamond", o: "hollow-diamond", "<": "arrow" };
 const HEAD_RIGHT: Record<string, Head> = { "|>": "triangle", "*": "diamond", o: "hollow-diamond", ">": "arrow" };
 const RELATION = new RegExp(
-  String.raw`^(${ID})\s*(?:"([^"]*)"\s*)?(<\||\*|o|<)?(--|\.\.)(\|>|\*|o|>)?\s*(?:"([^"]*)"\s*)?(${ID})\s*(?::\s*(.*))?$`,
+  String.raw`^(${ID})\s*(?:"([^"]*)"\s*)?(<\||\*|o|<)?(-{1,2}|\.{1,2})(\|>|\*|o|>)?\s*(?:"([^"]*)"\s*)?(${ID})\s*(?::\s*(.*))?$`,
   "u"
 );
+
+/** PlantUML lines that don't draw anything here. */
+const PLANT_SKIP = /^(@startuml|@enduml|skinparam\b|hide\b|show\b|!|'|title\b|header\b|footer\b|caption\b|set\b|allowmixing\b)/i;
+/** PlantUML's kinds of class, and how each is marked above the name. */
+const PLANT_KINDS: Record<string, string | undefined> = {
+  class: undefined, "abstract class": "abstract", abstract: "abstract", interface: "interface", enum: "enumeration",
+  annotation: "annotation", entity: "entity", protocol: "protocol", struct: "struct", exception: "exception",
+};
+
+/** Whether text is a PlantUML class diagram: @startuml, then classes or class relations. */
+export const isPlantClass = (text: string) =>
+  /^\s*@startuml\b/m.test(text) && (/^\s*(abstract\s+class|abstract|class|interface|enum)\s+[\p{L}_"]/mu.test(text) || /(<\|--|--\|>|\*--|--\*|o--|--o|\.\.\|>)/.test(text));
 
 /** Shape~T~ → Shape<T>, as Mermaid shows generics. */
 const generics = (s: string) => s.replace(/~([^~]+)~/g, "<$1>");
@@ -55,9 +67,20 @@ export function parseClass(text: string): ParsedGraph {
   };
   const idOf = (raw: string) => raw.replace(/~[^~]+~$/, "");
 
+  const plant = /^\s*@startuml\b/m.test(text);
   logicalLines(text).forEach(({ line: raw, lineNo }) => {
-    const line = raw.replace(/%%.*$/gm, "").trim();
+    let line = raw.replace(/%%.*$/gm, "").trim();
     if (!line || /^classDiagram(-v2)?\b/.test(line)) return;
+    if (plant) {
+      if (PLANT_SKIP.test(line)) return;
+      if (/^left to right direction$/i.test(line)) {
+        g.direction = "right";
+        return;
+      }
+      if (/^top to bottom direction$/i.test(line)) return;
+      // Arrows' layout hints (-up->, .left.>) don't matter here.
+      line = line.replace(/([-.])(?:up|down|left|right|u|d|l|r)(?=[-.])/i, "$1");
+    }
     const body = blocks[blocks.length - 1];
     if (line === "}") {
       const closed = blocks.pop();
@@ -66,29 +89,35 @@ export function parseClass(text: string): ParsedGraph {
       return;
     }
     if (body?.kind === "class") {
+      // (PlantUML's separators inside a class: -- .. == __)
+      if (/^(--|\.\.|==|__)+(.*?)(--|\.\.|==|__)*$/.test(line) && !/[\p{L}\p{N}(]/u.test(line)) return;
       const ann = /^<<\s*(.+?)\s*>>$/.exec(line);
       if (ann) info.get(body.id)!.annotation = ann[1];
       else info.get(body.id)!.members.push(generics(line));
       return;
     }
     if (/^(classDef|cssClass|style|click|callback|link|accTitle|accDescr)\b/.test(line)) return;
+    if (plant && /^end\s+note$|^note\b/i.test(line) && !/^note\s+(for\s+\S+\s+)?"/.test(line)) return;
     const dir = readDirection(line);
     if (dir) {
       if (!b.depth) g.direction = dir;
       return;
     }
-    const ns = /^namespace\s+([\p{L}\p{N}_.]+)\s*\{$/u.exec(line);
+    const ns = /^(?:namespace|package)\s+"?([\p{L}\p{N}_. ]+?)"?\s*(?:<<[^>]*>>\s*)?\{$/u.exec(line);
     if (ns) {
       b.open(ns[1], ns[1]);
       blocks.push({ kind: "namespace" });
       return;
     }
-    // class Name~T~ ["Label"] [:::style] [{]
-    const c = new RegExp(String.raw`^class\s+(${ID})\s*(?:\["([^"]*)"\])?\s*(?::::\w+)?\s*(\{)?\s*(\})?$`, "u").exec(line);
+    // class Name~T~ ["Label"] [:::style] [{]   (PlantUML: interface Name <<stereo>> {, enum …)
+    const kinds = plant ? Object.keys(PLANT_KINDS).sort((p, q) => q.length - p.length).map((k) => k.replace(" ", "\\s+")).join("|") : "class";
+    const c = new RegExp(String.raw`^(${kinds})\s+(${ID})\s*(?:\["([^"]*)"\])?\s*(?:<<\s*(.+?)\s*>>)?\s*(?::::\w+)?\s*(\{)?\s*(\})?$`, "iu").exec(line);
     if (c) {
-      const ci = cls(c[1]);
-      if (c[2] !== undefined) ci.label = c[2];
-      if (c[3] && !c[4]) blocks.push({ kind: "class", id: idOf(c[1]) });
+      const ci = cls(c[2]);
+      if (c[3] !== undefined) ci.label = c[3];
+      const marked = c[4] ?? PLANT_KINDS[c[1].toLowerCase().replace(/\s+/g, " ")];
+      if (marked) ci.annotation = marked;
+      if (c[5] && !c[6]) blocks.push({ kind: "class", id: idOf(c[2]) });
       return;
     }
     const ann = new RegExp(String.raw`^<<\s*(.+?)\s*>>\s*(${ID})$`, "u").exec(line);
@@ -116,7 +145,7 @@ export function parseClass(text: string): ParsedGraph {
         from: idOf(a), to: idOf(z),
         label: label ? unquote(label) : "",
         endLabels: endLabels(cardA, cardB),
-        line: link === ".." ? "dashed" : "single",
+        line: link.startsWith(".") ? "dashed" : "single",
         arrows: { start: !!left, end: !!right },
         ...((left || right) && { heads }),
       });

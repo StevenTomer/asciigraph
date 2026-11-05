@@ -58,6 +58,11 @@ export function setDirection(d: Diagram, id: Id, direction: "down" | "right"): S
  * after the header).
  */
 function withDirection(text: string, code: "LR" | "TD"): string {
+  // PlantUML: "left to right direction" (top to bottom is its default).
+  if (/^\s*@startuml\b/m.test(text)) {
+    const without = text.replace(/^[ \t]*(left to right|top to bottom) direction[ \t]*\n?/im, "");
+    return code === "LR" ? without.replace(/^([ \t]*@startuml[^\n]*\n)/m, "$1left to right direction\n") : without;
+  }
   // DOT: rankdir, replaced or added just inside the first {.
   if (isDot(text)) {
     const dir = code === "TD" ? "TB" : "LR";

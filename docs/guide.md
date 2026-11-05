@@ -479,6 +479,36 @@ digraph {
   `tee`, `none`).
 - Colors, fonts, sizes and ports are ignored.
 
+### PlantUML
+
+PlantUML ([its documentation](https://plantuml.com/)) sequence and class diagrams, between
+`@startuml` and `@enduml`, are read too, drawn the same way as their Mermaid counterparts.
+
+```
+@startuml
+actor User
+participant "Web app" as W
+User -> W ++ : sign in
+note right of W
+  checks the password
+end note
+W --> User -- : welcome
+@enduml
+```
+
+- **Sequence diagrams:** `participant`, `actor`, `boundary`, `control`, `entity`, `database`,
+  `collections`, `queue` (with `"Long name" as L`); `->` and `-->` (dashed); `->x` lost; `<-`,
+  `<--` the other way; `<->` both ways; `++` / `--` after the target to activate or deactivate;
+  `activate` / `deactivate`; notes on one line (`note left of A : text`) or over several up to
+  `end note`; `alt` / `else` / `opt` / `loop` / `par` / `group` … `end`.
+- **Class diagrams:** `class`, `abstract class`, `interface`, `enum` (marked `«abstract»`,
+  `«interface»`, `«enumeration»`), `<<stereotypes>>`, members in `{ }` (with `--` separators
+  skipped), the same relations as Mermaid's (`<|--`, `*--`, `o--`, `..>`, …) with layout hints
+  like `-up->` ignored, `"1"` / `"*"` as end labels, `package` as a frame, and `left to right
+  direction`.
+- `skinparam`, `title`, `== sections ==`, `...`, `'` comments and the like are skipped; `return`
+  isn't drawn (write the reply as a message).
+
 ### Folder trees
 
 Any of these:
