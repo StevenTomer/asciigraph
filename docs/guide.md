@@ -462,7 +462,7 @@ What it recognizes:
   (`( )`), databases (a rim under the top), subroutines (`│ │ … │ │`), notes (a folded corner),
   and class boxes (full-width `├──┤` rows divide them).
 - **Connectors:** lines between boxes, attached to the side they touch, with their heads
-  (`► ▷ ◆ ◊ ● ○ ×` and `> < ^ v`), line style, and a label in a gap in the line (`── yes ──►`)
+  (`► ▷ ◆ ◊ ● ○ × ┤`, and in ASCII `> |> * o @ O x |`), line style, and a label in a gap in the line (`── yes ──►`)
   or just beside a vertical one. A line a space or two short of a box (as ASCII often is) still
   attaches. A line that branches (one trunk to several boxes) becomes a connector per branch.
 - **Sequence diagrams:** a three-row box with a line straight down from it is a lifeline (with
@@ -525,7 +525,9 @@ file.
 - **Text:** plain, a Markdown code block, or a comment block for source code (C/C++ `//` or
   `/* */`, Python `#`, Bash `#`, or **custom**: your own first line, line prefix and last line).
   **ASCII only** swaps the box-drawing characters for `+ - |`, for places that can't show
-  Unicode. Copy it, or download it.
+  Unicode. Connector heads stay told apart: `>` an arrow, `|>` (or `A` / `V` up and down) a
+  hollow one, `*` a diamond and `o` a hollow one (as Mermaid writes composition and
+  aggregation), `@` a dot, `O` a circle, `x` a cross, `|` a bar. Copy it, or download it.
 - **Picture:** PNG (download or copy) or SVG (with the font embedded, so it looks the same
   anywhere), in light or dark colors, optionally with a transparent background.
 - **Diagram:** a `.json` file to import later, or a **share link**: the whole diagram is in the

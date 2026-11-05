@@ -66,17 +66,21 @@ export class CharGrid {
   /** The character shown in a cell ("" when empty). `ascii` maps every line glyph to ASCII. */
   glyph(p: Point, ascii = false): string {
     const c = this.get(p);
-    return c ? cellGlyph(c, ascii) : "";
+    if (!c) return "";
+    // In ASCII, a hollow arrow left or right is |> or <|: the | on the line just behind it.
+    if (ascii && c.ch === undefined && !c.arrow && c.mask) {
+      const r = this.get({ x: p.x + 1, y: p.y }), l = this.get({ x: p.x - 1, y: p.y });
+      if ((r?.arrow === "right" && r.head === "triangle") || (l?.arrow === "left" && l.head === "triangle")) return "|";
+    }
+    return cellGlyph(c, ascii);
   }
 
   /** Every non-blank cell with its character. */
   *entries(ascii = false): Generator<[Point, string]> {
-    for (const [k, c] of this.cells) {
-      const g = cellGlyph(c, ascii);
-      if (g && g !== " ") {
-        const [x, y] = k.split(",").map(Number);
-        yield [{ x, y }, g];
-      }
+    for (const k of this.cells.keys()) {
+      const [x, y] = k.split(",").map(Number);
+      const g = this.glyph({ x, y }, ascii);
+      if (g && g !== " ") yield [{ x, y }, g];
     }
   }
 

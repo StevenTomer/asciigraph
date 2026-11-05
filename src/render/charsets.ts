@@ -112,14 +112,17 @@ export function lineGlyph(styles: readonly (LineStyle | undefined)[], rounded: b
 }
 
 /** Connector heads, by the direction they point (diamonds, dots and crosses look the same every
- * way). Only characters the editor's font has (no ◇: ◊ instead), each one cell wide. */
+ * way). Only characters the editor's font has (no ◇: ◊ instead), each one cell wide. In ASCII
+ * each kind is told apart too: * and o as Mermaid writes composition and aggregation, @ a dot,
+ * O a circle, x a cross; a hollow arrow is A or V, or |> and <| left and right (the | is drawn on
+ * the line, see grid.ts). */
 const HEAD_GLYPHS: Record<Exclude<Head, "bar">, { unicode: Record<Side, string> | string; ascii: Record<Side, string> | string }> = {
   arrow: { unicode: { top: "▲", right: "►", bottom: "▼", left: "◄" }, ascii: { top: "^", right: ">", bottom: "v", left: "<" } },
-  triangle: { unicode: { top: "△", right: "▷", bottom: "▽", left: "◁" }, ascii: { top: "^", right: ">", bottom: "v", left: "<" } },
-  diamond: { unicode: "◆", ascii: "#" },
+  triangle: { unicode: { top: "△", right: "▷", bottom: "▽", left: "◁" }, ascii: { top: "A", right: ">", bottom: "V", left: "<" } },
+  diamond: { unicode: "◆", ascii: "*" },
   "hollow-diamond": { unicode: "◊", ascii: "o" },
-  dot: { unicode: "●", ascii: "*" },
-  circle: { unicode: "○", ascii: "o" },
+  dot: { unicode: "●", ascii: "@" },
+  circle: { unicode: "○", ascii: "O" },
   cross: { unicode: "×", ascii: "x" },
 };
 

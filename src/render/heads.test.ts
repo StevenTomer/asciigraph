@@ -31,14 +31,22 @@ describe("connector heads", () => {
     const rows = HEADS.map((h) => row(pair({ arrows: { start: true, end: true }, heads: { start: h, end: h } }), true));
     expect(rows).toEqual([
       "| A |<----->| B |",
-      "| A |<----->| B |",
-      "| A |#-----#| B |",
-      "| A |o-----o| B |",
+      "| A |<|---|>| B |",
       "| A |*-----*| B |",
       "| A |o-----o| B |",
+      "| A |@-----@| B |",
+      "| A |O-----O| B |",
       "| A |x-----x| B |",
       "| A ||-----|| B |",
     ]);
+  });
+
+  it("has a hollow arrow up and down in ASCII: A and V", () => {
+    const d = addEdge(
+      [box("A", 0, 0), box("B", 0, 7)].reduce(addNode, emptyDiagram()),
+      makeEdge(att("A"), att("B"), { arrows: { start: true, end: true }, heads: { start: "triangle", end: "triangle" } }),
+    );
+    expect(diagramToText(d, true).split("\n").map((l) => l.trim()).slice(3, 7)).toEqual(["A", "|", "|", "V"]);
   });
 
   it("draws a bar across a vertical line in its style", () => {

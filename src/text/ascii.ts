@@ -87,8 +87,12 @@ const HEADS: Map<string, { head: Head; points: Side | null; ascii?: boolean }> =
   ["●", { head: "dot", points: null }], ["○", { head: "circle", points: null }], ["×", { head: "cross", points: null }],
   [">", { head: "arrow", points: "right", ascii: true }], ["<", { head: "arrow", points: "left", ascii: true }],
   ["^", { head: "arrow", points: "top", ascii: true }], ["v", { head: "arrow", points: "bottom", ascii: true }],
-  ["#", { head: "diamond", points: null, ascii: true }], ["*", { head: "dot", points: null, ascii: true }],
-  ["o", { head: "circle", points: null, ascii: true }], ["x", { head: "cross", points: null, ascii: true }],
+  // ASCII as asciigraph writes it (* o as Mermaid's composition and aggregation, @ a dot, O a
+  // circle, A V a hollow arrow; |> <| are read before this), and # as older drawings have it.
+  ["*", { head: "diamond", points: null, ascii: true }], ["#", { head: "diamond", points: null, ascii: true }],
+  ["o", { head: "hollow-diamond", points: null, ascii: true }], ["@", { head: "dot", points: null, ascii: true }],
+  ["O", { head: "circle", points: null, ascii: true }], ["x", { head: "cross", points: null, ascii: true }],
+  ["A", { head: "triangle", points: "top", ascii: true }], ["V", { head: "triangle", points: "bottom", ascii: true }],
 ]);
 
 interface Box {
@@ -115,11 +119,16 @@ interface Terminal {
   box?: Box;
   side?: Side;
   border?: Point;
+  /** A bar head's cell, between the line's end and the border. */
+  tip?: Point;
 }
 
 export function importAscii(input: string, probe = false): ImportResult {
   const warnings: string[] = [];
-  const rows = input.replace(/\r/g, "").split("\n").map((l) => chars(expandTabs(l)));
+  const rows = input.replace(/\r/g, "").split("\n")
+    // An ASCII hollow arrow left or right, |> or <|, at the end of a line: one head (and a line).
+    .map((l) => expandTabs(l).replace(/([-+])\|>/g, "$1-▷").replace(/<\|([-+])/g, "◁-$1"))
+    .map((l) => chars(l));
   // Leading and trailing blank lines don't matter; nor does a common indent.
   while (rows.length && !rows[0].join("").trim()) rows.shift();
   while (rows.length && !rows[rows.length - 1].join("").trim()) rows.pop();
@@ -410,6 +419,28 @@ export function importAscii(input: string, probe = false): ImportResult {
     return y === b.y0 ? "top" : y === b.y1 ? "bottom" : x === b.x0 ? "left" : x === b.x1 ? "right" : null;
   };
 
+  // Bar heads: a crossbar just outside a border (─┤│, -|| in ASCII), with a line running into it.
+  const barAt = new Map<number, { box: Box; side: Side; border: Point }>();
+  for (const b of boxes) {
+    if (b.cells) continue;
+    for (const [key, owners] of outline) {
+      if (!owners.includes(b)) continue;
+      const x = key % (W + 2) - 1, y = Math.floor(key / (W + 2));
+      const side = sideOf(b, x, y);
+      if (!side) continue;
+      const q = { x: x + STEP[side].x, y: y + STEP[side].y }, beyond = { x: q.x + STEP[side].x, y: q.y + STEP[side].y };
+      const across: Side[] = side === "left" || side === "right" ? ["top", "bottom"] : ["left", "right"];
+      const c = ch(q.x, q.y);
+      const isBar = c === (side === "left" || side === "right" ? "|" : "-")
+        ? asciiCell.has(k(beyond.x, beyond.y)) || ch(beyond.x, beyond.y) === "+"
+        : mask.get(k(q.x, q.y)) === (BIT[across[0]] | BIT[across[1]] | BIT[side]) && !outline.has(k(q.x, q.y));
+      if (isBar && has(beyond.x, beyond.y, OPPOSITE[side]) && !outline.has(k(beyond.x, beyond.y))) {
+        barAt.set(k(q.x, q.y), { box: b, side, border: { x, y } });
+        structure.add(k(q.x, q.y));
+      }
+    }
+  }
+
   // 3. Connectors. Line cells: strokes not on an outline or inside a box's structure.
   // A line crossing a border (┼ on a frame's top) goes on through it.
   const crossing = (x: number, y: number) =>
@@ -504,6 +535,8 @@ export function importAscii(input: string, probe = false): ImportResult {
     const ways = SIDES.filter((s) => (h ? h.points === s : has(p.x, p.y, s)));
     const joined = next(p).length;
     for (const s of ways) {
+      const bar = barAt.get(k(p.x + STEP[s].x, p.y + STEP[s].y));
+      if (bar && bar.side === OPPOSITE[s]) return { cell: p, box: bar.box, side: bar.side, border: bar.border, head: "bar", tip: { x: p.x + STEP[s].x, y: p.y + STEP[s].y } };
       // Touching a border (or, as hand-drawn ASCII often is, a space or two short of one).
       for (let gap = 1; gap <= 3; gap++) {
         const n = { x: p.x + STEP[s].x * gap, y: p.y + STEP[s].y * gap };
@@ -570,8 +603,9 @@ export function importAscii(input: string, probe = false): ImportResult {
       for (const p of plain) if (!pairs.some(([a]) => a === p)) pairs.push([p, headed[0]]);
     }
     for (const [a, b] of pairs) {
-      const path = shortest(a.cell, b.cell, next, k);
-      if (!path) continue;
+      const found = shortest(a.cell, b.cell, next, k);
+      if (!found) continue;
+      const path = [...(a.tip ? [a.tip] : []), ...found, ...(b.tip ? [b.tip] : [])];
       // Its label: a gap it crosses. (Where the label's middle is, to put it back there.)
       const on = new Set(path.map((p) => k(p.x, p.y)));
       let label: string | undefined, labelAt: LabelAt | undefined;

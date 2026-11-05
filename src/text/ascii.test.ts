@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { emptyDiagram } from "../model/ops";
-import type { Diagram, Node } from "../model/types";
+import { addEdge, addNode, emptyDiagram, headOf, makeEdge, makeNode } from "../model/ops";
+import { type Diagram, type Node, HEADS } from "../model/types";
 import { diagramToText } from "../render/rasterize";
 import { importAscii, looksLikeDrawing } from "./ascii";
 import { detectKind } from "./detect";
@@ -148,6 +148,16 @@ describe("reading a drawing back into objects", () => {
     expect(toMermaid(d, [...d.order, ...Object.keys(d.edges)])?.text).toBe(
       "sequenceDiagram\n  participant A\n  participant B\n  A->>B: hi\n  B-->>A: yo"
     );
+  });
+
+  it("reads every head back, in box characters and in ASCII", () => {
+    for (const [head, ascii] of HEADS.flatMap((h) => [[h, false], [h, true]] as const)) {
+      let d = addNode(addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 5, h: 3 }, { id: "a", text: "A" })), makeNode({ x: 12, y: 0, w: 5, h: 3 }, { id: "b", text: "B" }));
+      d = addEdge(d, makeEdge({ kind: "attached", node: "a", side: "auto" }, { kind: "attached", node: "b", side: "auto" }, { arrows: { start: true, end: true }, heads: { start: head, end: head } }));
+      const back = edges(importAscii(diagramToText(d, ascii)).diagram);
+      expect(back).toHaveLength(1);
+      expect([headOf(back[0], "start"), headOf(back[0], "end")]).toEqual([head, head]);
+    }
   });
 
   it("tells a drawing from other text", () => {
