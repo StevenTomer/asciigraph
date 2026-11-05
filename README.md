@@ -8,9 +8,6 @@ diagrams and flowcharts (or a shorthand like `Client -> API: GET /x`, `A -> B ->
 trees. Markdown lists in boxes. Export as text (Unicode box drawing or ASCII), a
 Markdown code block, a share link, or JSON.
 
-It's a static web app: run it in a container (below), or build it and serve `dist/` from any
-web server or folder.
-
 ```
 ┌─ API ──────────┐        ┌───────────┐
 │  orders        ├───────►│ Database  │
@@ -19,6 +16,30 @@ web server or folder.
         ▼
    a free label
 ```
+
+## Running it
+
+Run it locally with Docker:
+
+```bash
+git clone https://github.com/StevenTomer/asciigraph.git
+cd asciigraph
+docker compose up -d --build
+```
+
+Then open http://localhost:8080/. It keeps running in the background and restarts with Docker.
+To stop it, run `docker compose down`. After pulling changes, run `docker compose up -d --build`
+again to rebuild.
+
+The image builds the app and serves it with nginx (port 8080 inside the container). To use
+another port, change the left side of the mapping in `compose.yaml`, e.g. `"3000:8080"`. Without
+compose: `docker build -t asciigraph .` then `docker run -d -p 8080:8080 asciigraph`. Podman works
+the same way.
+
+Diagrams are saved in your browser (localStorage), not in the container. The container holds
+no data, so you can rebuild or replace it without losing anything. But a diagram saved at
+http://localhost:8080 isn't visible at another address (another host or port). To move one
+across, export it as JSON or a share link.
 
 ## How it works
 
@@ -36,24 +57,6 @@ New node kinds (flowchart shapes, sequence-diagram lifelines…) plug in through
 Diagrams are saved in the browser (localStorage) behind a `DiagramRepository` interface
 (`src/storage`), so a server-backed store can be added without changing the editor.
 
-## Running it locally with Docker
-
-```bash
-docker compose up -d --build      # or: docker build -t asciigraph . && docker run -d -p 8080:8080 asciigraph
-```
-
-Then open http://localhost:8080/. The image builds the app and serves the static files with
-nginx (unprivileged, port 8080 inside the container). To use another port, change the left side
-of the mapping: `-p 3000:8080`, or `"3000:8080"` in `compose.yaml`. Podman works the same way
-(`podman build` / `podman run`).
-
-Diagrams are saved in your browser (localStorage), not in the container. The container holds
-no data, so you can rebuild or replace it without losing anything. But a diagram saved at
-http://localhost:8080 isn't visible at another address (another host or port).
-To move one across, export it as JSON or a share link.
-
-After pulling changes, run `docker compose up -d --build` again to rebuild.
-
 ## Developing
 
 ```bash
@@ -61,7 +64,7 @@ npm install
 npm run dev          # http://localhost:5173
 npm test             # unit tests (Vitest): rendering goldens, routing, ops, history
 npm run e2e          # build, then Playwright (first time: npx playwright install chromium)
-npm run build        # typecheck (strict) + production build into dist/ (static files: serve from any folder)
+npm run build        # typecheck (strict) + production build into dist/ (what the image serves)
 ```
 
 ## Credits
