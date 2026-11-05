@@ -600,6 +600,19 @@ test("zoom controls and shortcuts", async ({ page }) => {
   expect(far.x).toBeLessThan(vp.width);
   expect(far.y).toBeLessThan(vp.height);
   expect(near.x).toBeGreaterThan(0);
+
+  // Zoom to the selection: the far box fills the space left of the panel.
+  await expect(page.getByRole("button", { name: "selection", exact: true })).toHaveCount(0);
+  const p = await at(page, 65, 31);
+  await page.mouse.click(p.x, p.y);
+  await page.keyboard.press("Shift+2");
+  expect(await zoom()).toBeGreaterThan(2);
+  const [l, r] = [await at(page, 60, 31), await at(page, 70, 31)];
+  expect(l.x).toBeGreaterThan(0);
+  expect(r.x).toBeLessThan(vp.width - 300);
+  await page.getByRole("button", { name: "Reset zoom" }).click();
+  await page.getByRole("button", { name: "selection", exact: true }).click();
+  expect(await zoom()).toBeGreaterThan(2);
 });
 
 test("moving a box snaps it into line with another, unless Ctrl is held", async ({ page }) => {

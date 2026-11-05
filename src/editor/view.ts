@@ -95,14 +95,28 @@ export function zoomReset() {
 /** Zoom and scroll so the whole drawing fits on screen (at most 200%). */
 export function zoomToFit() {
   const b = rendered(getState().diagram).grid.bounds();
-  const { w, h } = canvasSize();
   if (!b) {
     setView({ zoom: 1, x: -40, y: -70 });
     return;
   }
+  fitRect(b, 0);
+}
+
+/** Zoom and scroll to what's selected (at most 400%), clear of the properties panel. */
+export function zoomToSelection() {
+  const b = selectionBounds();
+  if (!b) return;
+  // On a wide screen the panel is 300px down the right; on a narrow one it's a sheet below.
+  fitRect(b, canvasSize().w > 640 ? 316 : 0, 4);
+}
+
+/** Fit `b` (cells) in the canvas less `right` px on the right, below the toolbar. */
+function fitRect(b: Rect, right: number, most = 2) {
+  const { w: full, h } = canvasSize();
+  const w = full - right;
   const margin = 60;
   const top = 50; // the toolbar
-  const zoom = Math.max(0.25, Math.min(2, (w - 2 * margin) / (b.w * metrics.cw), (h - top - 2 * margin) / (b.h * metrics.ch)));
+  const zoom = Math.max(0.25, Math.min(most, (w - 2 * margin) / (b.w * metrics.cw), (h - top - 2 * margin) / (b.h * metrics.ch)));
   const z = Math.round(zoom * metrics.ch) / metrics.ch;
   const cx = (b.x + b.w / 2) * metrics.cw, cy = (b.y + b.h / 2) * metrics.ch;
   setView({ zoom: z, x: cx - w / 2 / z, y: cy - (h + top) / 2 / z });

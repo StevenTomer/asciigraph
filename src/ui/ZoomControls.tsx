@@ -1,5 +1,5 @@
 import { useEditor } from "../editor/store";
-import { ZOOM_STEPS, zoomReset, zoomStep, zoomToFit } from "../editor/view";
+import { ZOOM_STEPS, zoomReset, zoomStep, zoomToFit, zoomToSelection } from "../editor/view";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? "⌘" : "Ctrl+";
@@ -10,6 +10,7 @@ const label = (z: number) => Math.round(100 * (ZOOM_STEPS.find((s) => Math.abs(s
 /** Bottom-right: zoom out / current zoom (click: back to 100%) / zoom in / fit the drawing. */
 export function ZoomControls() {
   const zoom = useEditor((s) => s.view.zoom);
+  const selected = useEditor((s) => s.selection.length > 0);
   return (
     <div className="zoom" role="group" aria-label="Zoom">
       <button className="tb" onClick={() => zoomStep(-1)} title={`Zoom out (${mod}−)`} aria-label="Zoom out">−</button>
@@ -18,6 +19,7 @@ export function ZoomControls() {
       </button>
       <button className="tb" onClick={() => zoomStep(1)} title={`Zoom in (${mod}+)`} aria-label="Zoom in">+</button>
       <button className="tb" onClick={zoomToFit} title="Zoom to fit the drawing (Shift+1)">fit</button>
+      {selected && <button className="tb" onClick={zoomToSelection} title="Zoom to the selection (Shift+2)">selection</button>}
     </div>
   );
 }

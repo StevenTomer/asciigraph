@@ -7,7 +7,7 @@ import {
   type ToolId, apply, getState, redo, select, setOverlay, setTool, startEditing, undo,
 } from "./store";
 import { TOOLS } from "./tools";
-import { zoomReset, zoomStep, zoomToFit } from "./view";
+import { zoomReset, zoomStep, zoomToFit, zoomToSelection } from "./view";
 
 const SHORTCUTS = new Map<string, ToolId>(TOOLS.map((t) => [t.label[0], t.id]));
 
@@ -51,8 +51,8 @@ export function attachKeyboard(): () => void {
       return; // copy/cut/paste arrive as clipboard events (clipboard.ts)
     }
 
-    if (e.shiftKey && e.code === "Digit1") {
-      zoomToFit();
+    if (e.shiftKey && (e.code === "Digit1" || e.code === "Digit2")) {
+      (e.code === "Digit1" ? zoomToFit : zoomToSelection)();
       e.preventDefault();
       return;
     }

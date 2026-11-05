@@ -27,8 +27,9 @@
   scroll, or pinch, to zoom.
 - **Properties panel** (right): the settings of whatever is selected. Changes apply to everything
   selected. Click its title bar to collapse it to a tab; that's remembered.
-- **Zoom controls** (bottom right): zoom out and in, back to 100%, and **fit** to show the whole
-  diagram.
+- **Zoom controls** (bottom right): zoom out and in, back to 100%, **fit** to show the whole
+  diagram, and, with something selected, **selection** to zoom in on it (also right-click →
+  **Zoom to Selection**).
 
 ## Tools
 
@@ -622,6 +623,7 @@ On a Mac, use <kbd>⌘</kbd> for <kbd>Ctrl</kbd>.
 | <kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>Ctrl</kbd>+<kbd>[</kbd> | bring forward, send backward (<kbd>Shift</kbd>: to front, to back) |
 | <kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> / <kbd>Ctrl</kbd>+<kbd>0</kbd> | zoom in, zoom out, 100% |
 | <kbd>Shift</kbd>+<kbd>1</kbd> | zoom to fit |
+| <kbd>Shift</kbd>+<kbd>2</kbd> | zoom to the selection |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | in the draw from text dialog: draw or update |
 
 While dragging:

@@ -11,6 +11,7 @@ import { type Diagram, type Id, HEADS } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { apply, getState, openStampsDialog, openTextDialog, select, startEditing } from "./store";
+import { zoomToSelection } from "./view";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? "⌘" : "Ctrl+";
@@ -101,6 +102,7 @@ export function contextMenu(at: Point): MenuEntry[] {
     { label: "Delete", shortcut: "Del", run: deleteSelection },
   );
   if (nodes.length) entries.push({ label: "Save as Stamp…", hint: "to insert again", run: () => openStampsDialog([...selection]) });
+  entries.push({ label: "Zoom to Selection", shortcut: "Shift+2", run: zoomToSelection });
   if (nodes.length) {
     entries.push(
       "separator",
