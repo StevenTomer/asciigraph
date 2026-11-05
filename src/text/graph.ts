@@ -1,5 +1,6 @@
 import type { BorderStyle, Head, LineStyle, NodeKind } from "../model/types";
 import { parseClass } from "./classes";
+import { isDot, parseDot } from "./dot";
 import { parseEr } from "./er";
 import { logicalLines, unquote } from "./mermaid";
 import { parseState } from "./state";
@@ -110,6 +111,7 @@ const EDGES: [RegExp, LineStyle, boolean, boolean][] = [
 
 /** Graph-like Mermaid diagrams, each by its header: state, class and ER diagrams, flowcharts. */
 export function parseGraph(text: string): ParsedGraph {
+  if (isDot(text)) return parseDot(text);
   const first = text.split("\n").map((l) => l.replace(/%%.*$/, "").trim()).find((l) => l) ?? "";
   if (/^stateDiagram(-v2)?\b/.test(first)) return parseState(text);
   if (/^classDiagram(-v2)?\b/.test(first)) return parseClass(text);

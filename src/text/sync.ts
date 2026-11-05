@@ -2,6 +2,7 @@ import { type Point, type Rect } from "../geometry/geom";
 import { addEdge, addNode, deleteObjects, emptyDiagram, makeEdge, makeNode, newId, updateEdge, updateNode } from "../model/ops";
 import type { Diagram, Edge, Endpoint, Id, Node, TextSource } from "../model/types";
 import { shapeOf } from "../shapes/registry";
+import { isDot } from "./dot";
 import { describe } from "./fromDiagram";
 import { type DesiredNode, type EndSpec, generate } from "./generate";
 
@@ -57,6 +58,13 @@ export function setDirection(d: Diagram, id: Id, direction: "down" | "right"): S
  * after the header).
  */
 function withDirection(text: string, code: "LR" | "TD"): string {
+  // DOT: rankdir, replaced or added just inside the first {.
+  if (isDot(text)) {
+    const dir = code === "TD" ? "TB" : "LR";
+    if (/\brankdir\s*=\s*"?\w+"?/i.test(text)) return text.replace(/\brankdir\s*=\s*"?\w+"?/i, `rankdir=${dir}`);
+    return text.replace(/\{/, `{\n  rankdir=${dir};`);
+  }
+
   if (/^\s*(flowchart|graph)\b/m.test(text)) return text.replace(/^(\s*)(flowchart|graph)\b[ \t]*(TD|TB|BT|LR|RL)?/m, `$1$2 ${code}`);
   const header = /^(\s*)(stateDiagram(-v2)?|classDiagram(-v2)?|erDiagram)\b.*$/m.exec(text);
   if (!header) return text;

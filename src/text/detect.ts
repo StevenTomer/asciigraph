@@ -1,4 +1,5 @@
 import type { SourceKind } from "../model/types";
+import { isDot } from "./dot";
 
 /**
  * What kind of diagram some text describes. Mermaid headers decide outright; otherwise, tree
@@ -6,6 +7,7 @@ import type { SourceKind } from "../model/types";
  * messages a graph. Indented names are a tree.
  */
 export function detectKind(text: string): SourceKind {
+  if (isDot(text)) return "graph";
   const lines = text.split("\n").map((l) => l.replace(/%%.*$/, "")).filter((l) => l.trim());
   const first = lines[0]?.trim() ?? "";
   if (/^sequenceDiagram\b/.test(first)) return "sequence";
