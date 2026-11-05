@@ -56,6 +56,7 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   lifelines and messages.
 - **Arranging:** Snapping with guides, align and distribute, Auto Layout, locking boxes together,
   matching sizes, and shrinking a box to fit its text.
+- **Stamps:** save a group of objects and insert it again in any diagram; share them as a file.
 - **Markdown lists** in boxes: bullets, numbering, nesting, and wrapped lines that hang under the
   item.
 - **Export:** Text (plain, a Markdown code block, or a comment block for C, Python, shell or your
@@ -227,12 +228,30 @@ Folder trees can be drawn as boxes, as here, or as `tree`-style text.
 
 ![A folder tree drawn as boxes](docs/images/tree.png)
 
+State, class and entity–relationship diagrams too:
+
+![A class diagram drawn from Mermaid, with class boxes in compartments](docs/images/class.png)
+
+### Existing ASCII art
+
+Paste a diagram someone drew as text, in box characters or `+--+` ASCII, and it becomes boxes
+and connectors you can move and restyle.
+
+![ASCII art pasted onto the canvas: three boxes and two connectors, selected](docs/images/pasted.png)
+
 ### Arrange
 
 Right-click for what applies to the selection: cut, copy and duplicate; stacking order; Align,
 Distribute and Normalize Size; Shrink to Text; Lock Together; Auto Layout.
 
 ![The right-click menu with a whole flowchart selected](docs/images/context-menu.png)
+
+### Stamps
+
+Save a selection as a stamp (right-click → **Save as Stamp…**) and insert it again, in any
+diagram, from **stamps** in the toolbar. Export them to a file to share.
+
+![The stamps dialog with two saved stamps](docs/images/stamps.png)
 
 ### Export
 

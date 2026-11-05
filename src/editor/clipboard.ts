@@ -94,6 +94,27 @@ function pasteText(text: string, at?: Point) {
   }
 }
 
+/** Add `part` in the middle of the screen (below the toolbar), selected: one undo step. */
+export function insertCentered(part: Diagram) {
+  const bounds = union(part.order.map((id) => part.nodes[id].rect)) ?? { x: 0, y: 0, w: 0, h: 0 };
+  const c = screenToCell(window.innerWidth / 2, window.innerHeight / 2);
+  const at = { x: c.x - Math.floor(bounds.w / 2), y: Math.max(c.y - Math.floor(bounds.h / 2), screenToCell(0, 70).y) };
+  place(part, at);
+}
+
+/** The selection (with what's inside selected boxes, and the connectors between them) as a
+ * diagram of its own. */
+export function selectedPart(ids?: Id[]): Diagram | null {
+  const { selection, diagram } = getState();
+  const pick = withContents(diagram, ids ?? selection);
+  if (!pick.length) return null;
+  const inside = new Set(pick);
+  const between = Object.values(diagram.edges)
+    .filter((e) => e.from.kind === "attached" && inside.has(e.from.node) && e.to.kind === "attached" && inside.has(e.to.node))
+    .map((e) => e.id);
+  return subset(diagram, [...new Set([...pick, ...between])]);
+}
+
 // Commands (menus and shortcuts). The keyboard shortcuts arrive as clipboard events instead.
 
 export function copyCommand() {

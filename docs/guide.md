@@ -9,6 +9,7 @@
 - [Sequence diagrams](#sequence-diagrams)
 - [Drawing from text](#drawing-from-text)
 - [Arranging](#arranging)
+- [Stamps](#stamps)
 - [Saving, sharing and exporting](#saving-sharing-and-exporting)
 - [The command line](#the-command-line)
 - [Phones and tablets](#phones-and-tablets)
@@ -362,6 +363,9 @@ Concurrency dividers (`--`) inside composite states are ignored.
 Mermaid's `classDiagram` ([Mermaid's documentation](https://mermaid.js.org/syntax/classDiagram.html)),
 drawn with class boxes: the name, then attributes, then methods (members with `(`):
 
+![A class diagram: an abstract class with compartments, two subclasses, and an aggregation](images/class.png)
+
+
 ```
 classDiagram
     class Shape {
@@ -466,6 +470,8 @@ What it recognizes:
 - **Text:** inside a box it's the box's text, with its alignment read from the margins; outside,
   free labels.
 
+![ASCII art pasted onto the canvas, selected: three boxes and two connectors](images/pasted.png)
+
 Connectors route themselves, the same way as ones you draw; where that would come out
 differently from the drawing, they keep the drawn positions and bends. Anything drawn by
 asciigraph reads back exactly as it was. Not recognized: document shapes (the wavy bottom), and
@@ -486,6 +492,25 @@ Right-click shows what applies to what's under the pointer and the selection.
   locked to B and B to C moves all three. What a selected box is locked to shows with a dotted
   outline. **Unlock** removes it; <kbd>Alt</kbd>+drag moves one alone. Auto Layout keeps boxes
   locked both ways together, as one unit.
+
+## Stamps
+
+A stamp is a group of objects saved to insert again, in any diagram: a box styled the way you
+like, a service with its database, a whole little pattern.
+
+- **Save one:** select the objects, right-click → **Save as Stamp…**, and name it. What's inside
+  a selected box comes too, and connectors between the selected boxes.
+- **Insert one:** **stamps** in the toolbar, then click its picture (or **insert**). It goes in
+  the middle of the screen, selected, ready to drag where you want it; <kbd>Ctrl</kbd>+<kbd>Z</kbd>
+  takes it out again.
+- **rename** and **delete** are beside each one.
+- Stamps are kept in this browser, apart from any diagram. **export all** saves them to a file;
+  **import** adds the stamps in such a file (yours from another browser, or someone else's).
+
+Inserted objects are ordinary ones: a stamp made from a drawing linked to text inserts plain
+objects, not linked.
+
+![The stamps dialog with two stamps](images/stamps.png)
 
 ## Saving, sharing and exporting
 

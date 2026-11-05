@@ -136,6 +136,72 @@ test("right-click menu", async ({ page }) => {
   await shot(page, "context-menu.png");
 });
 
+test("class diagram", async ({ page }) => {
+  await open(page);
+  await drawFromText(page, `classDiagram
+    class Shape {
+      <<abstract>>
+      +String name
+      +area() float
+    }
+    class Circle {
+      +float radius
+    }
+    class Square {
+      +float side
+    }
+    Shape <|-- Circle
+    Shape <|-- Square
+    Canvas "1" o-- "*" Shape : draws`);
+  await deselect(page);
+  await shot(page, "class.png", { x: 0, y: 0, width: 1280, height: 640 });
+});
+
+test("pasted ASCII art becomes objects", async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData("text/plain", [
+      "+----------+        +-----------+",
+      "|  Client  | -----> |  Gateway  |",
+      "+----------+        +-----------+",
+      "                          |",
+      "                          v",
+      "                    +-----------+",
+      "                    |  Orders   |",
+      "                    +-----------+",
+    ].join("\n"));
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+  });
+  // Still selected: the panel shows they're boxes and connectors now.
+  await page.waitForTimeout(200);
+  await shot(page, "pasted.png", { x: 0, y: 0, width: 1280, height: 520 });
+});
+
+test("stamps", async ({ page }) => {
+  await open(page);
+  // Two stamps, made the way anyone would: draw, select, right-click → Save as Stamp….
+  await drawFromText(page, "flowchart LR\n  S(Service) --> D[(Data)]");
+  await page.keyboard.press("Control+a");
+  await clickNode(page, "Service", { button: "right" });
+  await page.getByRole("menuitem", { name: /Save as Stamp/ }).click();
+  await page.getByLabel("Stamp name").fill("service with its database");
+  await page.getByRole("button", { name: "save", exact: true }).click();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Delete");
+  await drawFromText(page, "classDiagram\n  class Entity {\n    +id: UUID\n    +created: Date\n  }");
+  await page.keyboard.press("Control+a");
+  await clickNode(page, "Entity", { button: "right" });
+  await page.getByRole("menuitem", { name: /Save as Stamp/ }).click();
+  await page.getByLabel("Stamp name").fill("entity");
+  await page.getByRole("button", { name: "save", exact: true }).click();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Delete");
+  await page.getByRole("button", { name: "stamps" }).click();
+  await page.waitForTimeout(200);
+  await shot(page, "stamps.png");
+});
+
 test("export dialog", async ({ page }) => {
   await open(page);
   await drawFromText(page, FLOWCHART);

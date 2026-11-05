@@ -10,7 +10,7 @@ import { HEAD_NAMES } from "../render/charsets";
 import { type Diagram, type Id, HEADS } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
-import { apply, getState, openTextDialog, select, startEditing } from "./store";
+import { apply, getState, openStampsDialog, openTextDialog, select, startEditing } from "./store";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? "⌘" : "Ctrl+";
@@ -100,6 +100,7 @@ export function contextMenu(at: Point): MenuEntry[] {
     { label: "Duplicate", shortcut: `${mod}D`, run: duplicateCommand },
     { label: "Delete", shortcut: "Del", run: deleteSelection },
   );
+  if (nodes.length) entries.push({ label: "Save as Stamp…", hint: "to insert again", run: () => openStampsDialog([...selection]) });
   if (nodes.length) {
     entries.push(
       "separator",

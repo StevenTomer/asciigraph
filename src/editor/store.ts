@@ -51,6 +51,8 @@ export interface EditorState {
   /** The "draw from text" dialog: for a new drawing (sourceId null), to edit one, or to edit a
    * hand-drawn selection as text (`adopt`: its ids). */
   textDialog: { sourceId: Id | null; adopt?: Id[] } | null;
+  /** The stamps dialog: to insert one, or (with `save`) to save these objects as one. */
+  stampsDialog: { save: Id[] | null } | null;
   /** The right-click menu: where it opened (screen px) and the cell under it. */
   menu: { x: number; y: number; cell: { x: number; y: number } } | null;
 }
@@ -76,6 +78,7 @@ export const useEditor = create<EditorState>(() => ({
   diagramName: "",
   menu: null,
   textDialog: null,
+  stampsDialog: null,
 }));
 
 export const getState = useEditor.getState;
@@ -196,6 +199,14 @@ export function setView(view: Partial<View>) {
 
 export function openTextDialog(sourceId: Id | null, adopt?: Id[]) {
   setState({ textDialog: { sourceId, ...(adopt && { adopt }) }, menu: null });
+}
+
+export function openStampsDialog(save: Id[] | null = null) {
+  setState({ stampsDialog: { save }, menu: null });
+}
+
+export function closeStampsDialog() {
+  setState({ stampsDialog: null });
 }
 
 export function closeTextDialog() {

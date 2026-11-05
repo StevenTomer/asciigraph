@@ -298,6 +298,62 @@ html, body, #root {
 .left {
   text-align: left;
 }
+
+/* Stamps */
+.stamp-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+.stamp-list li {
+  border: var(--border-light);
+  padding: 4px;
+}
+.stamp-insert {
+  display: block;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  overflow: auto;
+}
+.stamp-insert:hover .stamp-preview,
+.stamp-insert:focus-visible .stamp-preview {
+  color: var(--color-accent);
+}
+.stamp-preview {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  max-height: 10.5em;
+  overflow: hidden;
+  white-space: pre;
+}
+.stamp-preview.large {
+  max-height: 40vh;
+  overflow: auto;
+  border: var(--border-light);
+  padding: 4px;
+}
+.stamp-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+}
+.stamp-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .help dt {
   margin-top: 8px;
   color: var(--color-accent);

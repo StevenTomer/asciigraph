@@ -826,6 +826,64 @@ test("paste a drawing from elsewhere: it becomes boxes and a connector", async (
   expect(await text(page)).toContain("│ A ├──►│ B │");
 });
 
+test("save a selection as a stamp, insert it again, and delete it", async ({ page }) => {
+  await page.keyboard.press("b");
+  await drag(page, [4, 4], [16, 7]);
+  await page.keyboard.type("Service");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  // Right-click it → Save as Stamp…
+  const p = await at(page, 6, 4);
+  await page.mouse.click(p.x, p.y);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.getByRole("menuitem", { name: /Save as Stamp/ }).click();
+  const save = page.getByRole("dialog", { name: "save as stamp" });
+  await expect(save.getByLabel("Stamp preview")).toContainText("│ Service  │");
+  await expect(save.getByLabel("Stamp name")).toHaveValue("Service");
+  await save.getByLabel("Stamp name").fill("service box");
+  await save.getByRole("button", { name: "save" }).click();
+  await expect(save).toHaveCount(0);
+
+  // Insert it from the toolbar: a second box, selected.
+  await page.getByRole("button", { name: "stamps" }).click();
+  const stamps = page.getByRole("dialog", { name: "stamps" });
+  await expect(stamps.getByText("service box")).toBeVisible();
+  await stamps.getByRole("button", { name: "insert", exact: true }).click();
+  const s = await state(page);
+  expect(Object.values(s.diagram.nodes).filter((n) => n.text === "Service")).toHaveLength(2);
+  expect(s.selection).toHaveLength(1);
+
+  // Two boxes selected (not the connector between them): the stamp brings it along.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Delete");
+  await page.getByRole("button", { name: "from text" }).click();
+  await page.getByLabel("Diagram text").fill("A[One] --> B[Two]");
+  await page.getByRole("button", { name: "draw", exact: true }).click();
+  await page.keyboard.press("Escape");
+  const drawnNodes = Object.values((await state(page)).diagram.nodes);
+  const [one, two] = ["One", "Two"].map((t) => drawnNodes.find((n) => n.text === t));
+  const q = await at(page, one.rect.x + 2, one.rect.y + 1), r = await at(page, two.rect.x + 2, two.rect.y + 1);
+  await page.mouse.click(q.x, q.y);
+  await page.keyboard.down("Shift");
+  await page.mouse.click(r.x, r.y);
+  await page.keyboard.up("Shift");
+  expect((await state(page)).selection.sort()).toEqual([one.id, two.id].sort());
+  await page.mouse.click(q.x, q.y, { button: "right" });
+  await page.getByRole("menuitem", { name: /Save as Stamp/ }).click();
+  await expect(save.getByLabel("Stamp preview")).toContainText("▼");
+  await save.getByRole("button", { name: "save" }).click();
+
+  // Kept across a reload; then deleted.
+  await page.reload();
+  await page.getByRole("button", { name: "stamps" }).click();
+  for (const name of ["service box", "One"]) {
+    await stamps.getByRole("button", { name: `Delete ${name}` }).click();
+    await stamps.getByRole("button", { name: "delete it" }).click();
+  }
+  await expect(stamps.getByText(/No stamps yet/)).toBeVisible();
+});
+
 test("markdown lists in a box", async ({ page }) => {
   await page.keyboard.press("b");
   await drag(page, [2, 2], [26, 4]);
