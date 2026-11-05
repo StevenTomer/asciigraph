@@ -1,8 +1,9 @@
 # docker compose up -d   →  http://localhost:8080/
+# Another port: ASCIIGRAPH_PORT=3000 docker compose up -d   (or 127.0.0.1:3000 for this machine only)
 services:
   asciigraph:
     build: .
     image: asciigraph
     ports:
-      - "8080:8080"
+      - "${ASCIIGRAPH_PORT:-8080}:8080"
     restart: unless-stopped

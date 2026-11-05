@@ -1,12 +1,24 @@
 # asciigraph
 
-A diagram editor whose output is plain text. Draw boxes and connect them. Connectors stay
-attached and reroute as you move things. Export the result as Unicode box drawing or plain ASCII,
-ready to paste into a README, a code comment, a commit message or a chat.
+Drawing liberally on the excellent work by Lewis Hemens in his development of
+[ASCIIFlow](https://github.com/lewish/asciiflow), ASCIIGraph is a new style of editor entirely.
+While ASCIIFlow focused very specifically on editing of characters, ASCIIGraph treats individual
+elements as objects that can be connected and moved.
+
+ASCIIGraph is a diagram editor whose output is explicitly plain text.  This allows those diagrams
+to be placed directly into code blocks as documentation, or within Markdown documents.  The beauty
+of ASCIIGraph is that you can simply draw boxes and connect them. The connectors stay attached and
+reroute as you move things.
+
+You can also express graphs and message sequence diagrams as text, and have ASCIIGraph
+auto-generate a result.  You can then move and reposition objects, lines, and arrows.
+
+You can then export the result as Unicode box drawing or plain ASCII, ready to paste into a README,
+a code comment, a commit message or a chat.
 
 ![A flowchart in asciigraph, with the properties panel open](docs/images/overview.png)
 
-And here is what the text export looks like, for a diagram drawn from four lines of Mermaid
+Here is what a sample textual export looks like, for a diagram drawn from four lines of Mermaid
 (`A[Browser] -->|HTTPS| B[API]` …):
 
 ```
@@ -24,26 +36,26 @@ And here is what the text export looks like, for a diagram drawn from four lines
 ## Features
 
 - **Objects, not characters.** Boxes, labels and connectors are things you move, resize and
-  restyle. Connectors route around other boxes and follow the boxes they're attached to.
-- **Shapes:** boxes with eight border styles, named boxes, flowchart shapes (decision,
+  restyle. Connectors route around other boxes and follow the boxes to which they're attached.
+- **Shapes:** Boxes with eight border styles, named boxes, flowchart shapes (decision,
   input/output, start/end, database, document, subroutine), notes, frames, and sequence-diagram
   lifelines and activation bars.
-- **Connectors:** six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
+- **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
   diamond, dot, circle, cross, bar); labels; bend points; and a turn point you can drag.
 - **Draw from text:** Mermaid sequence diagrams and flowcharts, a looser shorthand
   (`Client -> API: GET /x`, `A -> B -> C`), and folder trees. The drawing stays linked to the
   text: edit the text and it redraws, keeping what you've moved or restyled. A hand-drawn diagram
   can be turned into Mermaid too.
-- **Arranging:** snapping with guides, align and distribute, Auto Layout, locking boxes together,
+- **Arranging:** Snapping with guides, align and distribute, Auto Layout, locking boxes together,
   matching sizes, and shrinking a box to fit its text.
 - **Markdown lists** in boxes: bullets, numbering, nesting, and wrapped lines that hang under the
   item.
-- **Export:** text (plain, a Markdown code block, or a comment block for C, Python, shell or your
+- **Export:** Text (plain, a Markdown code block, or a comment block for C, Python, shell or your
   own style; Unicode or ASCII only), PNG and SVG pictures (light or dark), JSON, or a share link.
   Export the whole diagram or just the selection.
 - **No server, no account.** Diagrams are kept in your browser, and undo history survives a
   reload.
-- **Phones too:** the properties panel becomes a bottom sheet, and you can pinch to zoom.
+- **Phones too:** The properties panel becomes a bottom sheet, and you can pinch to zoom.
 
 ## Running it
 
@@ -59,10 +71,33 @@ Then open http://localhost:8080/. It keeps running in the background and restart
 To stop it, run `docker compose down`. After pulling changes, run `docker compose up -d --build`
 again to rebuild.
 
-The image builds the app and serves it with nginx (port 8080 inside the container). To use
-another port, change the left side of the mapping in `compose.yaml`, e.g. `"3000:8080"`. Without
-compose: `docker build -t asciigraph .` then `docker run -d -p 8080:8080 asciigraph`. Podman works
-the same way.
+### Choosing the port
+
+It listens on port 8080 by default. To use another port, set `ASCIIGRAPH_PORT` when you start it:
+
+```bash
+ASCIIGRAPH_PORT=3000 docker compose up -d --build     # http://localhost:3000/
+```
+
+By default it accepts connections from other machines too. To accept them only from this machine,
+or on one network interface, put an IP address in front of the port:
+
+```bash
+ASCIIGRAPH_PORT=127.0.0.1:3000 docker compose up -d --build
+```
+
+Compose only reads the setting when it creates the container, so set it each time you run
+`up`, or put it in a `.env` file next to `compose.yaml` (`ASCIIGRAPH_PORT=3000`).
+
+Without compose:
+
+```bash
+docker build -t asciigraph .
+docker run -d -p 3000:8080 asciigraph               # or -p 127.0.0.1:3000:8080
+```
+
+Inside the container the app is always on port 8080, served by nginx, so only the left side of
+`-p` changes. Podman works the same way.
 
 Diagrams are saved in your browser (localStorage), not in the container. The container holds
 no data, so you can rebuild or replace it without losing anything. But a diagram saved at
