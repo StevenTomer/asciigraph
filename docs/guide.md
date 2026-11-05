@@ -617,7 +617,11 @@ file.
   **ASCII only** swaps the box-drawing characters for `+ - |`, for places that can't show
   Unicode. Connector heads stay told apart: `>` an arrow, `|>` (or `A` / `V` up and down) a
   hollow one, `*` a diamond and `o` a hollow one (as Mermaid writes composition and
-  aggregation), `@` a dot, `O` a circle, `x` a cross, `|` a bar. Copy it, or download it.
+  aggregation), `@` a dot, `O` a circle, `x` a cross, `|` a bar.
+- **Width:** under the preview, how many columns wide the text is (comment prefixes included).
+  Set a **limit** (say 80, for code comments; it's remembered) and it warns when the text is
+  wider. If a graph drawn from text left to right would be narrower top to bottom, a button
+  offers that, with the width it would be. Copy it, or download it.
 - **Picture:** PNG (download or copy) or SVG (with the font embedded, so it looks the same
   anywhere), in light or dark colors, optionally with a transparent background.
 - **Diagram:** a `.json` file to import later, or a **share link**: the whole diagram is in the
@@ -646,11 +650,12 @@ as objects; `mermaid` on a drawing turns it into Mermaid. Options:
 
 | Option | What it does |
 |---|---|
-| `--kind auto\|sequence\|graph\|tree\|drawing` | what the text is (default: detected, as in the app) |
+| `--kind auto\|sequence\|graph\|tree\|drawing\|table` | what the text is (default: detected, as in the app) |
 | `--lr`, `--td` | lay a graph out left to right, or top to bottom |
 | `--boxes` | draw a folder tree as boxes and connectors |
 | `--ascii` | ASCII characters only |
 | `--wrap STYLE` | `plain`, `markdown`, `c-line` (`//`), `c-block` (`/* */`), `python` or `bash` (`#`) |
+| `--max-width N` | at most N columns: a left-to-right graph that's wider is laid out top to bottom if that fits; still too wide, it's printed with an error (exit 1) |
 | `-o FILE` | write to FILE instead of the screen |
 | `--write` | (`markdown`) update the file in place |
 

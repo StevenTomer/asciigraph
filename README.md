@@ -171,7 +171,8 @@ the app (**download .json**) and share links. What it can do:
 
 - `asciigraph flow.mmd`: draw it. `--lr` or `--td` sets a graph's direction, `--boxes` draws a
   folder tree as boxes, `--ascii` uses ASCII only, and `--wrap markdown` (or `c-line`, `c-block`,
-  `python`, `bash`) wraps it for pasting. `-o FILE` writes it to a file.
+  `python`, `bash`) wraps it for pasting. `--max-width 80` keeps it within 80 columns (laying a
+  graph out top to bottom if that's what it takes) or fails. `-o FILE` writes it to a file.
 - `asciigraph markdown README.md --write`: after every ` ```mermaid ` block in a Markdown file,
   put its drawing in a ` ```text ` block. Run it again after editing the Mermaid and the drawings
   are updated in place. Without `--write` it prints the result.

@@ -180,3 +180,23 @@ describe("asciigraph import", () => {
     expect(run(["mermaid"], { "-": drawing }).stdout).toBe("flowchart LR\n  A[A]\n  B[B]\n  A --> B");
   });
 });
+
+describe("asciigraph --max-width", () => {
+  const lr = "flowchart LR\n  A[Browser] --> B[API] --> C[Database]";
+  it("lays a too-wide graph out top to bottom when that fits", () => {
+    const wide = run([], { "-": lr }).stdout;
+    expect(wide.split("\n")[0].length).toBeGreaterThan(30);
+    const r = run(["--max-width", "30"], { "-": lr });
+    expect(r.code).toBe(0);
+    expect(r.stdout.split("\n")[0]).toBe("┌─────────┐");
+    expect(Math.max(...r.stdout.split("\n").map((l) => [...l].length))).toBeLessThanOrEqual(30);
+  });
+
+  it("says so when it can't fit, still printing it", () => {
+    const r = run(["--max-width", "5"], { "-": lr });
+    expect(r.code).toBe(1);
+    expect(r.stderr).toBe("asciigraph: the drawing is 12 columns wide, more than --max-width 5");
+    expect(r.stdout).toContain("│ Browser │");
+    expect(run(["--max-width", "x"]).code).toBe(2);
+  });
+});

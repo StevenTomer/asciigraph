@@ -928,6 +928,20 @@ test("paste a Markdown table: it becomes a table that grows as you type", async 
   expect(await text(page)).toMatch(/│ database │ 5432 │\n└─+┴─+┘/);
 });
 
+test("export shows the width, warns past a limit, and offers top to bottom", async ({ page }) => {
+  await page.getByRole("button", { name: "from text" }).click();
+  await page.getByLabel("Diagram text").fill("flowchart LR\n  A[Browser] --> B[API] --> C[Database]");
+  await page.getByRole("button", { name: "draw", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("export").click();
+  const width = page.getByTestId("export-width");
+  await expect(width).toHaveText(/^\d+ columns$/);
+  await page.getByLabel("Width limit").fill("30");
+  await expect(width).toContainText("over the limit");
+  await page.getByRole("button", { name: /lay out top to bottom: 12 columns/ }).click();
+  await expect(width).toHaveText("12 columns");
+});
+
 test("markdown lists in a box", async ({ page }) => {
   await page.keyboard.press("b");
   await drag(page, [2, 2], [26, 4]);

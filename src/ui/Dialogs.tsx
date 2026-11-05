@@ -4,7 +4,9 @@ import { type Wrap, WRAPS, exportText, subset } from "../export/text";
 import { withContents } from "../model/containment";
 import { readJson, writeJson } from "../storage/local";
 import { forgetHistory, newDiagram, renameCurrent, repo } from "../editor/session";
-import { useEditor } from "../editor/store";
+import { apply, useEditor } from "../editor/store";
+import { narrowerLayouts, textWidth } from "../export/width";
+import { setDirection } from "../text/sync";
 import type { DiagramMeta } from "../storage/repository";
 import { download, downloadDiagram, readDiagramFile, safeFilename } from "../storage/file";
 import { shareUrl } from "../storage/share";
@@ -39,7 +41,9 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   // The last choices are remembered (this browser).
   const saved = readJson<{
     ascii?: boolean; kind?: Wrap["kind"]; first?: string; prefix?: string; last?: string; theme?: ImageTheme; transparent?: boolean;
+    maxWidth?: number;
   }>("export", {});
+  const [maxWidth, setMaxWidth] = useState<number | undefined>(saved.maxWidth);
   const [ascii, setAscii] = useState(!!saved.ascii);
   // With something selected, export just that (and what's inside it), unless unticked.
   const [onlySelection, setOnlySelection] = useState(selection.length > 0);
@@ -52,7 +56,11 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const [note, setNote] = useState("");
   const wrap: Wrap = kind === "custom" ? { kind, ...custom } : { kind };
   const text = useMemo(() => exportText(diagram, { ascii, wrap }), [diagram, ascii, JSON.stringify(wrap)]);
-  useEffect(() => writeJson("export", { ascii, kind, ...custom, theme, transparent }), [ascii, kind, custom, theme, transparent]);
+  useEffect(() => writeJson("export", { ascii, kind, ...custom, theme, transparent, maxWidth }), [ascii, kind, custom, theme, transparent, maxWidth]);
+  const width = textWidth(text);
+  const over = maxWidth !== undefined && width > maxWidth;
+  // Too wide: a left-to-right graph in it might fit top to bottom.
+  const narrower = useMemo(() => (over ? narrowerLayouts(whole, { ascii, wrap }, partial ? withContents(whole, selection) : undefined) : []), [over, whole, ascii, JSON.stringify(wrap), partial, selection]);
   const ext = WRAPS.find((w) => w.kind === kind)!.ext;
   const file = safeFilename(name) + (partial ? "-selection" : "");
   const image = { ascii, theme, transparent };
@@ -109,6 +117,22 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         )}
       </div>
       <pre className="preview" data-testid="export-text">{text || "(empty diagram)"}</pre>
+      <div className="row">
+        <span className="row-label">width</span>
+        <span className={over ? "error" : "muted"} data-testid="export-width">{width} columns{over ? `: ${width - maxWidth!} over the limit` : ""}</span>
+        <label className="muted">
+          limit{" "}
+          <input
+            className="field short" type="number" min={10} max={1000} value={maxWidth ?? ""} placeholder="none" aria-label="Width limit"
+            onChange={(e) => setMaxWidth(e.target.value ? Math.max(1, Number(e.target.value)) : undefined)}
+          />
+        </label>
+        {narrower.map((n) => (
+          <button key={n.source} className="tb" onClick={() => apply((d) => setDirection(d, n.source, "down").diagram)} title="Lay the graph out top to bottom instead">
+            lay out top to bottom: {n.width} columns
+          </button>
+        ))}
+      </div>
       <div className="row buttons">
         <span className="row-label">text</span>
         <button className="tb accent" onClick={() => void copy(text, "the text")} data-testid="copy-text">copy text</button>

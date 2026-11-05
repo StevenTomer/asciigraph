@@ -6,7 +6,8 @@ import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { isTableText, tableNode } from "../shapes/table";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
-import { drawSource } from "../text/sync";
+import { drawSource, setDirection } from "../text/sync";
+import { narrowerLayouts, textWidth } from "../export/width";
 
 /**
  * What the command line does, without touching the process (main.ts does that), so tests can
@@ -47,6 +48,8 @@ Options:
   --boxes                           draw folder trees as boxes and connectors
   --ascii                           ASCII characters only (+ - | instead of box drawing)
   --wrap STYLE                      ${WRAPS.filter((w) => w.kind !== "custom").map((w) => w.kind).join(", ")}
+  --max-width N                     at most N columns: a left-to-right graph that's too wide is
+                                    laid out top to bottom if that fits; wider still is an error
   -o, --output FILE                 write to FILE instead of standard output
   --write                           (markdown) update FILE in place
   -h, --help                        this help
@@ -67,6 +70,7 @@ interface Options {
   wrap: Wrap;
   output: string | null;
   write: boolean;
+  maxWidth?: number;
 }
 
 class UsageError extends Error {}
@@ -96,6 +100,11 @@ function parseArgs(args: string[]): Options | "help" {
       if (!WRAPS.some((x) => x.kind === w && w !== "custom")) throw new UsageError(`unknown wrap style "${w}"`);
       o.wrap = { kind: w } as Wrap;
     } else if (a === "-o" || a === "--output") o.output = value(a);
+    else if (a === "--max-width") {
+      const n = Number(value(a));
+      if (!Number.isInteger(n) || n < 1) throw new UsageError("--max-width needs a number of columns");
+      o.maxWidth = n;
+    }
     else if (a === "--write") o.write = true;
     else if (a.startsWith("-") && a !== "-") throw new UsageError(`unknown option ${a}`);
     else if (positional === 0 && (a === "render" || a === "mermaid" || a === "markdown" || a === "import")) {
@@ -149,7 +158,22 @@ const isEmpty = (d: Diagram) => !Object.keys(d.nodes).length && !Object.keys(d.e
 function render(input: string, o: Options): { text: string; warnings: string[] } {
   const { diagram, warnings } = toDiagram(input, o);
   if (isEmpty(diagram)) throw new Error("nothing to draw");
-  return { text: exportText(diagram, { ascii: o.ascii, wrap: o.wrap }), warnings };
+  const opts = { ascii: o.ascii, wrap: o.wrap };
+  let text = exportText(diagram, opts);
+  if (o.maxWidth !== undefined && textWidth(text) > o.maxWidth) {
+    // Too wide: top to bottom, if it's a graph drawn left to right (and not asked for that).
+    const fit = o.direction === "right" ? [] : narrowerLayouts(diagram, opts);
+    if (fit.length) text = exportText(setDirection(diagram, fit[0].source, "down").diagram, opts);
+    if (textWidth(text) > o.maxWidth) throw new WidthError(text, `the drawing is ${textWidth(text)} columns wide, more than --max-width ${o.maxWidth}`);
+  }
+  return { text, warnings };
+}
+
+/** Too wide: still printed, but an error. */
+class WidthError extends Error {
+  constructor(readonly text: string, message: string) {
+    super(message);
+  }
 }
 
 function mermaid(input: string): string {
@@ -171,7 +195,7 @@ function mermaid(input: string): string {
 const OPEN = "<!-- asciigraph: drawn from the mermaid block above; edit that, then run asciigraph markdown -->";
 const CLOSE = "<!-- /asciigraph -->";
 
-export function renderMarkdown(doc: string, o: Pick<Options, "ascii">): { text: string; warnings: string[]; count: number } {
+export function renderMarkdown(doc: string, o: Pick<Options, "ascii" | "maxWidth">): { text: string; warnings: string[]; count: number } {
   const lines = doc.split("\n");
   const out: string[] = [];
   const warnings: string[] = [];
@@ -195,13 +219,18 @@ export function renderMarkdown(doc: string, o: Pick<Options, "ascii">): { text: 
       if (end > 0) i = end;
     }
     const source = body.map((l) => (l.startsWith(indent) ? l.slice(indent.length) : l)).join("\n");
-    try {
-      const r = render(source, { ...defaults, ascii: o.ascii });
-      warnings.push(...r.warnings.map((w) => `block at line ${start}: ${w}`));
-      out.push("", indent + OPEN, indent + "```text", ...r.text.split("\n").map((l) => (l ? indent + l : l)), indent + "```", indent + CLOSE);
+    const put = (text: string) => {
+      out.push("", indent + OPEN, indent + "```text", ...text.split("\n").map((l) => (l ? indent + l : l)), indent + "```", indent + CLOSE);
       count++;
+    };
+    try {
+      const r = render(source, { ...defaults, ascii: o.ascii, maxWidth: o.maxWidth });
+      warnings.push(...r.warnings.map((w) => `block at line ${start}: ${w}`));
+      put(r.text);
     } catch (e) {
       warnings.push(`block at line ${start}: ${(e as Error).message}`);
+      // Too wide is still drawn (and warned about).
+      if (e instanceof WidthError) put(e.text);
     }
   }
   return { text: out.join("\n"), warnings, count };
@@ -259,6 +288,7 @@ export function cliRun(args: string[], io: CliIO): CliResult {
     }
     return { stdout: text, stderr, code: 0 };
   } catch (e) {
+    if (e instanceof WidthError) return { stdout: e.text, stderr: `asciigraph: ${e.message}`, code: 1 };
     return { stdout: "", stderr: `asciigraph: ${(e as Error).message}`, code: 1 };
   }
 }
