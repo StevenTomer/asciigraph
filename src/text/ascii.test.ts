@@ -62,12 +62,18 @@ describe("reading a drawing back into objects", () => {
       end
       A->>A: tidy up`],
     ["a folder tree as boxes", "src/\n  main.ts\n  ui/\n    App.tsx\nREADME.md"],
+    ["documents, narrow and wide", `flowchart TD
+      A@{ shape: doc, label: "report" } --> B[Read it]
+      C@{ shape: doc, label: "a much longer report" } --> B
+      B --> D@{ shape: doc, label: "summary" }`],
   ];
   for (const [name, text, dir] of cases) {
     it(`round-trips ${name}`, () => {
       const before = name.includes("folder tree")
         ? diagramToText(drawSource(emptyDiagram(), { kind: "tree", text, options: { treeStyle: "boxes" } }, { x: 0, y: 0 }).diagram)
         : drawn(text, dir);
+      // (A narrow document's connector joins its wave: ╰─┬╯, not a gap below it.)
+      if (name.startsWith("documents")) expect(before).toContain("╰─┬╯");
       const r = importAscii(before);
       expect(r.warnings).toEqual([]);
       expect(diagramToText(r.diagram)).toBe(before);

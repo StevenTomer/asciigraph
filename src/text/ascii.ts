@@ -199,7 +199,7 @@ export function importAscii(input: string, probe = false): ImportResult {
     for (let x = 0; x < W; x++) {
       // A corner: right and down only (├ ┬ ┼ start dividers and branches, not boxes).
       if (!(has(x, y, "right") && has(x, y, "bottom")) || has(x, y, "top") || has(x, y, "left")) continue;
-      const b = traceBox(x, y);
+      const b = traceBox(x, y) ?? traceDocument(x, y);
       if (!b) continue;
       boxes.push(b);
     }
@@ -256,6 +256,53 @@ export function importAscii(input: string, probe = false): ImportResult {
     for (let x = x0 + 1; x < b - h + 1; x++) cells.push([x, y1, "bottom"]);
     slanted("io", x0, y0, x1, y1, cells);
   }
+  /**
+   * A document: straight top and sides, a wavy bottom across its last two rows (╰──╮  ╭──╯ over
+   * ╰──╯). Walked clockwise from the top-left corner, keeping the inside on the right (so at a
+   * junction, where a connector leaves, it turns right rather than going out along it).
+   */
+  function traceDocument(x0: number, y0: number): Box | null {
+    const RIGHT_OF: Record<Side, Side> = { right: "bottom", bottom: "left", left: "top", top: "right" };
+    const LEFT_OF: Record<Side, Side> = { right: "top", top: "left", left: "bottom", bottom: "right" };
+    // First step: right, along the top (clockwise).
+    const cells: Point[] = [{ x: x0, y: y0 }, { x: x0 + 1, y: y0 }];
+    let p = { x: x0 + 1, y: y0 }, dir: Side = "right";
+    for (let steps = 0; steps < 4 * (W + H); steps++) {
+      const options: Side[] = [RIGHT_OF[dir], dir, LEFT_OF[dir]].filter((s) => {
+        const n = { x: p.x + STEP[s].x, y: p.y + STEP[s].y };
+        return has(p.x, p.y, s) && has(n.x, n.y, OPPOSITE[s]);
+      });
+      if (!options.length) return null;
+      dir = options[0];
+      p = { x: p.x + STEP[dir].x, y: p.y + STEP[dir].y };
+      if (p.x === x0 && p.y === y0) break;
+      cells.push(p);
+    }
+    if (p.x !== x0 || p.y !== y0) return null;
+    const x1 = Math.max(...cells.map((c) => c.x)), y1 = Math.max(...cells.map((c) => c.y));
+    if (x1 - x0 < 6 || y1 - y0 < 3 || boxes.some((b) => b.x0 === x0 && b.y0 === y0)) return null;
+    // The top runs all the way across, the left side straight down to the crest row, and the
+    // bottom two rows hold everything else (the wave).
+    const on = new Set(cells.map((c) => k(c.x, c.y)));
+    for (let x = x0; x <= x1; x++) if (!on.has(k(x, y0))) return null;
+    for (let y = y0; y <= y1 - 1; y++) if (!on.has(k(x0, y))) return null;
+    if (cells.some((c) => c.y > y0 && c.y < y1 - 1 && c.x !== x0 && c.x !== x1)) return null;
+    const trough = cells.filter((c) => c.y === y1);
+    if (!trough.length || trough.length === x1 - x0 + 1) return null;
+    const side = (c: Point): Side | null =>
+      c.y === y0 && c.x > x0 && c.x < x1 ? "top"
+      : c.x === x0 && c.y > y0 && c.y < y1 - 1 ? "left"
+      : c.x === x1 && c.y > y0 && c.y < y1 - 1 ? "right"
+      : c.y === y1 && has(c.x, c.y, "left") && has(c.x, c.y, "right") ? "bottom"
+      : null;
+    const edge = cells.filter((c) => c.y === y0 && mask.get(k(c.x, c.y)) === (LEFT | RIGHT)).map((c) => style.get(k(c.x, c.y))!);
+    const st = majority(edge) ?? "single";
+    return {
+      x0, y0, x1, y1, border: st === "dashed" || st === "dotted" ? st : st, kind: "document", dividers: [], id: "",
+      cells: new Map(cells.map((c) => [k(c.x, c.y), side(c)])),
+    };
+  }
+
   function traceBox(x0: number, y0: number): Box | null {
     // Along the top, allowing one gap for a name.
     let x = x0 + 1, name: string | undefined, nameStart = -1, nameEnd = -1;

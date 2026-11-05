@@ -460,8 +460,8 @@ What it recognizes:
   top border (`┌─ API ──┐`). A named box with nothing in it, or one holding only other boxes,
   becomes a frame.
 - **Shapes** as asciigraph draws them: decisions (`< >`), input/output (`╱ ╱`), start/end
-  (`( )`), databases (a rim under the top), subroutines (`│ │ … │ │`), notes (a folded corner),
-  and class boxes (full-width `├──┤` rows divide them).
+  (`( )`), databases (a rim under the top), documents (a wavy bottom), subroutines
+  (`│ │ … │ │`), notes (a folded corner), and class boxes (full-width `├──┤` rows divide them).
 - **Connectors:** lines between boxes, attached to the side they touch, with their heads
   (`► ▷ ◆ ◊ ● ○ × ┤`, and in ASCII `> |> * o @ O x |`), line style, and a label in a gap in the line (`── yes ──►`)
   or just beside a vertical one. A line a space or two short of a box (as ASCII often is) still
@@ -475,8 +475,8 @@ What it recognizes:
 
 Connectors route themselves, the same way as ones you draw; where that would come out
 differently from the drawing, they keep the drawn positions and bends. Anything drawn by
-asciigraph reads back exactly as it was. Not recognized: document shapes (the wavy bottom), and
-lines dividing a box into columns (a table), which are left out.
+asciigraph reads back exactly as it was. Not recognized: lines dividing a box into columns (a
+table), which are left out.
 
 ## Arranging
 

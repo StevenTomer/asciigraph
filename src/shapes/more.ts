@@ -94,9 +94,18 @@ export const document: ShapeDef = {
   anchor(n, side, along) {
     const r = n.rect;
     if (side !== "bottom") return undefined; // the default
-    // The bottom joins a trough of the wave (columns 4–5 of each period of 6).
+    // The bottom joins a trough of the wave (columns 4–5 of each period of 6): the nearest one
+    // that's drawn (the last period, at the right edge, may not get down to the bottom row).
+    const troughs: number[] = [];
+    for (let x = r.x + 4; x < right(r); x++) {
+      const phase = (x - r.x) % 6;
+      if ((phase === 4 || phase === 5) && x - phase + 3 < right(r)) troughs.push(x);
+    }
+    // The trough at or just after `along`, if it's drawn; else the nearest one.
     const phase = (along - r.x) % 6;
-    const x = phase >= 4 ? along : Math.min(right(r), along + (4 - phase));
+    const next = phase >= 4 ? along : along + (4 - phase);
+    if (troughs.includes(next) || !troughs.length) return { x: Math.min(right(r), next), y: bottom(r) };
+    const x = troughs.reduce((best, t) => (Math.abs(t - along) < Math.abs(best - along) ? t : best));
     return { x, y: bottom(r) };
   },
   fitSize: keepSize,
