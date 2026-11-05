@@ -59,7 +59,14 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
 
 ## Running it
 
-Run it locally with Docker:
+It runs in Docker, so it works the same way on Windows, Mac and Linux, on Intel or ARM (Apple
+Silicon, Raspberry Pi). You need:
+
+- **Windows or Mac:** [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- **Linux:** [Docker Engine](https://docs.docker.com/engine/install/) with the compose plugin,
+  or Podman (use `podman` in place of `docker` below).
+
+Then, in a terminal (PowerShell on Windows):
 
 ```bash
 git clone https://github.com/StevenTomer/asciigraph.git
@@ -70,6 +77,9 @@ docker compose up -d --build
 Then open http://localhost:8080/. It keeps running in the background and restarts with Docker.
 To stop it, run `docker compose down`. After pulling changes, run `docker compose up -d --build`
 again to rebuild.
+
+No Git? On GitHub, choose **Code → Download ZIP**, unzip it, and run `docker compose up -d --build`
+in the unzipped folder (`asciigraph-master`).
 
 ### Choosing the port
 
@@ -86,8 +96,19 @@ or on one network interface, put an IP address in front of the port:
 ASCIIGRAPH_PORT=127.0.0.1:3000 docker compose up -d --build
 ```
 
+Those lines are for Mac and Linux. In Windows PowerShell, set it first:
+
+```powershell
+$env:ASCIIGRAPH_PORT="3000"; docker compose up -d --build
+```
+
 Compose only reads the setting when it creates the container, so set it each time you run
-`up`, or put it in a `.env` file next to `compose.yaml` (`ASCIIGRAPH_PORT=3000`).
+`up`. Or, on any system, put it in a file named `.env` next to `compose.yaml`, and compose will
+read it every time:
+
+```
+ASCIIGRAPH_PORT=3000
+```
 
 Without compose:
 
@@ -97,7 +118,7 @@ docker run -d -p 3000:8080 asciigraph               # or -p 127.0.0.1:3000:8080
 ```
 
 Inside the container the app is always on port 8080, served by nginx, so only the left side of
-`-p` changes. Podman works the same way.
+`-p` changes.
 
 Diagrams are saved in your browser (localStorage), not in the container. The container holds
 no data, so you can rebuild or replace it without losing anything. But a diagram saved at
