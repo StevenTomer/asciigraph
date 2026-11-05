@@ -1,4 +1,4 @@
-import { type Point, type Side, OPPOSITE } from "../geometry/geom";
+import { type Point, type Side, OPPOSITE, stepSide } from "../geometry/geom";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
 import type { BorderStyle, Diagram, Endpoint, HAlign, Head, Id, LineStyle, NodeKind, VAlign } from "../model/types";
 import { DIR_BITS, DOWN, LEFT, RIGHT, UP, lineGlyph } from "../render/charsets";
@@ -606,7 +606,7 @@ export function importAscii(input: string, probe = false): ImportResult {
   const visited = new Set<number>();
   /** `labelAt`: where the label's text starts as drawn, and the path cell it goes by. */
   type LabelAt = { start: Point; cell: Point };
-  const edges: { from: Terminal; to: Terminal; path: Point[]; label?: string; labelAt?: LabelAt }[] = [];
+  const edges: { from: Terminal; to: Terminal; path: Point[]; label?: string; labelAt?: LabelAt; endLabels?: { start?: string; end?: string } }[] = [];
   const allLine: Point[] = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isLine(x, y) || headAt.has(k(x, y))) allLine.push({ x, y });
   for (const start of allLine) {
@@ -672,8 +672,27 @@ export function importAscii(input: string, probe = false): ImportResult {
     const key = k(x, y);
     return mask.has(key) || outline.has(key) || structure.has(key) || headAt.has(key) || used.has(key);
   });
+  // End labels first: short text right by an end, where the renderer puts it (placeEndLabel):
+  // above or below a line leaving sideways, beside one leaving up or down.
+  const taken2 = new Set<string>();
+  for (const e of edges) {
+    if (e.path.length < 2) continue;
+    for (const which of ["start", "end"] as const) {
+      const cells = which === "start" ? e.path : [...e.path].reverse();
+      const p0 = cells[0], away = stepSide(p0, cells[1]);
+      const fits = (r: { x: number; y: number; len: number }) =>
+        away === "right" ? r.x === p0.x + 1 && (r.y === p0.y - 1 || r.y === p0.y + 1)
+        : away === "left" ? r.x + r.len === p0.x && (r.y === p0.y - 1 || r.y === p0.y + 1)
+        : r.y === p0.y && (r.x === p0.x + 2 || r.x + r.len === p0.x - 1);
+      const run = runs.find((r) => !taken2.has(`${r.x},${r.y}`) && r.len <= 16 && !r.text.includes("  ") && fits(r));
+      if (!run) continue;
+      taken2.add(`${run.x},${run.y}`);
+      (e.endLabels ??= {})[which] = run.text;
+      for (let x = run.x; x < run.x + run.len; x++) used.add(k(x, run.y));
+    }
+  }
   for (const run of runs) {
-    if (run.text.includes("  ")) continue;
+    if (run.text.includes("  ") || taken2.has(`${run.x},${run.y}`)) continue;
     for (const e of edges) {
       if (e.label) continue;
       const beside = e.path.some((p, i) => {
@@ -771,6 +790,7 @@ export function importAscii(input: string, probe = false): ImportResult {
       arrows: { start: !!e.from.head, end: !!e.to.head },
       ...(Object.keys(heads).length && { heads }),
       ...(e.label && { label: e.label }),
+      ...(e.endLabels && { endLabels: e.endLabels }),
     });
     d = addEdge(d, edge);
     made.push({ id: edge.id, drawn: e.path, from: e.from, to: e.to, labelAt: e.labelAt });

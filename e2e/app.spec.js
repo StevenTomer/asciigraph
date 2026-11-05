@@ -785,7 +785,7 @@ test("draw a graph from shorthand, left to right, and a folder tree as boxes", a
 });
 
 test("draw state, class and ER diagrams from the examples; class boxes edit as text", async ({ page }) => {
-  for (const [example, expected] of [["state", /●[\s\S]*Idle[\s\S]*◉/], ["class", /│ +«abstract» +│[\s\S]*├─+┤[\s\S]*│ \+area\(\) float │/], ["ER", /places \(1 to 0\.\.\*\)/]]) {
+  for (const [example, expected] of [["state", /●[\s\S]*Idle[\s\S]*◉/], ["class", /│ +«abstract» +│[\s\S]*├─+┤[\s\S]*│ \+area\(\) float │/], ["ER", /│ 1\n *│ places\n *│\n *│ 0\.\.\*/]]) {
     await page.getByRole("button", { name: "from text" }).click();
     const dialog = page.getByRole("dialog", { name: "Draw from text" });
     await dialog.getByRole("button", { name: example, exact: true }).click();
@@ -895,6 +895,20 @@ test("save a selection as a stamp, insert it again, and delete it", async ({ pag
     await stamps.getByRole("button", { name: "delete it" }).click();
   }
   await expect(stamps.getByText(/No stamps yet/)).toBeVisible();
+});
+
+test("end labels: type them in the panel; they sit by each end", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  await box(page, [30, 2], [40, 4], "B");
+  await page.keyboard.press("a");
+  await drag(page, [7, 3], [35, 3]);
+  const panel = page.getByRole("complementary", { name: "Properties" });
+  await panel.getByLabel("End label at start").fill("1");
+  await panel.getByLabel("End label at end").fill("0..*");
+  await panel.getByLabel("End label at end").press("Enter");
+  const [e] = Object.values((await state(page)).diagram.edges);
+  expect(e.endLabels).toEqual({ start: "1", end: "0..*" });
+  expect(await text(page)).toMatch(/^┌─+┐ 1 +0\.\.\* ┌─+┐$/m);
 });
 
 test("markdown lists in a box", async ({ page }) => {

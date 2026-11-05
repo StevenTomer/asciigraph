@@ -41,7 +41,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   input/output, start/end, database, document, subroutine), notes, frames, class boxes in
   compartments, and sequence-diagram lifelines and activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
-  diamond, dot, circle, cross, bar); labels; bend points; and a turn point you can drag.
+  diamond, dot, circle, cross, bar); labels, and end labels by each end (`1`, `0..*`); bend
+  points; and a turn point you can drag.
 - **Draw from text:** [Mermaid](https://mermaid.js.org/)
   [sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html),
   [flowcharts](https://mermaid.js.org/syntax/flowchart.html),

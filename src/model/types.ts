@@ -111,6 +111,8 @@ export interface Edge {
   turnAt?: number;
   /** Text shown on (or beside) the line: `── yes ──►`. */
   label?: string;
+  /** Short text by each end: how many are there (1, 0..*), a role, a port. */
+  endLabels?: { start?: string; end?: string };
   /** Where along the connector the label sits, 0 (start) to 1 (end), when dragged there.
    * Without it, the label goes on the longest straight stretch. */
   labelAt?: number;

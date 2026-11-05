@@ -53,6 +53,8 @@ export interface GraphEdge {
   arrows: { start: boolean; end: boolean };
   /** --x: a cross, --o: a circle (otherwise arrowheads); class diagrams have them at either end. */
   heads?: { start?: Head; end?: Head };
+  /** Text by each end (class and ER diagrams: how many). Set (maybe empty) where the text can say. */
+  endLabels?: { start?: string; end?: string };
 }
 
 export interface Subgraph {

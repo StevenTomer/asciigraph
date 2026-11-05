@@ -127,3 +127,36 @@ describe("multi-line labels", () => {
 `);
   });
 });
+
+describe("end labels", () => {
+  it("sit by each end: above a line leaving sideways, beside one leaving up or down", () => {
+    const across = build([box("A", 0, 0), box("B", 24, 0)], [makeEdge(att("A"), att("B"), { label: "has", endLabels: { start: "1", end: "0..*" } })]);
+    expect(show(across)).toBe(`
+┌─────┐ 1          0..* ┌─────┐
+│  A  ├────── has ─────►│  B  │
+└─────┘                 └─────┘
+`);
+    const down = build([box("A", 0, 0), box("B", 0, 8)], [makeEdge(att("A"), att("B"), { endLabels: { start: "1", end: "*" } })]);
+    expect(show(down)).toBe(`
+┌─────┐
+│  A  │
+└──┬──┘
+   │ 1
+   │
+   │
+   │
+   ▼ *
+┌─────┐
+│  B  │
+└─────┘
+`);
+  });
+
+  it("stay by their boxes when the connector is reversed", async () => {
+    const { reverseEdge } = await import("../model/arrange");
+    const d = build([box("A", 0, 0), box("B", 24, 0)], [makeEdge(att("A"), att("B"), { id: "e", endLabels: { start: "1" } })]);
+    const r = reverseEdge(d, "e");
+    expect(r.edges.e.endLabels).toEqual({ end: "1" });
+    expect(diagramToText(r).split("\n")[0]).toBe("┌─────┐ 1               ┌─────┐");
+  });
+});

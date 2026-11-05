@@ -244,6 +244,31 @@ export function Inspector() {
             </Row>
           ) : null}
           {edges.length === 1 && (
+            <Row label="end labels">
+              {(["start", "end"] as const).map((which) => (
+                <input
+                  key={which}
+                  className="field end-label"
+                  value={e0.endLabels?.[which] ?? ""}
+                  placeholder={`at ${which}`}
+                  title={`Short text by the ${which} (how many: 1, 0..*; a role; a port)`}
+                  aria-label={`End label at ${which}`}
+                  onFocus={begin}
+                  onBlur={commit}
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const cur = getState().diagram.edges[e0.id].endLabels ?? {};
+                    const next = { ...cur, [which]: v || undefined };
+                    if (!next.start) delete next.start;
+                    if (!next.end) delete next.end;
+                    set(updateEdge(getState().diagram, e0.id, { endLabels: Object.keys(next).length ? next : undefined }));
+                  }}
+                />
+              ))}
+            </Row>
+          )}
+          {edges.length === 1 && (
             <Row label="ends">
               {(["from", "to"] as const).map((which) => (
                 <Choice

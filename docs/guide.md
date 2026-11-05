@@ -183,6 +183,17 @@ Double-click a connector, or select it and press <kbd>Enter</kbd>, to label it.
 straight stretch (`── yes ──►`), or beside it on a vertical one. Drag the label to move it along
 the connector; right-click → **Reset Label Position** puts it back.
 
+**End labels** are short text by each end: how many are there (`1`, `0..*`), a role, a port.
+Select the connector and fill in **end labels** in the properties panel (**at start**, **at
+end**). Each goes just past its end, above (or below) a line leaving sideways, or beside one
+leaving up or down; **Reverse Direction** keeps them by their boxes.
+
+```
+┌──────────┐ 1                0..* ┌───────┐
+│ Customer ├─────── places ───────►│ Order │
+└──────────┘                       └───────┘
+```
+
 ### Where a connector turns
 
 A connector that steps across, like `─┐` … `└─`, turns **halfway** between its ends. If it has a
@@ -388,7 +399,7 @@ classDiagram
 | `A ..> B` | dependency: a dashed arrow |
 | `A ..\|> B` | realization: a dashed hollow arrow |
 | `A -- B`, `A .. B` | a line, a dashed line |
-| `A "1" --> "*" B : has` | labeled `has (1 to *)` |
+| `A "1" --> "*" B : has` | labeled `has`, with end labels `1` and `*` |
 
 Members go in a `class A { … }` block or one at a time (`A : +eat()`). `<<interface>>` (in the
 block, or `<<interface>> A`) is drawn above the name as `«interface»`. Generics `List~T~` show as
@@ -410,8 +421,8 @@ erDiagram
 ```
 
 Entities are class boxes with their attributes in columns (type, name, keys, comment).
-Character-cell drawings have no crow's feet, so how many are at each end goes in the label:
-`places (1 to 0..*)`.
+Character-cell drawings have no crow's feet, so how many are at each end goes in end labels:
+`1 ── places ── 0..*`.
 
 | End | Means |
 |---|---|

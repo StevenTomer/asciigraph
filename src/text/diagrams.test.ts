@@ -112,11 +112,15 @@ describe("Mermaid class diagrams", () => {
     expect(rel("<|--|>")).toEqual(["single", "triangle", "triangle"]);
   });
 
-  it("labels relations with how many are at each end", () => {
-    const label = (line: string) => parseGraph(`classDiagram\n  ${line}`).edges[0].label;
-    expect(label(`Zoo "1" o-- "*" Animal : houses`)).toBe("houses (1 to *)");
-    expect(label(`Zoo "1" o-- Animal`)).toBe("from 1");
-    expect(label(`Zoo --> "many" Animal`)).toBe("to many");
+  it("puts how many are at each end in end labels", () => {
+    const e = (line: string) => {
+      const x = parseGraph(`classDiagram\n  ${line}`).edges[0];
+      return [x.label, x.endLabels];
+    };
+    expect(e(`Zoo "1" o-- "*" Animal : houses`)).toEqual(["houses", { start: "1", end: "*" }]);
+    expect(e(`Zoo "1" o-- Animal`)).toEqual(["", { start: "1" }]);
+    expect(e(`Zoo --> "many" Animal`)).toEqual(["", { end: "many" }]);
+    expect(e(`Zoo --> Animal`)).toEqual(["", {}]);
   });
 
   it("draws namespaces as frames, and notes", () => {
@@ -168,12 +172,12 @@ describe("Mermaid ER diagrams", () => {
   it("labels relationships with their cardinalities", () => {
     const rel = (op: string) => {
       const e = parseGraph(`erDiagram\n  A ${op} B : has`).edges[0];
-      return [e.label, e.line];
+      return [e.label, e.endLabels, e.line];
     };
-    expect(rel("||--o{")).toEqual(["has (1 to 0..*)", "single"]);
-    expect(rel("|o--|{")).toEqual(["has (0..1 to 1..*)", "single"]);
-    expect(rel("}|..o|")).toEqual(["has (1..* to 0..1)", "dashed"]);
-    expect(rel("}o--||")).toEqual(["has (0..* to 1)", "single"]);
+    expect(rel("||--o{")).toEqual(["has", { start: "1", end: "0..*" }, "single"]);
+    expect(rel("|o--|{")).toEqual(["has", { start: "0..1", end: "1..*" }, "single"]);
+    expect(rel("}|..o|")).toEqual(["has", { start: "1..*", end: "0..1" }, "dashed"]);
+    expect(rel("}o--||")).toEqual(["has", { start: "0..*", end: "1" }, "single"]);
   });
 
   it("lists attributes in columns, and takes labels and hyphenated names", () => {
@@ -197,10 +201,10 @@ describe("Mermaid ER diagrams", () => {
         "       ┌───┐",
         "       │ A │",
         "       └─┬─┘",
+        "         │ 1",
+        "         │ has",
         "         │",
-        "         │ has (1 to 0..*)",
-        "         │",
-        "         │",
+        "         │ 0..*",
         "┌────────┴─────────┐",
         "│        B         │",
         "├──────────────────┤",

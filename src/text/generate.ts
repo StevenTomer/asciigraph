@@ -33,6 +33,8 @@ export interface DesiredEdge {
   line: LineStyle;
   arrows: { start: boolean; end: boolean };
   heads?: { start?: Head; end?: Head };
+  /** Undefined where the text has no way to say (they're kept as drawn); else from the text. */
+  endLabels?: { start?: string; end?: string };
 }
 
 export interface Desired {
@@ -325,8 +327,10 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
       if (!a || !b || a === b || seen.has(`${a}>${b}`)) continue;
       seen.add(`${a}>${b}`);
       // With the label, so left-to-right layers leave room for it.
-      const label = g.edges.filter((x) => memberFor(x.from, memberSet) === a && memberFor(x.to, memberSet) === b && x.label)
-        .map((x) => x.label).sort((p, q) => q.length - p.length)[0];
+      // (End labels too: the room they take, as part of one label.)
+      const label = g.edges.filter((x) => memberFor(x.from, memberSet) === a && memberFor(x.to, memberSet) === b)
+        .map((x) => [x.endLabels?.start, x.label, x.endLabels?.end].filter(Boolean).join("   "))
+        .filter(Boolean).sort((p, q) => q.length - p.length)[0];
       scratch = addEdge(scratch, makeEdge({ kind: "attached", node: a, side: "auto" }, { kind: "attached", node: b, side: "auto" }, { label }));
     }
     scratch = autoLayout(scratch, [], dir);
@@ -383,6 +387,7 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
       line: e.line,
       arrows: e.arrows,
       ...(e.heads && { heads: e.heads }),
+      ...(e.endLabels && { endLabels: e.endLabels }),
     };
   });
   return { nodes, edges, warnings: g.warnings };

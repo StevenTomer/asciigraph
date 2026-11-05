@@ -74,9 +74,7 @@ export function readDirection(line: string): "down" | "right" | null {
   return m ? (/LR|RL/i.test(m[1]) ? "right" : "down") : null;
 }
 
-/** A label with how many are at each end (class diagrams' "1" / "*", ER cardinalities). */
-export function withEnds(label: string, from?: string, to?: string): string {
-  const ends = from && to ? `${from} to ${to}` : from ? `from ${from}` : to ? `to ${to}` : "";
-  if (!ends) return label;
-  return label ? `${label} (${ends})` : ends;
+/** End labels from what a relation says is at each end ({} for neither, so a redraw clears them). */
+export function endLabels(start?: string, end?: string): { start?: string; end?: string } {
+  return { ...(start && { start }), ...(end && { end }) };
 }

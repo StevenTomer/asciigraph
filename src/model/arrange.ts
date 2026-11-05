@@ -109,5 +109,7 @@ export function reverseEdge(d: Diagram, id: Id): Diagram {
   if (e.via) reversed.via = [...e.via].reverse();
   if (e.labelAt !== undefined) reversed.labelAt = 1 - e.labelAt;
   if (e.turnAt !== undefined) reversed.turnAt = 1 - e.turnAt;
+  // End labels stay by their boxes (the head moves; how many are at each box doesn't).
+  if (e.endLabels) reversed.endLabels = { ...(e.endLabels.end && { start: e.endLabels.end }), ...(e.endLabels.start && { end: e.endLabels.start }) };
   return { ...d, edges: { ...d.edges, [id]: reversed } };
 }

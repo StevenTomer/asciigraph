@@ -299,6 +299,10 @@ html, body, #root {
   text-align: left;
 }
 
+.field.end-label {
+  width: 7em;
+}
+
 /* Stamps */
 .stamp-list {
   list-style: none;

@@ -25,6 +25,8 @@ export interface ResolvedEdge {
   cells: Point[];
   /** Where the label is drawn (set by the rasterizer), or would go if it had one. */
   label?: Rect;
+  /** Where the end labels are drawn (set by the rasterizer). */
+  endLabels?: { start?: Rect; end?: Rect };
 }
 
 /** The rect an end "looks at" when choosing sides: its node, or its cell. */

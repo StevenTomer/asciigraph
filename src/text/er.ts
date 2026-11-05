@@ -1,13 +1,13 @@
 import { chars } from "../render/textLayout";
-import { graphBuilder, readDirection, withEnds } from "./builder";
+import { endLabels, graphBuilder, readDirection } from "./builder";
 import type { ParsedGraph } from "./graph";
 import { logicalLines, unquote } from "./mermaid";
 
 /**
  * Mermaid entity–relationship diagrams (`erDiagram`): entities as boxes with their attributes in
- * columns, relationships as connectors labelled with how many are at each end:
+ * columns, relationships as connectors labelled with how many are at each end (end labels):
  *
- *   CUSTOMER ||--o{ ORDER : places     drawn as  ── places (1 to 0..*) ──
+ *   CUSTOMER ||--o{ ORDER : places     drawn as  1 ── places ── 0..*
  *   CUSTOMER { string name PK "the name" }   attributes: type, name, keys, comment
  *   p["Person"]                              labels
  *
@@ -69,7 +69,8 @@ export function parseEr(text: string): ParsedGraph {
       entity(z, lz);
       b.edge({
         from: a, to: z,
-        label: withEnds(label ? unquote(label) : "", LEFT[left], RIGHT[right]),
+        label: label ? unquote(label) : "",
+        endLabels: endLabels(LEFT[left], RIGHT[right]),
         line: link === ".." ? "dashed" : "single",
         arrows: { start: false, end: false },
       });

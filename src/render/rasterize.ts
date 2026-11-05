@@ -86,6 +86,21 @@ export function rasterize(d: Diagram, quick = false): Rendered {
         if (!c || cellGlyph(c, false) === "") return true;
         return onLine && mine.has(k) && pathUse.get(k) === 1 && c.ch === undefined;
       };
+      // End labels first (they belong right by their ends), then the label, clear of them.
+      for (const which of ["start", "end"] as const) {
+        const text = edge.endLabels?.[which];
+        if (!text || r.cells.length < 2) continue;
+        const rect = placeEndLabel(which === "start" ? r.cells : [...r.cells].reverse(), text, canUse);
+        (r.endLabels ??= {})[which] = rect;
+        chars(text).forEach((ch, i) => {
+          const p = { x: rect.x + i, y: rect.y };
+          if (!hidden(p)) {
+            grid.setChar(p, ch);
+            edgeCells.set(key(p), edge.id);
+          }
+        });
+        for (let x = rect.x - 1; x <= rect.x + rect.w; x++) labelCells.add(`${x},${rect.y}`);
+      }
       const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt, canUse);
       if (edge.label) {
         for (let y = placed.rect.y; y < placed.rect.y + placed.rect.h; y++) {
@@ -113,6 +128,33 @@ export function rasterize(d: Diagram, quick = false): Rendered {
   labels.forEach((f) => f());
 
   return { grid, edges, edgeCells };
+}
+
+/**
+ * Where an end label goes, for the end at `cells[0]` (the cell just outside the box): past the
+ * end, above or below a line leaving sideways, or beside one leaving up or down. The first spot
+ * that's clear, else the first.
+ *
+ *   ┌───┐ 1            0..* ┌───┐      ┌───┐
+ *   │ A ├───────────────────┤ B │      └─┬─┘
+ *   └───┘                    └───┘        │ 1
+ */
+export function placeEndLabel(cells: Point[], text: string, canUse: (p: Point, onLine: boolean) => boolean): Rect {
+  const e = cells[0], away = stepSide(e, cells[1]);
+  const len = chars(text).length;
+  const spots: Point[] =
+    away === "right" ? [{ x: e.x + 1, y: e.y - 1 }, { x: e.x + 1, y: e.y + 1 }]
+    : away === "left" ? [{ x: e.x - len, y: e.y - 1 }, { x: e.x - len, y: e.y + 1 }]
+    : [
+        { x: e.x + 2, y: e.y }, { x: e.x - 1 - len, y: e.y },
+        { x: e.x + 2, y: e.y + (away === "bottom" ? 1 : -1) }, { x: e.x - 1 - len, y: e.y + (away === "bottom" ? 1 : -1) },
+      ];
+  const clear = (s: Point) => {
+    for (let i = 0; i < len; i++) if (!canUse({ x: s.x + i, y: s.y }, false)) return false;
+    return true;
+  };
+  const at = spots.find(clear) ?? spots[0];
+  return { x: at.x, y: at.y, w: len, h: 1 };
 }
 
 /**

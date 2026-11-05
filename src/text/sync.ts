@@ -239,11 +239,16 @@ function sync(d: Diagram, source: TextSource, relayout = false): SyncResult {
         && sameNodes(ex.from, from) && sameNodes(ex.to, to);
       out = updateEdge(out, ex.id, {
         ...(ownEnds ? {} : { from, to }), label: de.label,
+        ...(de.endLabels && { endLabels: Object.keys(de.endLabels).length ? de.endLabels : undefined }),
         ...(restyled ? {} : { line: de.line, arrows: de.arrows, heads: de.heads }),
         gen: { source: source.id, key: de.key, style, ends, ...(!relayout && ex.gen!.placed && { placed: true }) },
       });
     } else {
-      out = addEdge(out, makeEdge(from, to, { label: de.label, line: de.line, arrows: de.arrows, ...(de.heads && { heads: de.heads }), gen: { source: source.id, key: de.key, style, ends } }));
+      out = addEdge(out, makeEdge(from, to, {
+        label: de.label, line: de.line, arrows: de.arrows, ...(de.heads && { heads: de.heads }),
+        ...(de.endLabels && Object.keys(de.endLabels).length && { endLabels: de.endLabels }),
+        gen: { source: source.id, key: de.key, style, ends },
+      }));
     }
   }
 

@@ -1,5 +1,5 @@
 import type { Head } from "../model/types";
-import { graphBuilder, readDirection, withEnds } from "./builder";
+import { endLabels, graphBuilder, readDirection } from "./builder";
 import type { ParsedGraph } from "./graph";
 import { logicalLines, unquote } from "./mermaid";
 
@@ -14,7 +14,7 @@ import { logicalLines, unquote } from "./mermaid";
  *   Animal <|-- Dog                          relations: <|-- inheritance, *-- composition,
  *                                            o-- aggregation, --> association, ..> dependency,
  *                                            ..|> realization, -- and .. links
- *   A "1" --> "*" B : has                    labels and how many at each end
+ *   A "1" --> "*" B : has                    labels, and how many at each end (end labels)
  *   namespace Zoo { class … }                drawn as a frame
  *   note for A "text"                        notes
  *   direction LR                             the layout direction
@@ -114,7 +114,8 @@ export function parseClass(text: string): ParsedGraph {
       const heads = { ...(left && { start: HEAD_LEFT[left] }), ...(right && { end: HEAD_RIGHT[right] }) };
       b.edge({
         from: idOf(a), to: idOf(z),
-        label: withEnds(label ? unquote(label) : "", cardA, cardB),
+        label: label ? unquote(label) : "",
+        endLabels: endLabels(cardA, cardB),
         line: link === ".." ? "dashed" : "single",
         arrows: { start: !!left, end: !!right },
         ...((left || right) && { heads }),
