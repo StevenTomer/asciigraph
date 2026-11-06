@@ -273,31 +273,37 @@ test.describe("phone", () => {
   });
 });
 
-// The README's sample export, as an image: on Android, monospace fonts have no box-drawing
-// characters, so the text itself comes out ragged there. Drawn in the app's own font.
-for (const dark of [false, true]) {
-  test(`sample export${dark ? ", dark" : ""}`, async ({ page }) => {
-    const { readFileSync } = await import("node:fs");
-    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-    const text = readme.split("<!-- sample-export -->")[1].match(/```\n([\s\S]*?)```/)[1].trimEnd();
-    await page.goto("/");
-    await page.evaluate(
-      ([text, dark]) => {
-        document.head.innerHTML = `<style>
-          @font-face { font-family: SCP; src: url(fonts/SourceCodePro-Regular.woff2); }
-          html, body { margin: 0; background: ${dark ? "#0d1117" : "#f6f8fa"}; }
-          pre { margin: 0; padding: 16px 20px; display: inline-block; font: 15px/1.3 SCP, monospace;
-                color: ${dark ? "#e6edf3" : "#1f2328"}; }
-        </style>`;
-        document.body.innerHTML = "";
-        const pre = document.createElement("pre");
-        pre.textContent = text;
-        document.body.append(pre);
-      },
-      [text, dark],
-    );
-    await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(200);
-    await page.locator("pre").screenshot({ path: OUT + `sample-export${dark ? "-dark" : ""}.png` });
-  });
+// Drawings in the docs, as images: on Android, monospace fonts have no box-drawing characters, so
+// the text itself comes out ragged there. Each is marked <!-- drawing: name --> before its
+// <picture>, with the text in a code block below (kept as the source). Drawn in the app's font.
+import { readFileSync } from "node:fs";
+const DRAWINGS = ["../README.md", "./guide.md"].flatMap((f) =>
+  [...readFileSync(new URL(f, import.meta.url), "utf8").matchAll(/<!-- drawing: ([\w-]+) -->[\s\S]*?\n( *)```\n([\s\S]*?)\n *```/g)].map(
+    ([, name, indent, text]) => ({ name, text: text.split("\n").map((l) => l.slice(indent.length)).join("\n").trimEnd() }),
+  ),
+);
+for (const { name, text } of DRAWINGS) {
+  for (const dark of [false, true]) {
+    test(`drawing ${name}${dark ? ", dark" : ""}`, async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(
+        ([text, dark]) => {
+          document.head.innerHTML = `<style>
+            @font-face { font-family: SCP; src: url(fonts/SourceCodePro-Regular.woff2); }
+            html, body { margin: 0; background: ${dark ? "#0d1117" : "#f6f8fa"}; }
+            pre { margin: 0; padding: 16px 20px; display: inline-block; font: 15px/1.3 SCP, monospace;
+                  color: ${dark ? "#e6edf3" : "#1f2328"}; }
+          </style>`;
+          document.body.innerHTML = "";
+          const pre = document.createElement("pre");
+          pre.textContent = text;
+          document.body.append(pre);
+        },
+        [text, dark],
+      );
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(200);
+      await page.locator("pre").screenshot({ path: OUT + `${name}${dark ? "-dark" : ""}.png` });
+    });
+  }
 }

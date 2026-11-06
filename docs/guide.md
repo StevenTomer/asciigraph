@@ -100,6 +100,15 @@ afterwards in the properties panel.
 **Class boxes:** a line of just `---` in the text divides the box there. The first part (the
 name) is centered and the rest left-aligned:
 
+<!-- drawing: class-box -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/class-box-dark.png">
+  <img src="images/class-box.png" width="193" alt="A class box: Animal, with +name: String and +eat() in compartments below it">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
 ```
 ┌───────────────┐
 │    Animal     │
@@ -109,6 +118,8 @@ name) is centered and the rest left-aligned:
 │ +eat()        │
 └───────────────┘
 ```
+
+</details>
 
 <a id="tables"></a>**Tables:** the **table** tool (<kbd>E</kbd>) makes one: set how many columns and rows in the
 bar under the toolbar (the first row is the header), then click where it goes, or drag across
@@ -131,6 +142,15 @@ the panel or the right-click menu): cells between `|`, and a row of dashes for a
 (`:--:` centers that column, `--:` right-aligns it). Typed that way, columns are as wide as
 their widest cell, and the table grows as you type:
 
+<!-- drawing: table-markdown -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/table-markdown-dark.png">
+  <img src="images/table-markdown.png" width="454" alt="A Markdown table of services and ports, and the table drawn from it">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
 ```
 | Service | Port |          ┌─────────┬──────┐
 |---------|-----:|    →     │ Service │ Port │
@@ -140,6 +160,8 @@ their widest cell, and the table grows as you type:
                             └─────────┴──────┘
 ```
 
+</details>
+
 ![A selected table with a title and a cell over two lines, one cell outlined; the properties panel shows the title, column widths, and the outlined cell's row and column commands](images/table.png)
 
 - **A title:** a line before the table. It goes in a row of its own across the top, or (in the
@@ -148,6 +170,15 @@ their widest cell, and the table grows as you type:
 - **A cell over several lines:** press Enter where the line should break, before the `|` that
   ends the cell. A row carries on until a line ends with `|`, so the rest of its cells follow on
   the next line (indenting them is fine):
+
+  <!-- drawing: table-multiline -->
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/table-multiline-dark.png">
+    <img src="images/table-multiline.png" width="544" alt="A table titled Users, typed with a cell over two lines, and the table drawn from it">
+  </picture>
+
+  <details>
+  <summary>The same, as text</summary>
 
   ```
   Users                          ┌───────────────────────┐
@@ -162,12 +193,23 @@ their widest cell, and the table grows as you type:
                                  └──────┴────────────────┘
   ```
 
+  </details>
+
   When any row has more than one line, every row gets a line under it, so you can see where each
   row ends. `<br>` in a cell (as Markdown writes a line break) works too, and a pasted table's
   `<br>`s are turned into line breaks.
 - **Lists in cells:** as in boxes, lines starting `- `, `* ` or `+ ` are bullets and `1.` or
   `1)` number themselves; two more spaces nest an item under the one above, and a wrapped item
   hangs under its text. Type them line by line (<kbd>Enter</kbd> between items):
+
+  <!-- drawing: table-lists -->
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/table-lists-dark.png">
+    <img src="images/table-lists.png" width="472" alt="A table typed with lists in its cells, and the table drawn from it with bullets, nesting and numbering">
+  </picture>
+
+  <details>
+  <summary>The same, as text</summary>
 
   ```
   | Step | Notes |           ┌──────┬────────────┐
@@ -181,6 +223,8 @@ their widest cell, and the table grows as you type:
                              │      │ 2. two     │
                              └──────┴────────────┘
   ```
+
+  </details>
 
   A list is laid out from the left, whatever its column's alignment. **lists**: **off (as
   typed)** in the panel shows cells exactly as written. A drawn table read back in (pasted, or
@@ -222,6 +266,15 @@ Double-click a box, or select it and press <kbd>Enter</kbd> or <kbd>F2</kbd>, to
 **Lists:** lines starting `- `, `* ` or `+ ` become bullets, and `1. ` or `1) ` numbered items.
 Indent to nest. Numbers renumber themselves, and wrapped lines hang under the item's text:
 
+<!-- drawing: box-list -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/box-list-dark.png">
+  <img src="images/box-list.png" width="256" alt="A box with a bulleted list, a nested list and a numbered list whose second item wraps">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
 ```
 ┌──────────────────────┐
 │ Release:             │
@@ -234,6 +287,8 @@ Indent to nest. Numbers renumber themselves, and wrapped lines hang under the it
 │    everyone          │
 └──────────────────────┘
 ```
+
+</details>
 
 To keep one line as you typed it, put a backslash before the marker (`\- not a list`). To keep
 all of a box's text as typed, set **lists: off** in the properties panel.
