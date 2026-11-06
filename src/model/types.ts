@@ -89,8 +89,9 @@ export interface Node {
   autosize?: boolean;
   /** A table's settings (shapes/table.ts). */
   table?: TableOptions;
-  /** A timeline's settings (shapes/timeline.ts): drawn across (default) or down. */
-  timeline?: { direction?: "down" };
+  /** A timeline's settings (shapes/timeline.ts): drawn across (default) or down; `at`: points moved by
+   * hand, by period (cells along the axis from its left or top). */
+  timeline?: { direction?: "down"; at?: Record<string, number> };
   /** Banner text (text/banner.ts): what it says and the font; `text` is the lettering. */
   banner?: { text: string; font: string };
   /** Moving this box takes along what's inside it (default true). See model/containment.ts. */

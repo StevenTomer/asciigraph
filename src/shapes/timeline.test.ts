@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { addNode, emptyDiagram, makeNode, setNodeText, updateNode } from "../model/ops";
 import type { Node } from "../model/types";
 import { diagramToText } from "../render/rasterize";
-import { isTimelineText, parseTimeline, timelineMermaid, timelineNode } from "./timeline";
+import { isTimelineText, parseTimeline, timelineMermaid, timelineNode, timelinePoints, withPoint, withoutPoints } from "./timeline";
 
 const HISTORY = `timeline
     title Product history
@@ -37,23 +37,23 @@ describe("timelines", () => {
     expect(parseTimeline(timelineMermaid(n.text))).toEqual(parseTimeline(HISTORY));
   });
 
-  it("draw across: periods over the axis, events under them, sections over those", () => {
+  it("draw across: periods over the axis, events under them, sections over those with a line between", () => {
     expect(drawn(HISTORY)).toBe([
       "Product history",
-      "   Planning  Delivery",
-      "   2024      2025    2026",
-      "───●─────────●───────●──────────►",
-      "   Plan      Build   Ship",
-      "             Test    Celebrate",
+      "   Planning │ Delivery",
+      "   2024     │ 2025    2026",
+      "───●────────┼─●───────●──────────►",
+      "   Plan     │ Build   Ship",
+      "            │ Test    Celebrate",
     ].join("\n"));
   });
 
-  it("draw down: periods left of the axis, events right of it", () => {
+  it("draw down: periods left of the axis, events right of it, a line between sections", () => {
     expect(drawn(HISTORY, { timeline: { direction: "down" }, rect: { x: 0, y: 0, w: 22, h: 12 }, autosize: false })).toBe([
       "Product history",
       "Planning │",
       "    2024 ● Plan",
-      "         │",
+      "─────────┼────────────",
       "Delivery │",
       "    2025 ● Build",
       "         │ Test",
@@ -92,5 +92,45 @@ describe("timelines", () => {
     expect(diagramToText(d)).toBe(["   1   2   3", "───●───●───●──►", "   a   b   c"].join("\n"));
     expect(diagramToText(updateNode(d, "t", { border: "double" }))).toBe(["   1   2   3", "═══●═══●═══●══►", "   a   b   c"].join("\n"));
     expect(diagramToText(d, true)).toBe(["   1   2   3", "---o---o---o-->", "   a   b   c"].join("\n"));
+  });
+
+  describe("points moved by hand", () => {
+    const FOUR = "timeline\n 2024 : Plan\n 2025 : Build\n 2026 : Test\n 2027 : Ship";
+    const node = (text = FOUR, patch: Partial<Node> = {}) => {
+      const t = timelineNode(text, { x: 0, y: 0 });
+      return makeNode(t.rect, { ...t, ...patch });
+    };
+    const move = (n: Node, i: number, x: number, y = 0) => ({ ...n, ...withPoint(n, i, { x, y }) }) as Node;
+    const show = (n: Node) => diagramToText(addNode(emptyDiagram(), n));
+
+    it("move along the line, pushing the ones after along, and the timeline grows", () => {
+      const n = move(node(), 1, 14);
+      expect(n.timeline?.at).toEqual({ 2025: 14 });
+      expect(show(n)).toBe([
+        "   2024       2025    2026   2027",
+        "───●──────────●───────●──────●─────►",
+        "   Plan       Build   Test   Ship",
+      ].join("\n"));
+      // Before the one before it: as close as it goes (its text clear of that one's).
+      const back = move(n, 1, 2);
+      expect(back.timeline?.at).toEqual({ 2025: 9 });
+      expect(timelinePoints(back).map((p) => p.x)).toEqual([3, 9, 18, 25]);
+    });
+
+    it("keep their place when the events change, and go back with a double-click or space evenly", () => {
+      let n = move(node(), 2, 30);
+      n = { ...n, text: n.text.replace("2025 : Build", "2025 : Build : Review") };
+      expect(timelinePoints(n)[2].x).toBe(30);
+      const reset = { ...n, ...withPoint(n, 2, null) } as Node;
+      expect(reset.timeline).toBeUndefined();
+      expect({ ...n, ...withoutPoints(n) }.timeline).toBeUndefined();
+    });
+
+    it("move down the line when it runs down", () => {
+      let n = node("timeline\n 1 : a\n 2 : b\n 3 : c", { timeline: { direction: "down" } });
+      n = { ...n, rect: { ...n.rect, ...withoutPoints(n).rect } } as Node;
+      n = move(n, 1, 0, 5);
+      expect(show(n)).toBe(["1 ● a", "  │", "  │", "  │", "  │", "2 ● b", "  │", "3 ● c", "  ▼"].join("\n"));
+    });
   });
 });

@@ -10,6 +10,7 @@ import { apply, begin, commit, getState, openBannerDialog, openTextDialog, selec
 import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "../editor/tableCommands";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
+import { withoutPoints } from "../shapes/timeline";
 import { autoSized, columnRooms, markdownTable, parseTable, withColumnWidth, withOptions, withTitle } from "../shapes/table";
 
 const BORDERS: [BorderStyle, string][] = [
@@ -174,6 +175,7 @@ export function Inspector() {
               </Row>
               <Row label="">
                 <Choice active={false} onClick={() => startEditing(n0.id, "text")} title="Periods and events, as Mermaid timeline lines: 2024 : Plan : Design">edit events</Choice>
+                <Choice active={false} disabled={!n0.timeline?.at} onClick={() => eachNode((n) => withoutPoints(n))} title="Points moved by hand (drag one along the line) go back where they go by themselves">space evenly</Choice>
               </Row>
             </>
           )}

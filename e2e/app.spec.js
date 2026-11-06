@@ -968,6 +968,27 @@ Mar ● Ship
     ▼`));
 });
 
+test("timelines: drag a point along the line; double-click puts it back; sections ruled off", async ({ page }) => {
+  await page.getByRole("button", { name: "from text" }).click();
+  await page.getByLabel("Diagram text").fill("timeline\n    section Plan\n    Jan : Scope\n    section Ship\n    Feb : Build\n    Mar : Launch");
+  await page.getByRole("button", { name: "draw", exact: true }).click();
+  const before = await text(page);
+  expect(before).toContain("┼");
+  const n = Object.values((await state(page)).diagram.nodes)[0];
+  // Feb's point is the second ● on the line.
+  const row = before.split("\n").findIndex((l) => l.includes("●"));
+  const xs = [...before.split("\n")[row]].flatMap((c, i) => (c === "●" ? [i] : []));
+  const lineY = n.rect.y + row, febX = n.rect.x + xs[1];
+  await drag(page, [febX, lineY], [febX + 6, lineY + 2]);
+  const after = (await state(page)).diagram.nodes[n.id];
+  expect(after.timeline.at).toEqual({ Feb: xs[1] + 6 });
+  expect((await text(page)).split("\n")[row].indexOf("●", xs[0] + 1)).toBe(xs[1] + 6);
+  // Double-click it: back where it was.
+  const p = await at(page, febX + 6, lineY);
+  await page.mouse.dblclick(p.x, p.y);
+  expect(await text(page)).toBe(before);
+});
+
 test("checklists in a box and in a table cell", async ({ page }) => {
   await box(page, [2, 2], [22, 6]);
   await click(page, 10, 4);

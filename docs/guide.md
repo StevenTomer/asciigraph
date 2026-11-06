@@ -331,7 +331,7 @@ optional.
 <!-- drawing: timeline -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/timeline-dark.png">
-  <img src="images/timeline.png" width="616" alt="Timeline text with a title, two sections and three periods, and the timeline drawn from it across the page">
+  <img src="images/timeline.png" width="625" alt="Timeline text with a title, two sections and three periods, and the timeline drawn from it across the page">
 </picture>
 
 <details>
@@ -339,11 +339,11 @@ optional.
 
 ```
 title Product history          Product history
-section Planning                  Planning  Delivery
-  2024 : Plan                     2024      2025    2026
-section Delivery          →    ───●─────────●───────●──────────►
-  2025 : Build : Test             Plan      Build   Ship
-  2026 : Ship                               Test    Celebrate
+section Planning                  Planning │ Delivery
+  2024 : Plan                     2024     │ 2025    2026
+section Delivery          →    ───●────────┼─●───────●──────────►
+  2025 : Build : Test             Plan     │ Build   Ship
+  2026 : Ship                              │ Test    Celebrate
        : Celebrate
 ```
 
@@ -357,6 +357,13 @@ section Delivery          →    ───●─────────●─�
 - **Across or down:** the panel's **timeline: across** puts the periods along a line across, with
   events under each; **down** runs the line down the page, periods on its left and events on its
   right.
+- **Sections:** a line between each section and the next, down the page across it (or across
+  it, when it runs down).
+- **Moving points:** select the timeline, then drag a point (`●`, circled when selected) along the
+  line to put that period where you want it. Points stay in order and clear of the one before;
+  moving one along pushes the ones after it. Each stays where you put it as you edit the events.
+  Double-click a point to put it back, or **space evenly** in the panel for all of them (turning
+  it across or down does too).
 - **Size and style:** it sizes itself to fit; drawn wider, the periods spread out, and narrower,
   long events wrap. The border styles set the line (double, heavy, dashed, …).
 - In Mermaid out (`asciigraph mermaid`) and on the command line (`asciigraph render`), it's

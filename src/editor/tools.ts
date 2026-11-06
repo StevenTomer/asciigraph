@@ -9,6 +9,7 @@ import type { Diagram, Id } from "../model/types";
 import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
 import { cellAt, columnLeft, newTable, parseTable, withColumnWidth } from "../shapes/table";
+import { timelineAxis, withPoint } from "../shapes/timeline";
 import { type Handle, endpointAt, hitTest, nodeAt } from "./hitTest";
 import {
   type ToolId, apply, begin, cancel, commit, editCell, finishEditing, getState, select, set, setOverlay, setTableCell, setTool,
@@ -55,6 +56,8 @@ type Gesture =
   | { kind: "resize"; node: Id; handle: Handle; start: Point; orig: Rect }
   /** Dragging a table's column line: that column's width. */
   | { kind: "column"; node: Id; col: number }
+  /** Dragging a timeline's point along its line. */
+  | { kind: "point"; node: Id; index: number }
   | { kind: "endpoint"; edge: Id; which: "from" | "to" }
   /** Dragging a connector's label along it. */
   | { kind: "label"; edge: Id }
@@ -87,6 +90,9 @@ const selectTool: Tool = {
     } else if (hit.kind === "column") {
       begin();
       gesture = { kind: "column", node: hit.node, col: hit.col };
+    } else if (hit.kind === "point") {
+      begin();
+      gesture = { kind: "point", node: hit.node, index: hit.index };
     } else if (hit.kind === "endpoint") {
       begin();
       gesture = { kind: "endpoint", edge: hit.edge, which: hit.which };
@@ -173,6 +179,11 @@ const selectTool: Tool = {
       const left = columnLeft(n, g.col);
       set(updateNode(d, g.node, withColumnWidth(n, g.col, Math.max(1, p.cell.x - left - 3))));
       setOverlay({ sizeOf: getState().diagram.nodes[g.node].rect });
+    } else if (g.kind === "point") {
+      // Along the line only (the other way is ignored).
+      const n = d.nodes[g.node];
+      const along = timelineAxis(n) === "x" ? { x: p.cell.x, y: n.rect.y } : { x: n.rect.x, y: p.cell.y };
+      set(updateNode(d, g.node, withPoint(n, g.index, along)));
     } else if (g.kind === "label") {
       // The nearest point on the connector to the pointer, as a fraction of its length.
       const cells = rendered(d).edges.get(g.edge)?.cells ?? [];
@@ -230,7 +241,10 @@ const selectTool: Tool = {
 
   dblclick(p) {
     const hit = hitTest(p.sx, p.sy);
-    if (hit.kind === "column") {
+    if (hit.kind === "point") {
+      // Double-click a timeline's point: back where it goes by itself.
+      apply((d) => updateNode(d, hit.node, withPoint(d.nodes[hit.node], hit.index, null)));
+    } else if (hit.kind === "column") {
       // Double-click a column line: that column sizes itself again.
       apply((d) => updateNode(d, hit.node, withColumnWidth(d.nodes[hit.node], hit.col, null)));
     } else if (hit.kind === "via") {
@@ -255,6 +269,7 @@ const selectTool: Tool = {
     const hit = hitTest(p.sx, p.sy);
     if (hit.kind === "handle") return RESIZE_CURSORS[hit.handle];
     if (hit.kind === "column") return "col-resize";
+    if (hit.kind === "point") return timelineAxis(getState().diagram.nodes[hit.node]) === "x" ? "ew-resize" : "ns-resize";
     if (hit.kind === "endpoint") return "crosshair";
     if (hit.kind === "via" || hit.kind === "label") return "move";
     if (hit.kind === "edge" && getState().selection.length === 1 && getState().selection[0] === hit.edge) {

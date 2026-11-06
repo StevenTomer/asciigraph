@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { type Rect, type Side, bottom, right } from "../geometry/geom";
 import { HANDLES, handlePositions } from "../editor/hitTest";
 import { cellRect, columnLines, parseTable } from "../shapes/table";
+import { timelinePoints } from "../shapes/timeline";
 import { lockMates } from "../model/locks";
 import { attachInput } from "../editor/input";
 import { type EditorState, useEditor } from "../editor/store";
@@ -153,6 +154,13 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
     for (const h of HANDLES) {
       ctx.fillRect(hp[h].x - 4, hp[h].y - 4, 8, 8);
       ctx.strokeRect(hp[h].x - 4, hp[h].y - 4, 8, 8);
+    }
+    // A timeline's points: drag one along the line.
+    for (const m of timelinePoints(s.diagram.nodes[selectedNodes[0]])) {
+      const at = cellCenter(m);
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, 6, 0, Math.PI * 2);
+      ctx.stroke();
     }
     // A table's column lines: drag one to set that column's width.
     for (const line of columnLines(s.diagram.nodes[selectedNodes[0]])) {
