@@ -1529,3 +1529,23 @@ test("works offline: once loaded, it loads again without a connection", async ({
   expect(manifest).toMatchObject({ name: "asciigraph", display: "standalone", start_url: "./" });
   await context.setOffline(false);
 });
+
+test("lists in table cells: typed with Enter and spaces, drawn as bullets; off shows them as typed", async ({ page }) => {
+  await page.keyboard.press("e");
+  const bar = page.getByRole("toolbar", { name: "Table size" });
+  await bar.getByRole("button", { name: "fewer columns" }).click();
+  await bar.getByRole("button", { name: "fewer columns" }).click();
+  await bar.getByRole("button", { name: "fewer rows" }).click();
+  await click(page, 4, 4);
+  await page.keyboard.type("Steps");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("- plan\n  - sketch\n- build\n1. one\n1. two");
+  await page.keyboard.press("Escape");
+  const drawn = await text(page);
+  expect(drawn).toContain("│ • plan     │");
+  expect(drawn).toContain("│   ◦ sketch │");
+  expect(drawn).toContain("│ • build    │");
+  expect(drawn).toContain("│ 2. two     │");
+  await page.getByRole("complementary", { name: "Properties" }).getByRole("button", { name: "off (as typed)" }).click();
+  expect(await text(page)).toContain("│   - sketch │");
+});

@@ -41,7 +41,7 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   input/output, start/end, database, document, subroutine), notes, frames, class boxes in
   compartments, tables (made with the table tool and typed into cell by cell, rows and columns
   added, moved and deleted, or written as Markdown tables; with a title, set or automatic column
-  widths, wrapping and cells over several lines), and sequence-diagram lifelines and activation bars.
+  widths, wrapping, cells over several lines, and lists in cells), and sequence-diagram lifelines and activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
   diamond, dot, circle, cross, bar); labels, and end labels by each end (`1`, `0..*`); bend
   points; and a turn point you can drag.

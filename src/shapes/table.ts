@@ -1,5 +1,6 @@
 import { type Point, type Rect, bottom, right } from "../geometry/geom";
 import type { HAlign, LineStyle, Node, TableOptions } from "../model/types";
+import { renderText } from "../render/markdown";
 import { chars, wrap } from "../render/textLayout";
 import { box, drawBorder, drawName } from "./box";
 import type { ShapeDef } from "./registry";
@@ -36,7 +37,9 @@ export interface TableText {
 }
 
 const SEPARATOR = /^\s*:?-+:?\s*$/;
-const BR = /<br\s*\/?>/gi;
+const BR = /\s*<br\s*\/?>\s*/gi;
+/** A `<br>` before an indented list item: the indentation stays. */
+const BR_KEEP = /\s*<br\s*\/?>( +(?:[-*+]|\d+[.)])\s)/gi;
 
 /** Whether a row's line ends it (with a | that isn't escaped). */
 const closes = (line: string) => {
@@ -44,15 +47,66 @@ const closes = (line: string) => {
   return t.endsWith("|") && !t.endsWith("\\|");
 };
 
-/** The cells of a row (one line, or several when a cell spans lines): between |, the outer ones
- * optional. Each line of a cell is trimmed; `<br>` starts a new one. */
+/**
+ * The cells of a row (one line, or several when a cell spans lines): between |, the outer ones
+ * optional. A cell's first line is trimmed; the lines after it keep their indentation past where
+ * the cell's text starts (so a nested list item stays nested), less anything before it. `<br>`
+ * starts a new line (keeping the indentation after it only for a list item).
+ */
 function cellsOf(row: string): string[] {
-  let t = row.trim();
-  if (t.startsWith("|")) t = t.slice(1);
-  if (closes(t)) t = t.trimEnd().slice(0, -1);
-  return t.split(/(?<!\\)\|/).map((c) =>
-    c.replace(BR, "\n").replace(/\\\|/g, "|").split("\n").map((l) => l.trim()).join("\n").trim()
-  );
+  const cells: { text: string; start: number }[] = [];
+  let text = "";
+  let col = 0;
+  let start = -1;
+  let opened = false;
+  const end = () => {
+    cells.push({ text, start: start < 0 ? col : start });
+    text = "";
+    start = -1;
+  };
+  const t = row.replace(/^\s*\|/, (m) => " ".repeat(m.length));
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (ch === "\\" && t[i + 1] === "|") {
+      if (start < 0) start = col;
+      text += "|";
+      i++;
+      col += 2;
+      continue;
+    }
+    if (ch === "|") {
+      end();
+      opened = true;
+      col++;
+      continue;
+    }
+    if (ch === "\n") {
+      text += "\n";
+      col = 0;
+      continue;
+    }
+    if (start < 0 && ch !== " " && ch !== "\t" && !text.includes("\n")) start = col;
+    text += ch;
+    col++;
+  }
+  // The text after the last |: a cell, unless the row ends with that | (then it's just space).
+  if (text.trim() || !opened || !closes(row)) end();
+  return cells.map(({ text: raw, start: at }) => {
+    const lines = raw.replace(/\r/g, "").split("\n");
+    const out = lines.map((l, i) => {
+      if (i === 0) return l.trim();
+      const lead = l.length - l.trimStart().length;
+      return " ".repeat(Math.max(0, lead - at)) + l.trim();
+    });
+    return out
+      .join("\n")
+      .replace(BR_KEEP, "\n$1")
+      .replace(BR, "\n")
+      .split("\n")
+      .map((l, i) => (i === 0 ? l : l.trimEnd()))
+      .join("\n")
+      .replace(/^\n+|\s+$/g, "");
+  });
 }
 
 /** `**Title**`, `# Title` (as a Markdown export or a README writes it): just the words. */
@@ -69,9 +123,14 @@ export function parseTable(text: string): TableText {
   const rows: string[][] = [];
   const dividers = new Set<number>();
   let aligns: HAlign[] = [];
+  let headed = false;
   const row = (raw: string) => {
     const cells = cellsOf(raw);
-    if (!raw.includes("\n") && cells.length && cells.every((c) => SEPARATOR.test(c))) {
+    // A divider: dashes, under the header (as Markdown has it), or (further down) at least three in
+    // each cell, so a cell that's just "-" (a list being typed) isn't one.
+    const dashes = cells.length && cells.every((c) => SEPARATOR.test(c)) && ((rows.length === 1 && !headed) || cells.every((c) => c.replace(/[:\s]/g, "").length >= 3));
+    if (!raw.includes("\n") && dashes) {
+      headed = true;
       if (rows.length) dividers.add(rows.length);
       if (!aligns.length) aligns = cells.map((c) => (c.startsWith(":") && c.endsWith(":") ? "center" : c.endsWith(":") ? "right" : "left"));
       return;
@@ -117,6 +176,7 @@ const optionsOf = (n: Pick<Node, "table">): Required<Omit<TableOptions, "widths"
   titleAlign: n.table?.titleAlign ?? "center",
   widths: n.table?.widths ?? [],
   wrap: n.table?.wrap !== false,
+  lists: n.table?.lists !== false,
 });
 
 /** Auto-sized columns narrow down to this (or their text, if less) before the table stops shrinking. */
@@ -124,8 +184,21 @@ const MIN_AUTO = 4;
 
 const lineCount = (text: string) => Math.max(1, ...text.split("\n").map((l) => chars(l).length));
 
-/** A cell's lines in `room` columns: wrapped, or (wrapping off) as written. */
-const cellLines = (text: string, room: number, wraps: boolean) => (wraps ? wrap(text, room) : text.split("\n"));
+/** How a cell's text is shown: wrapped (or cut off) and with Markdown lists (or as typed). */
+type CellStyle = { wrap: boolean; lists: boolean };
+
+/** A cell's lines in `room` columns: wrapped, or (wrapping off) as written; lists as lists. */
+const cellLines = (text: string, room: number, o: CellStyle) => cellText_(text, room, o).lines;
+
+/** A cell as shown, and whether it's a list (laid out from the left, whatever the column's
+ * alignment). */
+function cellText_(text: string, room: number, o: CellStyle): { lines: string[]; list: boolean } {
+  if (!o.lists) return { lines: o.wrap ? wrap(text, room) : text.split("\n"), list: false };
+  return renderText(text, o.wrap ? room : 100000, false);
+}
+
+/** A cell's width at its widest line, as shown. */
+const cellWidth = (text: string, o: CellStyle) => (o.lists ? Math.max(1, ...cellLines(text, 100000, { ...o, wrap: false }).map((l) => chars(l).length)) : lineCount(text));
 
 export interface TableLayout {
   /** Each column's text width (its cells have a space each side too). */
@@ -151,7 +224,7 @@ export interface TableLayout {
 export function tableLayout(t: TableText, n: Pick<Node, "table" | "border">, r: Rect): TableLayout {
   const o = optionsOf(n);
   const fixed = Array.from({ length: t.cols }, (_, c) => o.widths[c] ?? null);
-  const natural = fixed.map((f, c) => f ?? Math.max(1, ...t.rows.map((row) => lineCount(row[c] ?? ""))));
+  const natural = fixed.map((f, c) => f ?? Math.max(1, ...t.rows.map((row) => cellWidth(row[c] ?? "", o))));
   const least = natural.map((w, c) => (fixed[c] !== null || !o.wrap ? w : Math.min(w, MIN_AUTO)));
   const outside = 3 * t.cols + 1; // a space each side of each column, and the lines between them
   const sum = (ws: number[]) => ws.reduce((s, w) => s + w, 0);
@@ -184,8 +257,8 @@ export function tableLayout(t: TableText, n: Pick<Node, "table" | "border">, r: 
     x += w + 3;
   }
   const width = Math.max(r.w, outside + sum(rooms));
-  const titleLines = title && !inBorder ? cellLines(title, Math.max(1, width - 4), o.wrap) : [];
-  const heights = t.rows.map((row) => Math.max(1, ...rooms.map((w, c) => cellLines(row[c] ?? "", w, o.wrap).length)));
+  const titleLines = title && !inBorder ? cellLines(title, Math.max(1, width - 4), { wrap: o.wrap, lists: false }) : [];
+  const heights = t.rows.map((row) => Math.max(1, ...rooms.map((w, c) => cellLines(row[c] ?? "", w, o).length)));
   const dividers = heights.some((h) => h > 1)
     ? new Set(t.rows.map((_, i) => i).filter((i) => i > 0))
     : new Set([...t.dividers].filter((i) => i > 0 && i < t.rows.length));
@@ -280,9 +353,9 @@ export const table: ShapeDef = {
     l.titleLines.forEach((line, j) => put(line, r.x + 2, r.y + 1 + j, Math.max(1, r.w - 4), o.titleAlign));
     t.rows.forEach((row, i) => {
       for (let c = 0; c < t.cols; c++) {
-        cellLines(row[c] ?? "", rooms[c], o.wrap)
-          .slice(0, heights[i])
-          .forEach((line, j) => put(line, edges[c] + 2, rowY[i] + j, rooms[c], t.aligns[c] ?? "left"));
+        const shown = cellText_(row[c] ?? "", rooms[c], o);
+        const align = shown.list ? "left" : t.aligns[c] ?? "left";
+        shown.lines.slice(0, heights[i]).forEach((line, j) => put(line, edges[c] + 2, rowY[i] + j, rooms[c], align));
       }
     });
     if (style && t.title && o.title === "border") drawName(grid, r, t.title, o.titleAlign);
@@ -477,7 +550,8 @@ export function withCellText(text: string, at: TableCell, value: string): string
   if (at.row < 0) return withTitle(text, value);
   if (!t.rows[at.row]) return text;
   const rows = t.rows.map((r) => [...r]);
-  rows[at.row][at.col] = value.split("\n").map((l) => l.trim()).join("\n").trim();
+  // (Lines after the first keep their indentation: nested list items.)
+  rows[at.row][at.col] = value.split("\n").map((l, i) => (i === 0 ? l.trim() : l.trimEnd())).join("\n").replace(/^\n+|\s+$/g, "");
   return write({ ...t, rows });
 }
 

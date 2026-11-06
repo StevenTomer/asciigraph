@@ -165,6 +165,26 @@ their widest cell, and the table grows as you type:
   When any row has more than one line, every row gets a line under it, so you can see where each
   row ends. `<br>` in a cell (as Markdown writes a line break) works too, and a pasted table's
   `<br>`s are turned into line breaks.
+- **Lists in cells:** as in boxes, lines starting `- `, `* ` or `+ ` are bullets and `1.` or
+  `1)` number themselves; two more spaces nest an item under the one above, and a wrapped item
+  hangs under its text. Type them line by line (<kbd>Enter</kbd> between items):
+
+  ```
+  | Step | Notes |           ┌──────┬────────────┐
+  |------|-------|           │ Step │ Notes      │
+  | 1    | - check           ├──────┼────────────┤
+             - nested   →    │ 1    │ • check    │
+           - ship |          │      │   ◦ nested │
+  | 2    | 1. one            │      │ • ship     │
+           1. two |          ├──────┼────────────┤
+                             │ 2    │ 1. one     │
+                             │      │ 2. two     │
+                             └──────┴────────────┘
+  ```
+
+  A list is laid out from the left, whatever its column's alignment. **lists**: **off (as
+  typed)** in the panel shows cells exactly as written. A drawn table read back in (pasted, or
+  **open file…**) gets its lists back as Markdown.
 - **Column widths:** with the table selected, drag a line between two columns (it has a small
   handle) to set the width of the column to its left; the table's right edge moves with it.
   Or type a width under **columns** in the properties panel (each shows its current width).

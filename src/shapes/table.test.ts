@@ -250,4 +250,48 @@ describe("tables", () => {
       expect(deleteRow(node(tableNode("| a |\n|---|", { x: 0, y: 0 })), 0)).toEqual({});
     });
   });
+
+  describe("lists in cells", () => {
+    const LIST = "| Step | Notes |\n|------|-------|\n| 1 | - check\n        - nested\n      - ship |\n| 2 | 1. one\n      1. two |";
+
+    it("read back with their nesting, and drawn as lists (numbers counting on)", () => {
+      expect(parseTable(LIST).rows[1][1]).toBe("- check\n  - nested\n- ship");
+      expect(draw(LIST)).toBe([
+        "┌──────┬────────────┐",
+        "│ Step │ Notes      │",
+        "├──────┼────────────┤",
+        "│ 1    │ • check    │",
+        "│      │   ◦ nested │",
+        "│      │ • ship     │",
+        "├──────┼────────────┤",
+        "│ 2    │ 1. one     │",
+        "│      │ 2. two     │",
+        "└──────┴────────────┘",
+      ].join("\n"));
+      // Wrapped items hang under their text.
+      expect(draw("| a |\n|---|\n| - a long item that wraps\n    - and a nested one\n  1. numbered |", { w: 18 })).toBe([
+        "┌────────────────┐",
+        "│ a              │",
+        "├────────────────┤",
+        "│ • a long item  │",
+        "│   that wraps   │",
+        "│   ◦ and a      │",
+        "│     nested one │",
+        "│ 1. numbered    │",
+        "└────────────────┘",
+      ].join("\n"));
+    });
+
+    it("typed into a cell, kept nested in the table's text; <br> in, <br> out; off: as typed", () => {
+      let n = { ...makeNode({ x: 0, y: 0, w: 1, h: 1 }), ...newTable(1, 2, { x: 0, y: 0 }) } as Node;
+      n = { ...n, ...withCell(n, { row: 1, col: 0 }, "- a\n  - b\n- c") };
+      expect(parseTable(n.text).rows[1][0]).toBe("- a\n  - b\n- c");
+      expect(markdownTable(n.text)).toContain("| - a<br>  - b<br>- c |");
+      expect(parseTable("| x |\n|---|\n| - a<br>  - b<br> c |").rows[1][0]).toBe("- a\n  - b\nc");
+      expect(draw("| x |\n|---|\n| - a\n    - b |", undefined, { lists: false })).toContain("│   - b │");
+      // A cell that's just "-" (a list being typed) isn't a divider; three dashes further down are.
+      expect(parseTable("| x |\n|---|\n| - |\n| -- |").rows).toEqual([["x"], ["-"], ["--"]]);
+      expect([...parseTable("| x |\n|-|\n| a |\n|---|\n| b |").dividers]).toEqual([1, 2]);
+    });
+  });
 });

@@ -105,6 +105,8 @@ export interface TableOptions {
   widths?: (number | null)[];
   /** false: text too wide for its column is cut off with … rather than wrapped. */
   wrap?: boolean;
+  /** false: Markdown lists in cells (`- item`, `1. item`) are shown as typed, not as lists. */
+  lists?: boolean;
 }
 
 /** Connector ends: filled / hollow triangle, filled / hollow diamond, dot, circle, cross, bar. */

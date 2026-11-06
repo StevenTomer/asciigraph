@@ -807,13 +807,14 @@ export function importAscii(input: string, probe = false): ImportResult {
         groups[groups.length - 1].push(bounds.slice(1).map((x1, c) => {
           const raw = text(bounds[c] + 1, x1, y);
           if (raw.trim()) pads[c].push({ l: raw.length - raw.trimStart().length, r: raw.length - raw.trimEnd().length });
-          return raw.trim();
+          // (As drawn, less trailing space: a list's indentation matters.)
+          return raw.trimEnd();
         }));
       }
       // Every row lined off, and lines that start with an empty cell carrying on the one above:
       // rows spanning lines (as a table whose rows span lines is drawn).
       const joined = groups.map((g) => g.reduce<string[][]>((acc, line) => {
-        if (acc.length && !line[0]) acc[acc.length - 1] = acc[acc.length - 1].map((c, i) => (line[i] ? (c ? c + "\n" : "") + line[i] : c));
+        if (acc.length && !line[0].trim()) acc[acc.length - 1] = acc[acc.length - 1].map((c, i) => (line[i].trim() ? (c.trim() ? c + "\n" : "") + line[i] : c));
         else acc.push(line);
         return acc;
       }, []));
@@ -822,7 +823,7 @@ export function importAscii(input: string, probe = false): ImportResult {
       (spans ? joined : groups).forEach((g, i) => {
         // (Rows spanning lines are all lined off anyway: just the header's line is written.)
         if (i > 0 && (!spans || i === 1)) dividerAt.add(cellRows.length);
-        cellRows.push(...g);
+        cellRows.push(...g.map((row) => row.map(cellFromLines)));
       });
       // Each column's alignment, from where its text sits.
       const aligns: HAlign[] = pads.map((ps) =>
@@ -1081,4 +1082,26 @@ function readText(rows: string[][], left: number, right: number, y0: number, y1:
   const topGap = firstY - y0, bottomGap = y1 - lastY;
   const v: VAlign = Math.abs(topGap - bottomGap) <= 1 ? "middle" : topGap < bottomGap ? "top" : "bottom";
   return { text, h, v };
+}
+
+/**
+ * A table cell's text from its lines as drawn. A list (• ◦ ▪ bullets, or numbers) goes back to
+ * Markdown: `- item`, nested by its indentation, with wrapped lines joined onto their item.
+ * Anything else: each line trimmed.
+ */
+function cellFromLines(cell: string): string {
+  const lines = cell.split("\n").filter((l) => l.trim());
+  const MARKER = /^([•◦▪]|\d+[.)]) /;
+  if (!lines.some((l) => MARKER.test(l.trim()))) return lines.map((l) => l.trim()).join("\n");
+  const lead = (l: string) => l.length - l.trimStart().length;
+  const base = Math.min(...lines.map(lead));
+  const out: string[] = [];
+  for (const l of lines) {
+    const at = " ".repeat(lead(l) - base);
+    const t = l.trim();
+    if (MARKER.test(t)) out.push(at + t.replace(/^[•◦▪] /, "- "));
+    else if (out.length && lead(l) > base) out[out.length - 1] += " " + t; // wrapped: part of the item above
+    else out.push(t);
+  }
+  return out.join("\n");
 }

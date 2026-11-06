@@ -412,6 +412,10 @@ function TableRows({ node: n }: { node: Node }) {
         <Choice active={n.table?.wrap !== false} onClick={() => patch((m) => withOptions(m, { wrap: undefined }))} title="Text that doesn't fit its column carries on on the next line">wrap</Choice>
         <Choice active={n.table?.wrap === false} onClick={() => patch((m) => withOptions(m, { wrap: false }))} title="Text that doesn't fit its column is cut off with …">cut off …</Choice>
       </Row>
+      <Row label="lists">
+        <Choice active={n.table?.lists !== false} onClick={() => patch((m) => withOptions(m, { lists: undefined }))} title="Lines in a cell starting - * + or 1. are shown as lists (indent two spaces to nest)">on</Choice>
+        <Choice active={n.table?.lists === false} onClick={() => patch((m) => withOptions(m, { lists: false }))} title="Show cells exactly as typed">off (as typed)</Choice>
+      </Row>
       <Row label="Markdown">
         <Choice active={false} onClick={() => void copy()} title="As a Markdown table for a document: the title in bold, line breaks as <br>">copy table</Choice>
         <span className="muted" ref={copied} aria-live="polite" />

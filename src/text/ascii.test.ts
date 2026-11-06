@@ -165,6 +165,19 @@ describe("reading a drawing back into objects", () => {
     expect(nodes(importAscii(one).diagram)[0].text).toBe("| a   | b   |\n| --- | --- |\n| 1   | 2\n        3   |");
   });
 
+  it("reads lists in table cells back as Markdown lists, nesting and wrapped items too", () => {
+    const LISTS = "| Step | Notes |\n|---|---|\n| 1 | - check that it really works\n        - nested\n      - ship |\n| 2 | 1. one\n      1. two |";
+    for (const w of [undefined, 22]) {
+      const { rect, ...fields } = tableNode(LISTS, { x: 0, y: 0 });
+      const drawing = diagramToText(addNode(emptyDiagram(), makeNode(w ? { ...rect, w } : rect, { ...fields, ...(w && { autosize: false }) })));
+      const [t] = nodes(importAscii(drawing).diagram);
+      expect(t.text).toContain("| 1    | - check that it really works\n");
+      expect(t.text).toContain("\n           - nested");
+      expect(t.text).toContain("| 2    | 1. one\n         2. two");
+      if (!w) expect(diagramToText(importAscii(drawing).diagram)).toBe(drawing);
+    }
+  });
+
   it("reads class compartments, alignment and labels in line gaps", () => {
     const d = importAscii([
       "┌──────────────┐",
