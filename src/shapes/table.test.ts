@@ -25,10 +25,19 @@ describe("tables", () => {
     expect([...t.dividers]).toEqual([1, 3]);
     expect(t.aligns).toEqual(["left", "center", "right"]);
     expect(parseTable("a | b\nc | d").rows).toEqual([["a", "b"], ["c", "d"]]);
-    // \| is a | in a cell; \\| is a backslash, then the cell's end (so the row ends there).
-    expect(parseTable("| a | b |\n|---|---|\n| x \\| y | z |\n| p | q \\\\|\n| r | s |").rows).toEqual([
-      ["a", "b"], ["x | y", "z"], ["p", "q \\\\"], ["r", "s"],
+    // Backslashes right before a | count in pairs: \| is a | in a cell; \\| a backslash, then the
+    // cell's end; \\\| a backslash and a |. Elsewhere a backslash is just a backslash.
+    expect(parseTable("| a | b |\n|---|---|\n| x \\| y | z |\n| p | q \\\\|\n| r \\\\\\| s | C:\\dir |").rows).toEqual([
+      ["a", "b"], ["x | y", "z"], ["p", "q \\"], ["r \\| s", "C:\\dir"],
     ]);
+  });
+
+  it("writes cells with backslashes and | so they read back the same", () => {
+    const awkward = ["a\\|b", "a|b", "a\\\\|b", "ends \\", "\\", "|", "\\|", "C:\\dir", "x \\\\", "two\nlines \\|"];
+    const rows = [["h1", "h2"], ...awkward.map((c, i) => [c, String(i)])];
+    expect(parseTable(tableText({ rows })).rows).toEqual(rows);
+    const md = markdownTable(tableText({ rows }));
+    expect(parseTable(md).rows).toEqual(rows);
   });
 
   it("draw as a grid, as wide as their cells", () => {

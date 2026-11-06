@@ -138,7 +138,8 @@ for its width. You're typing in its first cell straight away:
 
 A new table's columns are a set width (text that doesn't fit wraps); **auto-size** makes them
 fit their text instead. Underneath, a table's text is a Markdown table (**edit as Markdown** in
-the panel or the right-click menu): cells between `|`, and a row of dashes for a divider
+the panel or the right-click menu): cells between `|` (`\|` for a `|` in a cell, and `\\|` for a
+backslash at the end of one), and a row of dashes for a divider
 (`:--:` centers that column, `--:` right-aligns it). Typed that way, columns are as wide as
 their widest cell, and the table grows as you type:
 

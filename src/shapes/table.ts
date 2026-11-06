@@ -41,8 +41,10 @@ const BR = /\s*<br\s*\/?>\s*/gi;
 /** A `<br>` before an indented list item: the indentation stays. */
 const BR_KEEP = /\s*<br\s*\/?>( +(?:[-*+]|\d+[.)])\s)/gi;
 
-/** Whether the | at `i` is escaped: an odd number of backslashes right before it (`\\|` is a
- * backslash, then a cell's end). */
+/** Whether the | at `i` is escaped: an odd number of backslashes right before it. A run of
+ * backslashes before a | counts in pairs, each \\ one backslash (as in GitHub's Markdown):
+ * `\|` is a | in a cell, `\\|` a backslash then the cell's end, `\\\|` a backslash and a |.
+ * Backslashes anywhere else are just backslashes. */
 const escapedAt = (s: string, i: number) => {
   let n = 0;
   while (i - n - 1 >= 0 && s[i - n - 1] === "\\") n++;
@@ -75,12 +77,17 @@ function cellsOf(row: string): string[] {
   const t = row.replace(/^\s*\|/, (m) => " ".repeat(m.length));
   for (let i = 0; i < t.length; i++) {
     const ch = t[i];
-    if (ch === "\\" && t[i + 1] === "|" && escapedAt(t, i + 1)) {
-      if (start < 0) start = col;
-      text += "|";
-      i++;
-      col += 2;
-      continue;
+    if (ch === "\\") {
+      let m = 1;
+      while (t[i + m] === "\\") m++;
+      if (t[i + m] === "|") {
+        // Before a |: in pairs, each one backslash; one left over makes the | part of the text.
+        if (start < 0) start = col;
+        text += "\\".repeat(Math.floor(m / 2)) + (m % 2 ? "|" : "");
+        i += m % 2 ? m : m - 1;
+        col += m % 2 ? m + 1 : m;
+        continue;
+      }
     }
     if (ch === "|") {
       end();
@@ -431,7 +438,9 @@ export function tableNode(text: string, at: { x: number; y: number }) {
   return { ...fields, rect: { x: at.x, y: at.y, ...natural } };
 }
 
-const escape = (s: string) => s.replace(/\|/g, "\\|");
+/** A cell's text as written between |s: each | escaped, and the backslashes right before it
+ * doubled (see escapedAt), so it reads back the same. */
+const escape = (s: string) => s.replace(/(\\*)\|/g, (_, bs: string) => bs + bs + "\\|");
 
 /**
  * A table's text from its rows: aligned in columns, a divider under the first row (or where
