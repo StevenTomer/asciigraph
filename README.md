@@ -21,6 +21,15 @@ a code comment, a commit message or a chat.
 Here is what a sample textual export looks like, for a diagram drawn from four lines of Mermaid
 (`A[Browser] -->|HTTPS| B[API]` …):
 
+<!-- sample-export -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/sample-export-dark.png">
+  <img src="docs/images/sample-export.png" width="440" alt="The export: Browser connects over HTTPS to API, which sends events, as a dotted connector, to a Worker and connects to a Database">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
 ```
                                       ┌─┬────────┬─┐
                                    ┌┈►│ │ Worker │ │
@@ -32,6 +41,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
                                  └────►│ Database │
                                        ╰──────────╯
 ```
+
+</details>
 
 ## Features
 
