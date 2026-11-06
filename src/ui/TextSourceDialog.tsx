@@ -198,7 +198,10 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
         role="dialog"
         aria-label={sourceId ? "Edit source text" : described ? "Edit as text" : "Draw from text"}
         onKeyDown={(e) => {
-          if (e.key === "Escape") closeTextDialog();
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            closeTextDialog();
+          }
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) draw();
         }}
       >

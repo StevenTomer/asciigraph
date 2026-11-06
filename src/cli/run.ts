@@ -216,6 +216,11 @@ export function renderMarkdown(doc: string, o: Pick<Options, "ascii" | "maxWidth
     const body: string[] = [];
     let j = i + 1;
     while (j < lines.length && !lines[j].trim().startsWith(marks)) body.push(lines[j++]);
+    if (j === lines.length) {
+      // Never closed: left as it is (what follows is the document, not Mermaid).
+      warnings.push(`block at line ${start}: the \`\`\`mermaid block isn't closed, so it's skipped`);
+      continue;
+    }
     out.push(...lines.slice(i + 1, j + 1));
     i = j;
     // An earlier drawing right after it (blank lines allowed) is replaced.

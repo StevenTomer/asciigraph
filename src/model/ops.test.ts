@@ -67,5 +67,13 @@ describe("ops", () => {
     expect(isDiagram(back)).toBe(true);
     expect(back).toEqual(d);
     expect(isDiagram({ version: 2 })).toBe(false);
+    // Malformed: rejected here rather than crashing whatever reads them later.
+    for (const bad of [
+      { ...back, nodes: null }, { ...back, edges: null }, { ...back, nodes: [] }, { ...back, edges: [] },
+      { ...back, nodes: { a: null } }, { ...back, edges: { e: 1 } }, { ...back, order: ["missing"] },
+      { ...back, nodes: { ...back.nodes, a: { ...back.nodes.a, rect: null } } }, { ...back, sources: null }, null, [],
+    ]) {
+      expect(isDiagram(bad), JSON.stringify(bad)).toBe(false);
+    }
   });
 });

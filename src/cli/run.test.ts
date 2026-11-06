@@ -162,6 +162,14 @@ describe("asciigraph markdown", () => {
     expect(run(["markdown", "--write"], { "-": doc }).code).toBe(2);
   });
 
+  it("skips a mermaid block that's never closed, rather than reading the rest of the document as Mermaid", () => {
+    const broken = "# Doc\n\n```mermaid\ngraph LR\n  A --> B\n\nSome prose after it.\nMore prose.";
+    const r = run(["markdown", "doc.md", "--write"], { "doc.md": broken });
+    expect(r.stderr).toContain("block at line 3: the ```mermaid block isn't closed, so it's skipped");
+    expect(r.written["doc.md"] ?? broken).toBe(broken);
+    expect(run(["markdown", "doc.md"], { "doc.md": broken }).stdout).toBe(broken);
+  });
+
   it("leaves other code blocks alone", () => {
     const other = "```js\nconst a = 1;\n```";
     expect(run(["markdown", "doc.md"], { "doc.md": other }).stdout).toBe(other);

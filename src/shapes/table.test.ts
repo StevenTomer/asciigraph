@@ -25,6 +25,10 @@ describe("tables", () => {
     expect([...t.dividers]).toEqual([1, 3]);
     expect(t.aligns).toEqual(["left", "center", "right"]);
     expect(parseTable("a | b\nc | d").rows).toEqual([["a", "b"], ["c", "d"]]);
+    // \| is a | in a cell; \\| is a backslash, then the cell's end (so the row ends there).
+    expect(parseTable("| a | b |\n|---|---|\n| x \\| y | z |\n| p | q \\\\|\n| r | s |").rows).toEqual([
+      ["a", "b"], ["x | y", "z"], ["p", "q \\\\"], ["r", "s"],
+    ]);
   });
 
   it("draw as a grid, as wide as their cells", () => {

@@ -45,9 +45,16 @@ export const box: ShapeDef = {
       const lines = textLines(text, 100000, node.lists === false);
       return { w: Math.max(1, ...lines.map((l) => chars(l).length)), h: lines.length };
     }
-    const content = this.contentRect(node);
+    let content = this.contentRect(node);
+    let w = node.rect.w;
+    if (content.w < 1 && text.trim()) {
+      // Too narrow for any text (a 2-wide bordered box): wide enough for its longest line.
+      const longest = Math.max(1, ...textLines(text, 100000, node.lists === false).map((l) => chars(l).length));
+      w = longest + 4;
+      content = this.contentRect({ ...node, rect: { ...node.rect, w } });
+    }
     const lines = textLines(text, content.w, node.lists === false).length;
-    return { w: node.rect.w, h: Math.max(node.rect.h, lines + (node.rect.h - content.h)) };
+    return { w, h: Math.max(node.rect.h, lines + (node.rect.h - content.h)) };
   },
 
   rasterize(node, grid) {

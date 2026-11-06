@@ -232,5 +232,14 @@ export function bringToFront(d: Diagram, ids: Iterable<Id>): Diagram {
 /** Check a parsed object looks like a diagram (for imports and storage). */
 export function isDiagram(x: unknown): x is Diagram {
   const d = x as Diagram;
-  return !!d && d.version === 1 && typeof d.nodes === "object" && typeof d.edges === "object" && Array.isArray(d.order);
+  const record = (r: unknown): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r);
+  const objects = (r: Record<string, unknown>) => Object.values(r).every(record);
+  return (
+    record(d) && d.version === 1 &&
+    record(d.nodes) && objects(d.nodes) && Object.values(d.nodes).every((n) => record(n.rect) && typeof n.text === "string") &&
+    record(d.edges) && objects(d.edges) && Object.values(d.edges).every((e) => record(e.from) && record(e.to)) &&
+    Array.isArray(d.order) && d.order.every((id) => typeof id === "string" && record(d.nodes[id])) &&
+    (d.sources === undefined || (record(d.sources) && objects(d.sources))) &&
+    (d.locks === undefined || (record(d.locks) && objects(d.locks)))
+  );
 }

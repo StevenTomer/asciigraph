@@ -897,6 +897,27 @@ test("save a selection as a stamp, insert it again, and delete it", async ({ pag
   await expect(stamps.getByText(/None of your own yet/)).toBeVisible();
 });
 
+test("Escape closes a dialog and leaves the selection and tool as they were", async ({ page }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  await click(page, 7, 3);
+  const id = (await state(page)).selection[0];
+  expect(id).toBeTruthy();
+  for (const open of [
+    () => page.getByRole("button", { name: "help" }).click(),
+    () => page.getByRole("button", { name: "export" }).click(),
+    () => page.getByRole("button", { name: "from text" }).click(),
+  ]) {
+    await open();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    expect((await state(page)).selection).toEqual([id]);
+  }
+  // With no dialog open, Escape still clears the selection.
+  await page.keyboard.press("Escape");
+  expect((await state(page)).selection).toEqual([]);
+});
+
 test("ready-made stamps: pick a set, insert one", async ({ page }) => {
   await page.getByRole("button", { name: "stamps" }).click();
   const stamps = page.getByRole("dialog", { name: "stamps" });

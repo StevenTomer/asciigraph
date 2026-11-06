@@ -41,10 +41,18 @@ const BR = /\s*<br\s*\/?>\s*/gi;
 /** A `<br>` before an indented list item: the indentation stays. */
 const BR_KEEP = /\s*<br\s*\/?>( +(?:[-*+]|\d+[.)])\s)/gi;
 
+/** Whether the | at `i` is escaped: an odd number of backslashes right before it (`\\|` is a
+ * backslash, then a cell's end). */
+const escapedAt = (s: string, i: number) => {
+  let n = 0;
+  while (i - n - 1 >= 0 && s[i - n - 1] === "\\") n++;
+  return n % 2 === 1;
+};
+
 /** Whether a row's line ends it (with a | that isn't escaped). */
 const closes = (line: string) => {
   const t = line.trimEnd();
-  return t.endsWith("|") && !t.endsWith("\\|");
+  return t.endsWith("|") && !escapedAt(t, t.length - 1);
 };
 
 /**
@@ -67,7 +75,7 @@ function cellsOf(row: string): string[] {
   const t = row.replace(/^\s*\|/, (m) => " ".repeat(m.length));
   for (let i = 0; i < t.length; i++) {
     const ch = t[i];
-    if (ch === "\\" && t[i + 1] === "|") {
+    if (ch === "\\" && t[i + 1] === "|" && escapedAt(t, i + 1)) {
       if (start < 0) start = col;
       text += "|";
       i++;

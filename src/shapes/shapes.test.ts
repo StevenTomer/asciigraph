@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode, moveObjects, updateNode } from "../model/ops";
 import { diagramToText } from "../render/rasterize";
+import { box } from "./box";
 
 const att = (node: string, extra = {}) => ({ kind: "attached" as const, node, side: "auto" as const, ...extra });
 const show = (d: Parameters<typeof diagramToText>[0]) => "\n" + diagramToText(d) + "\n";
@@ -193,5 +194,15 @@ describe("class boxes", () => {
 │ x   │       └───┘
 └─────┘
 `);
+  });
+});
+
+describe("the smallest box", () => {
+  it("grows wide enough for text typed into it, rather than hiding it", () => {
+    const n = makeNode({ x: 0, y: 0, w: 2, h: 2 }, { text: "" });
+    const size = box.fitSize(n, "x");
+    expect(size).toEqual({ w: 5, h: 3 });
+    const d = addNode(emptyDiagram(), { ...n, text: "x", rect: { ...n.rect, ...size } });
+    expect(diagramToText(d)).toBe("┌───┐\n│ x │\n└───┘");
   });
 });
