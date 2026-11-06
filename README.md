@@ -239,6 +239,13 @@ State, class and entity–relationship diagrams too:
 
 ![A class diagram drawn from Mermaid, with class boxes in compartments](docs/images/class.png)
 
+### Tables
+
+A Markdown table becomes a table, with a title, column widths you can drag or type, and cells
+that wrap or run over several lines. **copy table** writes it back as Markdown.
+
+![A selected table with a title and a cell over two lines, and the properties panel's table options](docs/images/table.png)
+
 ### Existing ASCII art
 
 Paste a diagram someone drew as text, in box characters or `+--+` ASCII, and it becomes boxes

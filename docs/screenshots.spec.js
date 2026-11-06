@@ -186,6 +186,21 @@ test("class diagram", async ({ page }) => {
   await shot(page, "class.png", { x: 0, y: 0, width: 1280, height: 640 });
 });
 
+test("table, selected", async ({ page }) => {
+  await open(page);
+  await drawFromText(page, `Services
+| Service | Port | Notes |
+|---------|-----:|-------|
+| api     | 8080 | public, behind the
+                   load balancer |
+| db      | 5432 | primary and one replica |
+| cache   | 6379 | |`);
+  // Still selected: the panel shows the title, column widths and wrapping, and each column
+  // line has its handle.
+  await page.waitForTimeout(200);
+  await shot(page, "table.png");
+});
+
 test("pasted ASCII art becomes objects", async ({ page }) => {
   await open(page);
   await page.evaluate(() => {

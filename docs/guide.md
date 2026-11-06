@@ -121,6 +121,8 @@ and the table grows as you type:
                             └─────────┴──────┘
 ```
 
+![A selected table with a title and a cell over two lines; the properties panel shows the title, column widths, wrapping and copy table](images/table.png)
+
 - **A title:** a line before the table. It goes in a row of its own across the top, or (in the
   properties panel, **title**: **in the border**) set into the top border, `┌─ Services ──┐`;
   left, centered (the default) or right. The panel's **title** field changes it too.
