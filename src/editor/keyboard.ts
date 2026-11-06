@@ -4,12 +4,13 @@ import { deleteSelection, duplicateCommand } from "./clipboard";
 import { arrange, selectAll } from "./commands";
 import { keys } from "./input";
 import {
-  type ToolId, apply, getState, openFind, redo, select, setOverlay, setTool, startEditing, undo,
+  type ToolId, apply, editCell, getState, openFind, redo, select, setOverlay, setTool, startEditing, undo,
 } from "./store";
 import { TOOLS } from "./tools";
+import { parseTable } from "../shapes/table";
 import { zoomReset, zoomStep, zoomToFit, zoomToSelection } from "./view";
 
-const SHORTCUTS = new Map<string, ToolId>(TOOLS.map((t) => [t.label[0], t.id]));
+const SHORTCUTS = new Map<string, ToolId>(TOOLS.map((t) => [t.key ?? t.label[0], t.id]));
 
 /** Keys typed into a field (text editor, inspector, dialogs) aren't shortcuts. */
 function inField(e: KeyboardEvent) {
@@ -91,7 +92,12 @@ export function attachKeyboard(): () => void {
         return;
       case "Enter":
       case "F2": // as in file managers and spreadsheets
-        if (selection.length === 1 && (diagram.nodes[selection[0]] || diagram.edges[selection[0]])) {
+        if (selection.length === 1 && diagram.nodes[selection[0]]?.kind === "table" && parseTable(diagram.nodes[selection[0]].text).rows.length) {
+          // A table: the cell last clicked, or the first one.
+          const { tableCell } = getState();
+          editCell(selection[0], tableCell?.node === selection[0] ? tableCell : { row: 0, col: 0 });
+          e.preventDefault();
+        } else if (selection.length === 1 && (diagram.nodes[selection[0]] || diagram.edges[selection[0]])) {
           startEditing(selection[0], diagram.edges[selection[0]] ? "label" : "text");
           e.preventDefault();
         }

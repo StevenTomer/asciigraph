@@ -1,6 +1,7 @@
 import { eq } from "../geometry/geom";
 import { hitTest } from "./hitTest";
-import { cancel, finishEditing, getState, select, setMenu, setTool, setView } from "./store";
+import { cancel, finishEditing, getState, select, setMenu, setTableCell, setTool, setView } from "./store";
+import { cellAt } from "../shapes/table";
 import { type PointerInfo, TOOL_IMPL } from "./tools";
 import { screenToCell, zoomAt } from "./view";
 
@@ -148,6 +149,10 @@ export function attachInput(canvas: HTMLCanvasElement): () => void {
       : null;
     if (!id) select([]);
     else if (!getState().selection.includes(id)) select([id]);
+    // On a table: the cell right-clicked is the one its row and column commands act on.
+    const n = id ? getState().diagram.nodes[id] : undefined;
+    const cell = n?.kind === "table" ? cellAt(n, p.cell) : null;
+    if (n && cell) setTableCell({ node: n.id, ...cell });
     setMenu({ x: e.clientX, y: e.clientY, cell: p.cell });
   };
 

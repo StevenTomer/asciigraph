@@ -64,7 +64,8 @@ export function parseTable(text: string): TableText {
   const title: string[] = [];
   for (; i < lines.length && !lines[i].includes("|"); i++) if (lines[i].trim()) title.push(titleOf(lines[i]));
   // Rows can carry on over lines only in a table whose lines end with |.
-  const piped = i < lines.length && lines[i].trim().length > 1 && closes(lines[i]);
+  // (Lines starting with |, some ending with one: the first may not, if a header cell spans lines.)
+  const piped = i < lines.length && lines[i].trim().startsWith("|") && lines.slice(i).some((l) => l.trim().length > 1 && closes(l));
   const rows: string[][] = [];
   const dividers = new Set<number>();
   let aligns: HAlign[] = [];
@@ -185,7 +186,9 @@ export function tableLayout(t: TableText, n: Pick<Node, "table" | "border">, r: 
   const width = Math.max(r.w, outside + sum(rooms));
   const titleLines = title && !inBorder ? cellLines(title, Math.max(1, width - 4), o.wrap) : [];
   const heights = t.rows.map((row) => Math.max(1, ...rooms.map((w, c) => cellLines(row[c] ?? "", w, o.wrap).length)));
-  const dividers = heights.some((h) => h > 1) ? new Set(t.rows.map((_, i) => i).filter((i) => i > 0)) : t.dividers;
+  const dividers = heights.some((h) => h > 1)
+    ? new Set(t.rows.map((_, i) => i).filter((i) => i > 0))
+    : new Set([...t.dividers].filter((i) => i > 0 && i < t.rows.length));
   let y = r.y + 1;
   if (titleLines.length) y += titleLines.length + 1;
   const columnsFrom = titleLines.length ? y - 1 : r.y;
@@ -379,6 +382,8 @@ export function tableText(t: Pick<TableText, "rows"> & Partial<TableText>): stri
     if (where.has(i)) out.push("| " + widths.map(rule).join(" | ") + " |");
     out.push(line(r));
   });
+  // (A table of just a header row still says how its columns line up.)
+  if (where.has(rows.length)) out.push("| " + widths.map(rule).join(" | ") + " |");
   return out.join("\n");
 }
 
@@ -409,4 +414,199 @@ export function withTitle(text: string, title: string): string {
   const table = start < 0 ? [] : lines.slice(start);
   const head = title.trim() ? title.split("\n").filter((l) => l.trim() && !l.includes("|")) : [];
   return [...head, ...table].join("\n");
+}
+
+// ---------------------------------------------------------------------------------------------
+// Editing a table as a table: cells, and rows and columns added, removed and moved.
+// ---------------------------------------------------------------------------------------------
+
+/** A cell of a table: its row and column. Row -1 is the title. */
+export interface TableCell {
+  row: number;
+  col: number;
+}
+
+/** A table's text written back from its parts (each row given every column). */
+const write = (t: TableText): string =>
+  tableText({ rows: t.rows.map((r) => Array.from({ length: t.cols }, (_, c) => r[c] ?? "")), dividers: t.dividers, aligns: t.aligns, title: t.title });
+
+/** The cell at `cell` (a grid line counts with the cell after it), or null outside the table. */
+export function cellAt(n: Node, cell: Point): TableCell | null {
+  if (n.kind !== "table") return null;
+  const t = parseTable(n.text);
+  const r = n.rect;
+  if (!t.rows.length || cell.x < r.x || cell.x > right(r) || cell.y < r.y || cell.y > bottom(r)) return null;
+  const l = tableLayout(t, n, r);
+  if (t.title && (n.table?.title === "border" ? cell.y === r.y : cell.y < l.columnsFrom)) return { row: -1, col: 0 };
+  let col = 0;
+  l.edges.forEach((x, c) => {
+    if (x <= cell.x) col = c;
+  });
+  let row = 0;
+  l.rowY.forEach((y, i) => {
+    if (y - (l.dividers.has(i) ? 1 : 0) <= cell.y) row = i;
+  });
+  return { row, col };
+}
+
+/** Where a cell's text goes (for editing it in place), and the cell's whole area inside its lines. */
+export function cellRect(n: Node, at: TableCell): { text: Rect; area: Rect } {
+  const t = parseTable(n.text);
+  const r = n.rect;
+  const l = tableLayout(t, n, r);
+  if (at.row < 0) {
+    const text = n.table?.title === "border"
+      ? { x: r.x + 2, y: r.y, w: Math.max(1, r.w - 4), h: 1 }
+      : { x: r.x + 2, y: r.y + 1, w: Math.max(1, r.w - 4), h: Math.max(1, l.titleLines.length) };
+    return { text, area: { ...text, x: text.x - 1, w: text.w + 2 } };
+  }
+  const row = Math.min(at.row, t.rows.length - 1), col = Math.min(at.col, t.cols - 1);
+  const text = { x: l.edges[col] + 2, y: l.rowY[row], w: l.rooms[col], h: l.heights[row] };
+  return { text, area: { ...text, x: text.x - 1, w: text.w + 2 } };
+}
+
+/** What's in a cell (the title, for row -1). */
+export function cellText(text: string, at: TableCell): string {
+  const t = parseTable(text);
+  return at.row < 0 ? t.title ?? "" : t.rows[at.row]?.[at.col] ?? "";
+}
+
+/** The table's text with one cell (or the title) changed. */
+export function withCellText(text: string, at: TableCell, value: string): string {
+  const t = parseTable(text);
+  if (at.row < 0) return withTitle(text, value);
+  if (!t.rows[at.row]) return text;
+  const rows = t.rows.map((r) => [...r]);
+  rows[at.row][at.col] = value.split("\n").map((l) => l.trim()).join("\n").trim();
+  return write({ ...t, rows });
+}
+
+/** The size a table is, as a node, for its (new) text and settings: `w` wide (or as narrow as it
+ * goes), and exactly as tall as its rows. */
+function refit(n: Node, text: string, table: TableOptions | undefined, w: number): Partial<Node> {
+  const next = { ...n, text, table };
+  const t = parseTable(text);
+  if (n.autosize) {
+    const natural = tableLayout(t, next, { ...n.rect, w: 0 }).natural;
+    return { text, table, rect: { ...n.rect, ...natural } };
+  }
+  const width = Math.max(w, tableLayout(t, next, n.rect).least.w);
+  return { text, table, rect: { ...n.rect, w: width, h: tableLayout(t, next, { ...n.rect, w: width }).size.h } };
+}
+
+/** A cell's text changed, and the table fitted to it (its height follows its rows). */
+export function withCell(n: Node, at: TableCell, value: string): Partial<Node> {
+  return refit(n, withCellText(n.text, at, value), n.table, n.rect.w);
+}
+
+/** The fixed widths, one per column (null: auto-sized). */
+const widthsOf = (n: Node, cols: number) => Array.from({ length: cols }, (_, c) => n.table?.widths?.[c] ?? null);
+
+/** Settings with these column widths (trailing auto ones dropped). */
+function withWidths(n: Node, widths: (number | null)[]): TableOptions | undefined {
+  const w = [...widths];
+  while (w.length && w[w.length - 1] === null) w.pop();
+  return withOptions(n, { widths: w.length ? w : undefined }).table;
+}
+
+/** A divider that isn't the header's moves with the rows below it. */
+const shiftDividers = (dividers: Set<number>, f: (d: number) => number | null, rows: number) =>
+  new Set([...dividers].map((d) => (d === 1 ? 1 : f(d))).filter((d): d is number => d !== null && d >= 1 && d <= rows));
+
+/** An empty row put in at `at` (0: a new first row, `rows.length`: at the end). */
+export function insertRow(n: Node, at: number): Partial<Node> {
+  const t = parseTable(n.text);
+  const rows = [...t.rows];
+  rows.splice(at, 0, Array(t.cols).fill(""));
+  const dividers = shiftDividers(t.dividers, (d) => (d > at ? d + 1 : d), rows.length);
+  return refit(n, write({ ...t, rows, dividers }), n.table, n.rect.w);
+}
+
+/** Row `row` taken out (a table keeps at least one). */
+export function deleteRow(n: Node, row: number): Partial<Node> {
+  const t = parseTable(n.text);
+  if (t.rows.length <= 1) return {};
+  const rows = t.rows.filter((_, i) => i !== row);
+  const dividers = shiftDividers(t.dividers, (d) => (d > row ? d - 1 : d), rows.length);
+  return refit(n, write({ ...t, rows, dividers }), n.table, n.rect.w);
+}
+
+/** Row `row` swapped with the one above (by -1) or below (by 1). */
+export function moveRow(n: Node, row: number, by: -1 | 1): Partial<Node> {
+  const t = parseTable(n.text);
+  const to = row + by;
+  if (to < 0 || to >= t.rows.length) return {};
+  const rows = [...t.rows];
+  [rows[row], rows[to]] = [rows[to], rows[row]];
+  return refit(n, write({ ...t, rows }), n.table, n.rect.w);
+}
+
+/** An empty column put in at `at`, as wide as the one beside it if that has a set width. */
+export function insertColumn(n: Node, at: number): Partial<Node> {
+  const t = parseTable(n.text);
+  const rows = t.rows.map((r) => {
+    const cells = Array.from({ length: t.cols }, (_, c) => r[c] ?? "");
+    cells.splice(at, 0, "");
+    return cells;
+  });
+  const aligns = Array.from({ length: t.cols }, (_, c) => t.aligns[c] ?? "left");
+  aligns.splice(at, 0, "left");
+  const widths = widthsOf(n, t.cols);
+  const beside = widths[Math.min(at, t.cols - 1)] ?? null;
+  widths.splice(at, 0, beside);
+  const room = beside ?? 3;
+  return refit(n, write({ ...t, rows, aligns, cols: t.cols + 1 }), withWidths(n, widths), n.rect.w + room + 3);
+}
+
+/** Column `col` taken out (a table keeps at least one); the table narrows by its width. */
+export function deleteColumn(n: Node, col: number): Partial<Node> {
+  const t = parseTable(n.text);
+  if (t.cols <= 1) return {};
+  const room = tableLayout(t, n, n.rect).rooms[col] ?? 0;
+  const rows = t.rows.map((r) => Array.from({ length: t.cols }, (_, c) => r[c] ?? "").filter((_, c) => c !== col));
+  const aligns = Array.from({ length: t.cols }, (_, c) => t.aligns[c] ?? "left").filter((_, c) => c !== col);
+  const widths = widthsOf(n, t.cols).filter((_, c) => c !== col);
+  return refit(n, write({ ...t, rows, aligns, cols: t.cols - 1 }), withWidths(n, widths), n.rect.w - room - 3);
+}
+
+/** Column `col` swapped with the one to its left (by -1) or right (by 1), width and all. */
+export function moveColumn(n: Node, col: number, by: -1 | 1): Partial<Node> {
+  const t = parseTable(n.text);
+  const to = col + by;
+  if (to < 0 || to >= t.cols) return {};
+  const swap = <T,>(xs: T[]) => {
+    const ys = [...xs];
+    [ys[col], ys[to]] = [ys[to], ys[col]];
+    return ys;
+  };
+  const rows = t.rows.map((r) => swap(Array.from({ length: t.cols }, (_, c) => r[c] ?? "")));
+  const aligns = swap(Array.from({ length: t.cols }, (_, c) => t.aligns[c] ?? "left"));
+  const widths = swap(widthsOf(n, t.cols));
+  return refit(n, write({ ...t, rows, aligns }), withWidths(n, widths), n.rect.w);
+}
+
+/** How column `col`'s text lines up. */
+export function withColumnAlign(n: Node, col: number, align: HAlign): Partial<Node> {
+  const t = parseTable(n.text);
+  const aligns = Array.from({ length: t.cols }, (_, c) => t.aligns[c] ?? "left");
+  aligns[col] = align;
+  return refit(n, write({ ...t, aligns }), n.table, n.rect.w);
+}
+
+/** Room for a new table's columns when none is given. */
+export const NEW_COLUMN = 10;
+
+/**
+ * A new, empty table's fields: `cols` columns and `rows` rows (the first one its header), each
+ * column `NEW_COLUMN` wide, or (given `width`) sharing that width out.
+ */
+export function newTable(cols: number, rows: number, at: Point, width?: number) {
+  const room = width === undefined ? NEW_COLUMN : Math.max(3, Math.floor((width - (3 * cols + 1)) / cols));
+  const t: TableText = { rows: Array.from({ length: rows }, () => Array(cols).fill("")), dividers: new Set([1]), aligns: [], cols };
+  const table: TableOptions = { widths: Array(cols).fill(room) };
+  const size = tableLayout(t, { border: "single", table }, { x: at.x, y: at.y, w: 0, h: 0 }).natural;
+  return {
+    kind: "table" as const, text: write(t), table, autosize: false, lists: false,
+    align: { h: "left" as const, v: "top" as const }, rect: { x: at.x, y: at.y, ...size },
+  };
 }

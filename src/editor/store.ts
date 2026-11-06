@@ -4,7 +4,14 @@ import { emptyDiagram } from "../model/ops";
 import type { Diagram, Id, NodeKind } from "../model/types";
 import type { Guide } from "./snap";
 
-export type ToolId = "select" | "box" | "arrow" | "line" | "text";
+export type ToolId = "select" | "box" | "table" | "arrow" | "line" | "text";
+
+/** A cell of a table node (row -1: its title). */
+export interface CellRef {
+  node: Id;
+  row: number;
+  col: number;
+}
 
 /** Transient things drawn over the diagram while a gesture is in progress. */
 export interface Overlay {
@@ -35,8 +42,12 @@ export interface EditorState {
   tool: ToolId;
   /** The shape the box tool draws. */
   shape: NodeKind;
-  /** In-place editing: a node's text or name, or a connector's label. */
-  editing: { id: Id; field: "text" | "name" | "label" } | null;
+  /** In-place editing: a node's text or name, a connector's label, or one cell of a table. */
+  editing: { id: Id; field: "text" | "name" | "label" | "cell"; cell?: { row: number; col: number }; /** Counts moves between cells. */ serial?: number } | null;
+  /** The table cell last clicked or edited: what the row and column commands act on. */
+  tableCell: CellRef | null;
+  /** The size of table the table tool makes. */
+  tableSize: { cols: number; rows: number };
   overlay: Overlay;
   view: View;
   dark: boolean;
@@ -70,6 +81,8 @@ export const useEditor = create<EditorState>(() => ({
   tool: "select",
   shape: "box",
   editing: null,
+  tableCell: null,
+  tableSize: { cols: 3, rows: 3 },
   overlay: {},
   view: { zoom: 1, x: -40, y: -70 },
   dark: false,
@@ -146,7 +159,7 @@ export function redo() {
 export function load(diagram: Diagram, id: string | null, name: string, history?: { past: Diagram[]; future: Diagram[] }) {
   setState({
     diagram, past: history?.past ?? [], future: history?.future ?? [], pending: null, selection: [],
-    editing: null, overlay: {}, diagramId: id, diagramName: name,
+    editing: null, tableCell: null, overlay: {}, diagramId: id, diagramName: name,
   });
 }
 
@@ -187,6 +200,25 @@ export function startEditing(id: Id, field: "text" | "name" | "label" = "text") 
   finishEditing();
   begin();
   setState({ editing: { id, field }, selection: [id] });
+}
+
+/** Edit one cell of a table (row -1: its title). Already editing that table: just moves to the
+ * cell, in the same undo step. */
+export function editCell(id: Id, cell: { row: number; col: number }) {
+  const e = getState().editing;
+  if (!(e?.field === "cell" && e.id === id)) {
+    finishEditing();
+    begin();
+  }
+  setState({ editing: { id, field: "cell", cell, serial: (e?.serial ?? 0) + 1 }, selection: [id], tableCell: { node: id, ...cell } });
+}
+
+export function setTableCell(cell: CellRef | null) {
+  setState({ tableCell: cell });
+}
+
+export function setTableSize(size: { cols: number; rows: number }) {
+  setState({ tableSize: size });
 }
 
 export function finishEditing() {

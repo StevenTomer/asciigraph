@@ -920,8 +920,8 @@ test("paste a Markdown table: it becomes a table that grows as you type", async 
   const [t] = Object.values((await state(page)).diagram.nodes);
   expect(t.kind).toBe("table");
   expect(await text(page)).toContain("│ api  │ 8080 │");
-  // Add a row by editing its text.
-  await page.keyboard.press("Enter");
+  // Add a row by editing its text (Enter would type in a cell).
+  await page.getByRole("complementary", { name: "Properties" }).getByRole("button", { name: "edit as Markdown" }).click();
   await page.keyboard.press("Control+End");
   await page.keyboard.type("\n| database | 5432 |");
   await page.keyboard.press("Escape");
@@ -964,6 +964,70 @@ test("tables: a title, column widths dragged or typed, wrapping, and Markdown ou
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "**Users**\n\n| Name | Notes                         |\n| ---- | ----------------------------- |\n| id   | primary key<br>auto-increment |"
   );
+});
+
+test("tables as tables: the table tool, typing cell to cell, and rows and columns added, moved and deleted", async ({ page }) => {
+  // Two columns, three rows (the first the header), placed with a click.
+  await page.keyboard.press("e");
+  const bar = page.getByRole("toolbar", { name: "Table size" });
+  await bar.getByRole("button", { name: "fewer columns" }).click();
+  await expect(bar.getByLabel("columns", { exact: true })).toHaveText("2");
+  await click(page, 4, 4);
+  // Typing goes into the first cell; Tab moves on, and Tab in the last cell adds a row.
+  await page.keyboard.type("Name");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("Port");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("api server");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("8080");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("db");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("5432");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("cache");
+  await page.keyboard.press("Escape");
+  const table = async () => Object.values((await state(page)).diagram.nodes)[0];
+  let t = await table();
+  expect(t.kind).toBe("table");
+  expect(t.text).toBe("| Name       | Port |\n| ---------- | ---- |\n| api server | 8080 |\n| db         | 5432 |\n| cache      |      |");
+  expect(await text(page)).toBe(block(`
+┌────────────┬────────────┐
+│ Name       │ Port       │
+├────────────┼────────────┤
+│ api server │ 8080       │
+│ db         │ 5432       │
+│ cache      │            │
+└────────────┴────────────┘`));
+  // Click a cell ("db"): its row moves up, and a column goes in to the right of it.
+  const { x, y } = t.rect;
+  await click(page, x + 3, y + 4);
+  const panel = page.getByRole("complementary", { name: "Properties" });
+  await panel.getByRole("button", { name: "Move Row Up" }).click();
+  await panel.getByRole("button", { name: "Insert Column Right" }).click();
+  t = await table();
+  expect(t.text).toBe("| Name       |     | Port |\n| ---------- | --- | ---- |\n| db         |     | 5432 |\n| api server |     | 8080 |\n| cache      |     |      |");
+  // Double-click the new cell and type; the Port column moves left of it.
+  const c = await at(page, x + 16, y + 3);
+  await page.mouse.dblclick(c.x, c.y);
+  await page.keyboard.type("local");
+  await panel.getByRole("button", { name: "Move Column Right" }).click();
+  await page.keyboard.type("!");
+  await page.keyboard.press("Escape");
+  t = await table();
+  expect(t.text).toBe("| Name       | Port |        |\n| ---------- | ---- | ------ |\n| db         | 5432 | local! |\n| api server | 8080 |        |\n| cache      |      |        |");
+  // Right-click: delete the last row and the middle column; undo brings the column back.
+  await page.mouse.click((await at(page, x + 3, y + 5)).x, (await at(page, x + 3, y + 5)).y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Row", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete Row" }).click();
+  await page.mouse.click((await at(page, x + 16, y + 3)).x, (await at(page, x + 16, y + 3)).y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Column", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete Column" }).click();
+  t = await table();
+  expect(t.text).toBe("| Name       |        |\n| ---------- | ------ |\n| db         | local! |\n| api server |        |");
+  await page.keyboard.press("Control+z");
+  expect((await table()).text).toContain("| db         | 5432 | local! |");
 });
 
 test("export shows the width, warns past a limit, and offers top to bottom", async ({ page }) => {

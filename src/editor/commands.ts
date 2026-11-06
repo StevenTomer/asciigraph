@@ -10,7 +10,9 @@ import { HEAD_NAMES } from "../render/charsets";
 import { type Diagram, type Id, HEADS } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
-import { apply, getState, openStampsDialog, openTextDialog, select, startEditing } from "./store";
+import { apply, editCell, getState, openStampsDialog, openTextDialog, select, startEditing } from "./store";
+import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "./tableCommands";
+import { cellAt, parseTable } from "../shapes/table";
 import { zoomToSelection } from "./view";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -91,7 +93,40 @@ export function contextMenu(at: Point): MenuEntry[] {
   const linkedId = linkedSources.size === 1 ? [...linkedSources][0] : undefined;
   const linkedLayout = !!linkedId && !!d.sources?.[linkedId] && directionOf(d.sources[linkedId]) !== null;
   const entries: MenuEntry[] = [];
-  if (nodes.length === 1 && !edges.length) {
+  const n0 = nodes.length === 1 && !edges.length ? d.nodes[nodes[0]] : undefined;
+  const cell = n0?.kind === "table" && parseTable(n0.text).rows.length ? cellAt(n0, at) : null;
+  if (n0 && cell) {
+    // A table: its cell, and the row and column it's in.
+    const id = n0.id;
+    const ops = (which: "row" | "col"): MenuEntry[] =>
+      TABLE_OPS.filter((o) => o.op.startsWith(which)).map((o) => ({
+        label: o.menu,
+        disabled: !canTableOp(n0, o.op, cell),
+        run: () => tableOp(id, o.op, cell),
+      }));
+    const align = parseTable(n0.text).aligns[cell.col] ?? "left";
+    entries.push(
+      { label: cell.row < 0 ? "Edit Title" : "Edit Cell", shortcut: "Enter, F2", run: () => editCell(id, cell) },
+      { label: "Edit as Markdown", run: () => startEditing(id) },
+    );
+    if (cell.row >= 0) {
+      entries.push(
+        "separator",
+        { label: "Row", submenu: ops("row") },
+        {
+          label: "Column",
+          submenu: [
+            ...ops("col"),
+            "separator",
+            ...(["left", "center", "right"] as const).map((a) => ({
+              label: `Align ${a[0].toUpperCase()}${a.slice(1)}`, hint: align === a ? "✓" : undefined, run: () => columnAlign(id, cell, a),
+            })),
+          ],
+        },
+      );
+    }
+    entries.push("separator");
+  } else if (nodes.length === 1 && !edges.length) {
     entries.push({ label: "Edit Text", shortcut: "Enter, F2", run: () => startEditing(nodes[0]) }, "separator");
   }
   entries.push(

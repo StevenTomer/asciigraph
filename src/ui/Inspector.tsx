@@ -6,7 +6,8 @@ import { arrange } from "../editor/commands";
 import { locksOf, unlock } from "../model/locks";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import { type BorderStyle, type Edge, type HAlign, type LineStyle, type Node, type VAlign, HEADS } from "../model/types";
-import { apply, begin, commit, getState, openTextDialog, select, set, setPrefs, useEditor } from "../editor/store";
+import { apply, begin, commit, getState, openTextDialog, select, set, setPrefs, startEditing, useEditor } from "../editor/store";
+import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "../editor/tableCommands";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
 import { autoSized, columnRooms, markdownTable, parseTable, withColumnWidth, withOptions, withTitle } from "../shapes/table";
@@ -108,6 +109,9 @@ export function Inspector() {
               </Choice>
             ))}
           </Row>
+          {/* (A table lines up each column itself, and doesn't draw lists.) */}
+          {!nodes.every((n) => n.kind === "table") && (
+            <>
           <Row label="text">
             {HALIGN.map(([v, l]) => (
               <Choice key={v} active={n0.align.h === v} onClick={() => eachNode((n) => ({ align: { ...n.align, h: v } }))}>{l}</Choice>
@@ -126,6 +130,8 @@ export function Inspector() {
               off (text as typed)
             </Choice>
           </Row>
+            </>
+          )}
           {n0.border !== "none" && (
             <Row label="inside">
               <Choice active={n0.carry !== false} onClick={() => eachNode(() => ({ carry: undefined }))} title="Moving this box moves what's inside it (Alt-drag moves just the box)">
@@ -401,6 +407,7 @@ function TableRows({ node: n }: { node: Node }) {
           auto-size
         </Choice>
       </Row>
+      <CellRows node={n} />
       <Row label="long text">
         <Choice active={n.table?.wrap !== false} onClick={() => patch((m) => withOptions(m, { wrap: undefined }))} title="Text that doesn't fit its column carries on on the next line">wrap</Choice>
         <Choice active={n.table?.wrap === false} onClick={() => patch((m) => withOptions(m, { wrap: false }))} title="Text that doesn't fit its column is cut off with …">cut off …</Choice>
@@ -408,6 +415,42 @@ function TableRows({ node: n }: { node: Node }) {
       <Row label="Markdown">
         <Choice active={false} onClick={() => void copy()} title="As a Markdown table for a document: the title in bold, line breaks as <br>">copy table</Choice>
         <span className="muted" ref={copied} aria-live="polite" />
+      </Row>
+      <Row label="">
+        <Choice active={false} onClick={() => startEditing(n.id, "text")} title="Edit the whole table as Markdown text">edit as Markdown</Choice>
+      </Row>
+    </>
+  );
+}
+
+/** Insert, move and delete the current cell's row and column; line up its column. */
+function CellRows({ node: n }: { node: Node }) {
+  const current = useEditor((s) => (s.tableCell?.node === n.id ? s.tableCell : null));
+  const t = parseTable(n.text);
+  if (!t.rows.length) return null;
+  if (!current || current.row < 0) {
+    return (
+      <Row label="cells">
+        <span className="row-text muted">click a cell to add, move or delete its row or column; double-click to type in it</span>
+      </Row>
+    );
+  }
+  const at = { row: Math.min(current.row, t.rows.length - 1), col: Math.min(current.col, t.cols - 1) };
+  const ops = (which: "row" | "col") =>
+    TABLE_OPS.filter((o) => o.op.startsWith(which)).map((o) => (
+      <Choice key={o.op} active={false} keepFocus disabled={!canTableOp(n, o.op, at)} onClick={() => tableOp(n.id, o.op, at)} title={o.menu} label={o.menu}>
+        {o.label}
+      </Choice>
+    ));
+  const align = t.aligns[at.col] ?? "left";
+  return (
+    <>
+      <Row label={`row ${at.row + 1}`}>{ops("row")}</Row>
+      <Row label={`col ${at.col + 1}`}>{ops("col")}</Row>
+      <Row label="">
+        {HALIGN.map(([v, l]) => (
+          <Choice key={v} active={align === v} keepFocus onClick={() => columnAlign(n.id, at, v)} title={`Column ${at.col + 1}: ${l}`}>{l}</Choice>
+        ))}
       </Row>
     </>
   );
@@ -423,11 +466,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 /** `label`: the accessible name, for buttons that show a picture (───) instead of words. */
-function Choice(props: { active: boolean; onClick: () => void; title?: string; label?: string; disabled?: boolean; children: React.ReactNode }) {
+/** `keepFocus`: clicking it doesn't take the focus (so typing in a table cell carries on). */
+function Choice(props: { active: boolean; onClick: () => void; title?: string; label?: string; disabled?: boolean; keepFocus?: boolean; children: React.ReactNode }) {
   return (
     <button
       className={"choice" + (props.active ? " active" : "")}
       onClick={props.onClick}
+      onMouseDown={props.keepFocus ? (e) => e.preventDefault() : undefined}
       title={props.title}
       aria-label={props.label}
       disabled={props.disabled}

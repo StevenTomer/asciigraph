@@ -8,10 +8,11 @@ import { lockMates, moveWithLocks } from "../model/locks";
 import type { Diagram, Id } from "../model/types";
 import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
-import { columnLeft, withColumnWidth } from "../shapes/table";
+import { cellAt, columnLeft, newTable, parseTable, withColumnWidth } from "../shapes/table";
 import { type Handle, endpointAt, hitTest, nodeAt } from "./hitTest";
 import {
-  type ToolId, apply, begin, cancel, commit, finishEditing, getState, select, set, setOverlay, setTool, startEditing,
+  type ToolId, apply, begin, cancel, commit, editCell, finishEditing, getState, select, set, setOverlay, setTableCell, setTool,
+  startEditing,
 } from "./store";
 import { rendered } from "./view";
 
@@ -33,10 +34,11 @@ export interface Tool {
   cursor(p: PointerInfo): string;
 }
 
-/** Tool order, labels and shortcuts (the first letter of the label). */
-export const TOOLS: { id: ToolId; label: string }[] = [
+/** Tool order, labels and shortcuts (`key`, or the first letter of the label). */
+export const TOOLS: { id: ToolId; label: string; key?: string }[] = [
   { id: "select", label: "select" },
   { id: "box", label: "box" },
+  { id: "table", label: "table", key: "e" },
   { id: "arrow", label: "arrow" },
   { id: "line", label: "line" },
   { id: "text", label: "text" },
@@ -118,6 +120,10 @@ const selectTool: Tool = {
         ids = [id];
         select(ids);
       }
+      // A table's cell clicked: the one the row and column commands act on.
+      const n = hit.kind === "node" ? diagram.nodes[id] : undefined;
+      const cell = n?.kind === "table" && !p.shift ? cellAt(n, p.cell) : null;
+      setTableCell(cell && n ? { node: n.id, ...cell } : null);
       begin();
       const base = getState().diagram;
       gesture = { kind: "move", start: p.cell, base, ids, carried: withContents(base, ids) };
@@ -236,7 +242,10 @@ const selectTool: Tool = {
     } else if (hit.kind === "edge" || hit.kind === "label") {
       startEditing(hit.edge, "label");
     } else if (hit.kind === "node") {
-      startEditing(hit.node, hit.nameRow ? "name" : "text");
+      const n = getState().diagram.nodes[hit.node];
+      const cell = n.kind === "table" && parseTable(n.text).rows.length ? cellAt(n, p.cell) : null;
+      if (cell) editCell(n.id, cell);
+      else startEditing(hit.node, hit.nameRow ? "name" : "text");
     } else if (hit.kind === "none") {
       createLabel(p.cell);
     }
@@ -380,6 +389,50 @@ const boxTool: Tool = {
 };
 
 // ---------------------------------------------------------------------------------------------
+// Table: click for a table of the chosen size (toolbar: columns × rows), or drag to set its
+// width; then type into its first cell. Clicking a box or connector selects it, as box does.
+// ---------------------------------------------------------------------------------------------
+
+let placing: { id: Id; start: Point; over: Id | null } | null = null;
+
+const tableTool: Tool = {
+  down(p) {
+    const over = objectAt(p);
+    const { cols, rows } = getState().tableSize;
+    begin();
+    const fields = newTable(cols, rows, p.cell);
+    const node = makeNode(fields.rect, fields);
+    set(addNode(getState().diagram, node));
+    placing = { id: node.id, start: p.cell, over };
+  },
+  move(p) {
+    if (!placing) return;
+    const { cols, rows } = getState().tableSize;
+    const x = Math.min(placing.start.x, p.cell.x);
+    const w = Math.abs(p.cell.x - placing.start.x) + 1;
+    const fields = newTable(cols, rows, { x, y: placing.start.y }, w > 1 ? w : undefined);
+    set(updateNode(getState().diagram, placing.id, fields));
+    setOverlay({ sizeOf: getState().diagram.nodes[placing.id].rect });
+  },
+  up(p) {
+    if (!placing) return;
+    const { id, start, over } = placing;
+    placing = null;
+    setOverlay({});
+    if (eq(start, p.cell) && over) {
+      cancel();
+      setTool("select");
+      select([over]);
+      return;
+    }
+    // Placed: back to select, typing into the first cell (the same undo step).
+    setTool("select");
+    editCell(id, { row: 0, col: 0 });
+  },
+  cursor: () => "crosshair",
+};
+
+// ---------------------------------------------------------------------------------------------
 // Arrow / line: drag from one place to another; ends attach to nodes they start or end on.
 // Afterwards it's back to select, with the new connector selected. Clicking (without dragging)
 // switches to select too, selecting the box or connector clicked, if any.
@@ -489,6 +542,7 @@ const textTool: Tool = {
 export const TOOL_IMPL: Record<ToolId, Tool> = {
   select: selectTool,
   box: boxTool,
+  table: tableTool,
   arrow: connectorTool(true),
   line: connectorTool(false),
   text: textTool,

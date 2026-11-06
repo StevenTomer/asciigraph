@@ -195,8 +195,13 @@ test("table, selected", async ({ page }) => {
                    load balancer |
 | db      | 5432 | primary and one replica |
 | cache   | 6379 | |`);
-  // Still selected: the panel shows the title, column widths and wrapping, and each column
-  // line has its handle.
+  // A cell clicked: it's tinted, and the panel offers its row and column; each column line has
+  // its handle.
+  await clickNode(page, "Services");
+  const s = await state(page);
+  const t = Object.values(s.diagram.nodes)[0];
+  const p = await at(page, t.rect.x + 3, t.rect.y + 7);
+  await page.mouse.click(p.x, p.y);
   await page.waitForTimeout(200);
   await shot(page, "table.png");
 });

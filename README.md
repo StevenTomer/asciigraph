@@ -39,8 +39,9 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   restyle. Connectors route around other boxes and follow the boxes to which they're attached.
 - **Shapes:** Boxes with eight border styles, named boxes, flowchart shapes (decision,
   input/output, start/end, database, document, subroutine), notes, frames, class boxes in
-  compartments, tables (written as Markdown tables, with a title, set or automatic column widths,
-  wrapping and cells over several lines), and sequence-diagram lifelines and activation bars.
+  compartments, tables (made with the table tool and typed into cell by cell, rows and columns
+  added, moved and deleted, or written as Markdown tables; with a title, set or automatic column
+  widths, wrapping and cells over several lines), and sequence-diagram lifelines and activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
   diamond, dot, circle, cross, bar); labels, and end labels by each end (`1`, `0..*`); bend
   points; and a turn point you can drag.
@@ -241,10 +242,13 @@ State, class and entity–relationship diagrams too:
 
 ### Tables
 
-A Markdown table becomes a table, with a title, column widths you can drag or type, and cells
-that wrap or run over several lines. **copy table** writes it back as Markdown.
+Press <kbd>E</kbd>, pick how many columns and rows, and click: type into the cells, with
+<kbd>Tab</kbd> from one to the next. Click a cell to add, move or delete its row or column (in
+the properties panel or the right-click menu). A pasted Markdown table becomes a table too. Give
+it a title, drag or type column widths, and let cells wrap or run over several lines; **copy
+table** writes it out as Markdown.
 
-![A selected table with a title and a cell over two lines, and the properties panel's table options](docs/images/table.png)
+![A selected table with a title and a cell over two lines, one cell outlined, and the properties panel's row and column commands](docs/images/table.png)
 
 ### Existing ASCII art
 

@@ -37,12 +37,13 @@
 
 ## Tools
 
-Each tool's shortcut is its first letter.
+Each tool's shortcut is its first letter, except table's (<kbd>E</kbd>, its underlined letter).
 
 | Tool | Key | What it does |
 |---|---|---|
 | select | <kbd>S</kbd>, <kbd>Space</kbd>, <kbd>Esc</kbd> | Select, move, resize and edit. |
 | box | <kbd>B</kbd> | Drag corner to corner, or click for a default-size box, then type. Pick the shape in the bar under the toolbar. |
+| table | <kbd>E</kbd> | Pick how many columns and rows in the bar under the toolbar, then click for a table (or drag for its width) and type into its cells. See [tables](#tables). |
 | arrow | <kbd>A</kbd> | Drag from one box to another. Ends with an arrowhead. |
 | line | <kbd>L</kbd> | The same, with no head. |
 | text | <kbd>T</kbd> | Click to type a label without a border. |
@@ -91,7 +92,7 @@ afterwards in the properties panel.
 | subroutine | `│ │ Ship it │ │` | a predefined step |
 | note | a box with a folded corner | comments |
 | class | a box in compartments, `├───┤` between them | UML classes, ER entities |
-| table | a grid of cells, from a Markdown table | tables |
+| table | a grid of cells (the table tool, or a Markdown table) | tables |
 | frame | a named box drawn behind things | grouping; boxes inside it aren't hidden |
 | lifeline, activation | see [Sequence diagrams](#sequence-diagrams) | |
 
@@ -108,9 +109,26 @@ name) is centered and the rest left-aligned:
 └───────────────┘
 ```
 
-**Tables:** the text is a Markdown table: cells between `|`, and a row of dashes for a divider
-(`:--:` centers that column, `--:` right-aligns it). Columns are as wide as their widest cell,
-and the table grows as you type:
+<a id="tables"></a>**Tables:** the **table** tool (<kbd>E</kbd>) makes one: set how many columns and rows in the
+bar under the toolbar (the first row is the header), then click where it goes, or drag across
+for its width. You're typing in its first cell straight away:
+
+- **Typing in cells:** double-click a cell (or select the table and press <kbd>Enter</kbd>) to
+  type in it. <kbd>Tab</kbd> goes to the next cell and <kbd>Shift</kbd>+<kbd>Tab</kbd> back;
+  <kbd>Tab</kbd> in the last cell adds a row. <kbd>↑</kbd> / <kbd>↓</kbd> on a cell's first or
+  last line go to the cell above or below. <kbd>Enter</kbd> starts a new line in the cell;
+  <kbd>Esc</kbd> is done.
+- **Rows and columns:** click a cell (it's outlined), then in the properties panel, or the
+  right-click menu's **Row** and **Column**: add a row above or below, a column left or right;
+  move the row up or down, the column left or right; delete either. The panel and menu also
+  line the column's text up left, centered or right. Adding a column while typing carries on
+  typing in it. A table keeps at least one row and one column.
+
+A new table's columns are a set width (text that doesn't fit wraps); **auto-size** makes them
+fit their text instead. Underneath, a table's text is a Markdown table (**edit as Markdown** in
+the panel or the right-click menu): cells between `|`, and a row of dashes for a divider
+(`:--:` centers that column, `--:` right-aligns it). Typed that way, columns are as wide as
+their widest cell, and the table grows as you type:
 
 ```
 | Service | Port |          ┌─────────┬──────┐
@@ -121,7 +139,7 @@ and the table grows as you type:
                             └─────────┴──────┘
 ```
 
-![A selected table with a title and a cell over two lines; the properties panel shows the title, column widths, wrapping and copy table](images/table.png)
+![A selected table with a title and a cell over two lines, one cell outlined; the properties panel shows the title, column widths, and the outlined cell's row and column commands](images/table.png)
 
 - **A title:** a line before the table. It goes in a row of its own across the top, or (in the
   properties panel, **title**: **in the border**) set into the top border, `┌─ Services ──┐`;
@@ -749,10 +767,11 @@ On a Mac, use <kbd>⌘</kbd> for <kbd>Ctrl</kbd>.
 
 | Keys | Does |
 |---|---|
-| <kbd>S</kbd> / <kbd>B</kbd> / <kbd>A</kbd> / <kbd>L</kbd> / <kbd>T</kbd> | select, box, arrow, line, text tool |
+| <kbd>S</kbd> / <kbd>B</kbd> / <kbd>E</kbd> / <kbd>A</kbd> / <kbd>L</kbd> / <kbd>T</kbd> | select, box, table, arrow, line, text tool |
 | <kbd>Space</kbd> | back to select; hold and drag to pan |
 | <kbd>Esc</kbd> | deselect and go to select (while typing: finish) |
-| <kbd>Enter</kbd>, <kbd>F2</kbd> | edit the selected box's text or connector's label |
+| <kbd>Enter</kbd>, <kbd>F2</kbd> | edit the selected box's text or connector's label (a table: the cell clicked) |
+| <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> | in a table cell: the next / previous cell (in the last one: a new row) |
 | <kbd>Shift</kbd>+<kbd>Enter</kbd> | new line, in a label |
 | <kbd>Delete</kbd>, <kbd>Backspace</kbd> | delete the selection |
 | arrow keys | nudge the selection (<kbd>Shift</kbd>: by 5) |

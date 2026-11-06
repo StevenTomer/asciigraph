@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { type Rect, type Side, bottom, right } from "../geometry/geom";
 import { HANDLES, handlePositions } from "../editor/hitTest";
-import { columnLines } from "../shapes/table";
+import { cellRect, columnLines, parseTable } from "../shapes/table";
 import { lockMates } from "../model/locks";
 import { attachInput } from "../editor/input";
 import { type EditorState, useEditor } from "../editor/store";
@@ -108,6 +108,20 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
       const p = cellToScreen(cell.x, cell.y);
       ctx.fillRect(p.x, p.y, cw, ch);
     }
+  }
+
+  // A selected table's current cell (what its row and column commands act on): tinted.
+  const tc = s.tableCell;
+  const tableNode = tc && s.selection.length === 1 && s.selection[0] === tc.node ? s.diagram.nodes[tc.node] : undefined;
+  if (tc && !s.editing && tableNode?.kind === "table" && tc.row >= 0 && parseTable(tableNode.text).rows.length) {
+    const box = rectToScreen(cellRect(tableNode, tc).area);
+    ctx.fillRect(box.x, box.y, box.w, box.h);
+    ctx.save();
+    ctx.strokeStyle = c.accent;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(box.x + 1, box.y + 1, box.w - 2, box.h - 2);
+    ctx.restore();
   }
 
   // The characters.

@@ -1,4 +1,4 @@
-import { openFind, openStampsDialog, openTextDialog, redo, setPrefs, setShape, setTool, undo, useEditor } from "../editor/store";
+import { openFind, openStampsDialog, openTextDialog, redo, setPrefs, setShape, setTableSize, setTool, undo, useEditor } from "../editor/store";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import { TOOLS } from "../editor/tools";
 import { saveCopy } from "../editor/session";
@@ -15,6 +15,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
   const name = useEditor((s) => s.diagramName);
   const shared = useEditor((s) => s.diagramId === null);
   const shape = useEditor((s) => s.shape);
+  const tableSize = useEditor((s) => s.tableSize);
 
   return (
     <div className="toolbar-wrap">
@@ -33,19 +34,24 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
           </button>
         )}
         <Sep />
-        {TOOLS.map((t) => (
-          <button
-            key={t.id}
-            className={"tb" + (tool === t.id ? " active" : "")}
-            onClick={() => setTool(t.id)}
-            title={`${t.label} (${t.label[0].toUpperCase()})`}
-            data-testid={`tool-${t.id}`}
-            aria-pressed={tool === t.id}
-          >
-            <u>{t.label[0]}</u>
-            {t.label.slice(1)}
-          </button>
-        ))}
+        {TOOLS.map((t) => {
+          const key = t.key ?? t.label[0];
+          const at = t.label.indexOf(key);
+          return (
+            <button
+              key={t.id}
+              className={"tb" + (tool === t.id ? " active" : "")}
+              onClick={() => setTool(t.id)}
+              title={`${t.label} (${key.toUpperCase()})`}
+              data-testid={`tool-${t.id}`}
+              aria-pressed={tool === t.id}
+            >
+              {t.label.slice(0, at)}
+              <u>{key}</u>
+              {t.label.slice(at + 1)}
+            </button>
+          );
+        })}
         <Sep />
         <button className="tb" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">undo</button>
         <button className="tb" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">redo</button>
@@ -69,14 +75,32 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
       {tool === "box" && (
         <div className="toolbar sub" role="toolbar" aria-label="Shape">
           <span className="muted">shape</span>
-          {SHAPE_KINDS.map((k) => (
+          {SHAPE_KINDS.filter((k) => k !== "table").map((k) => (
             <button key={k} className={"tb" + (shape === k ? " active" : "")} aria-pressed={shape === k} onClick={() => setShape(k)}>
               {shapeFor(k).label}
             </button>
           ))}
         </div>
       )}
+      {tool === "table" && (
+        <div className="toolbar sub" role="toolbar" aria-label="Table size">
+          <Stepper label="columns" value={tableSize.cols} max={12} onChange={(cols) => setTableSize({ ...tableSize, cols })} />
+          <Stepper label="rows" value={tableSize.rows} max={30} onChange={(rows) => setTableSize({ ...tableSize, rows })} />
+          <span className="muted">click to place it (the first row is its header), or drag for its width</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Stepper({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <span className="stepper">
+      <span className="muted">{label}</span>
+      <button className="tb" onClick={() => onChange(Math.max(1, value - 1))} disabled={value <= 1} aria-label={`fewer ${label}`}>−</button>
+      <span className="stepper-value" aria-label={label}>{value}</span>
+      <button className="tb" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`more ${label}`}>+</button>
+    </span>
   );
 }
 
