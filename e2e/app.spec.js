@@ -1432,3 +1432,82 @@ test("pick connector heads in the panel; drag the middle stretch to move where i
   expect((await edge()).turnAt).toBeUndefined();
   expect(await col(5)).toBe(19);
 });
+
+test("files: open a Markdown file, save the drawing into it (the rest kept), changes on disk, save as .txt", async ({ page }) => {
+  // A pretend disk, through the File System Access API's pickers.
+  await page.evaluate(() => {
+    const files = (window.__files = { "README.md": "# Notes\n\nSome words.\n" });
+    const handle = (name) => ({
+      kind: "file", name,
+      getFile: async () => new File([files[name] ?? ""], name),
+      createWritable: async () => {
+        let data = "";
+        return { write: async (d) => void (data = d), close: async () => void (files[name] = data) };
+      },
+      queryPermission: async () => "granted",
+      isSameEntry: async (o) => o.name === name,
+    });
+    window.showOpenFilePicker = async () => [handle("README.md")];
+    window.showSaveFilePicker = async (o) => handle(o.suggestedName);
+  });
+  const disk = (name) => page.evaluate((n) => window.__files[n], name);
+  await page.keyboard.press("Control+o");
+  await expect(page.getByRole("status")).toContainText("Opened README.md. It has no drawing yet");
+  const file = page.getByTestId("file");
+  await expect(file).toHaveText("README.md");
+  await box(page, [2, 2], [12, 4], "api");
+  await expect(file).toHaveText("README.md •");
+  await page.keyboard.press("Control+s");
+  await expect(file).toHaveText("README.md");
+  const drawing = await text(page);
+  let md = await disk("README.md");
+  expect(md.startsWith("# Notes\n\nSome words.\n\n```text\n" + drawing + "\n```\n<!-- asciigraph:v1 ")).toBe(true);
+  // Someone edits the file: the words (kept when saving) and then the drawing (asked about).
+  await page.evaluate(() => (window.__files["README.md"] = window.__files["README.md"].replace("Some words.", "Other words.")));
+  await box(page, [20, 2], [30, 4], "db");
+  await page.keyboard.press("Control+s");
+  await expect.poll(() => disk("README.md")).toContain("│   db    │");
+  md = await disk("README.md");
+  expect(md).toContain("Other words.");
+  expect(md).toContain("│   db    │");
+  await page.evaluate(() => (window.__files["README.md"] = window.__files["README.md"].replace("│   db    │", "│  store  │")));
+  await box(page, [2, 8], [12, 10], "web");
+  await page.keyboard.press("Control+s");
+  const dialog = page.getByRole("dialog", { name: "changed on disk" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "load the file's" }).click();
+  expect(await text(page)).toContain("│  store  │");
+  expect(await text(page)).not.toContain("web");
+  // Save as a text file: just the drawing.
+  await page.getByTestId("diagrams").click();
+  await page.getByRole("button", { name: ".txt", exact: true }).click();
+  await expect(file).toHaveText("README.txt");
+  await expect.poll(() => disk("README.txt")).toBeTruthy();
+  expect(await disk("README.txt")).toBe((await text(page)) + "\n");
+});
+
+test("files, where the browser can't write them: open with the file chooser, save by downloading", async ({ page }) => {
+  await page.evaluate(() => {
+    delete window.showOpenFilePicker;
+    delete window.showSaveFilePicker;
+    window.showOpenFilePicker = undefined;
+    window.showSaveFilePicker = undefined;
+  });
+  const chooser = page.waitForEvent("filechooser");
+  await page.keyboard.press("Control+o");
+  await (await chooser).setFiles({ name: "map.md", mimeType: "text/markdown", buffer: Buffer.from("Intro.\n\n```\n+-----+\n| api |\n+-----+\n```\n") });
+  await expect(page.getByTestId("file")).toHaveText("map.md");
+  // (An ASCII box stays one.)
+  expect(await text(page)).toBe("+-----+\n| api |\n+-----+");
+  const download = page.waitForEvent("download");
+  await page.keyboard.press("Control+s");
+  const d = await download;
+  expect(d.suggestedFilename()).toBe("map.md");
+  const saved = readFileSync(await d.path(), "utf8");
+  expect(saved.startsWith("Intro.\n\n```text\n+-----+\n| api |\n+-----+\n```\n<!-- asciigraph:v1 ")).toBe(true);
+  // After a reload the diagram still knows its file, and that it's saved; a change shows.
+  await page.reload();
+  await expect(page.getByTestId("file")).toHaveText("map.md");
+  await box(page, [20, 2], [30, 4], "db");
+  await expect(page.getByTestId("file")).toHaveText("map.md •");
+});

@@ -8,6 +8,8 @@ import {
 } from "./store";
 import { TOOLS } from "./tools";
 import { parseTable } from "../shapes/table";
+import { openFile, saveFile, saveFileAs } from "./file";
+import { formatOf } from "../storage/diskFile";
 import { zoomReset, zoomStep, zoomToFit, zoomToSelection } from "./view";
 
 const SHORTCUTS = new Map<string, ToolId>(TOOLS.map((t) => [t.key ?? t.label[0], t.id]));
@@ -36,6 +38,15 @@ export function attachKeyboard(): () => void {
         e.preventDefault();
       } else if (k === "f") {
         openFind();
+        e.preventDefault();
+      } else if (k === "s") {
+        // Ctrl+S: save to the diagram's file (none yet: save as Markdown); with Shift, as a new one.
+        const f = getState().file;
+        if (e.shiftKey) void saveFileAs(f ? formatOf(f.name) : "markdown");
+        else void saveFile();
+        e.preventDefault();
+      } else if (k === "o") {
+        void openFile();
         e.preventDefault();
       } else if (k === "=" || k === "+" || k === "-" || k === "0") {
         // Zoom the drawing, not the page.

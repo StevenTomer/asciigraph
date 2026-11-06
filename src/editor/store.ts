@@ -66,6 +66,14 @@ export interface EditorState {
   stampsDialog: { save: Id[] | null } | null;
   /** The find box is open. */
   findOpen: boolean;
+  /** The file on disk this diagram is kept in (editor/file.ts): its name, the diagram as last
+   * opened or saved there (unsaved changes: `diagram` isn't it), and whether saving writes to it
+   * (false: it's downloaded again). */
+  file: { name: string; saved: Diagram | null; writable: boolean } | null;
+  /** The file changed on disk since it was opened or saved: what's there now. */
+  fileConflict: { disk: string } | null;
+  /** A short message about files (opened, saved, couldn't save), shown for a few seconds. */
+  notice: string | null;
   /** The right-click menu: where it opened (screen px) and the cell under it. */
   menu: { x: number; y: number; cell: { x: number; y: number } } | null;
 }
@@ -95,6 +103,9 @@ export const useEditor = create<EditorState>(() => ({
   textDialog: null,
   stampsDialog: null,
   findOpen: false,
+  file: null,
+  fileConflict: null,
+  notice: null,
 }));
 
 export const getState = useEditor.getState;
@@ -159,7 +170,7 @@ export function redo() {
 export function load(diagram: Diagram, id: string | null, name: string, history?: { past: Diagram[]; future: Diagram[] }) {
   setState({
     diagram, past: history?.past ?? [], future: history?.future ?? [], pending: null, selection: [],
-    editing: null, tableCell: null, overlay: {}, diagramId: id, diagramName: name,
+    editing: null, tableCell: null, overlay: {}, diagramId: id, diagramName: name, file: null, fileConflict: null,
   });
 }
 

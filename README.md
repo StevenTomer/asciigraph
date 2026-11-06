@@ -69,6 +69,9 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   Export the whole diagram or just the selection.
 - **Command line:** draw text into text in scripts and build steps, or keep the drawings in a
   Markdown file up to date with the Mermaid beside them.
+- **Files:** keep a diagram in a `.md` file (the drawing in a code block, and the diagram itself
+  hidden after it, so it opens again exactly; the rest of the file is left alone, so it can be a
+  README), a `.txt` file (just the drawing) or `.json`. Open, edit, <kbd>Ctrl</kbd>+<kbd>S</kbd>.
 - **No server, no account.** Diagrams are kept in your browser, and undo history survives a
   reload.
 - **Phones too:** The properties panel becomes a bottom sheet, and you can pinch to zoom.
@@ -145,7 +148,7 @@ Inside the container the app is always on port 8080, served by nginx, so only th
 Diagrams are saved in your browser (localStorage), not in the container. The container holds
 no data, so you can rebuild or replace it without losing anything. But a diagram saved at
 http://localhost:8080 isn't visible at another address (another host or port). To move one
-across, export it as JSON or a share link.
+across, save it as a file (or export a share link) and open it there.
 
 ## Command line
 
@@ -168,7 +171,7 @@ In Windows PowerShell, write `${PWD}` for `$PWD`, and pipe input in with
 `Get-Content flow.mmd | docker run --rm -i asciigraph-cli`.
 
 It reads Mermaid, the shorthand and folder trees, like **from text**, and also diagrams saved from
-the app (**download .json**) and share links. What it can do:
+the app (**download .json**, or a `.md` file saved from it) and share links. What it can do:
 
 - `asciigraph flow.mmd`: draw it. `--lr` or `--td` sets a graph's direction, `--boxes` draws a
   folder tree as boxes, `--ascii` uses ASCII only, and `--wrap markdown` (or `c-line`, `c-block`,
@@ -270,6 +273,14 @@ Save a selection as a stamp (right-click → **Save as Stamp…**) and insert it
 diagram, from **stamps** in the toolbar. Export them to a file to share.
 
 ![The stamps dialog with two saved stamps](docs/images/stamps.png)
+
+### Files
+
+Diagrams save themselves in the browser as you go. To keep one in a file as well, **open file…**
+(<kbd>Ctrl</kbd>+<kbd>O</kbd>) or save it as one, then <kbd>Ctrl</kbd>+<kbd>S</kbd> writes it back.
+In a `.md` file it's a ` ```text ` block with the diagram itself hidden after it, so it opens
+again exactly, and the rest of the file is kept, so it can live in a README. Chrome and Edge write
+to the file itself; Firefox and Safari download it again.
 
 ### Export
 

@@ -1,6 +1,7 @@
 import { addNode, emptyDiagram, isDiagram, makeNode } from "../model/ops";
 import type { Diagram, SourceKind } from "../model/types";
 import { decodeShare } from "../storage/share";
+import { readFile } from "../storage/diskFile";
 import { exportText, tablesMarkdown, type Wrap, WRAPS } from "../export/text";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { isTableText, tableNode } from "../shapes/table";
@@ -122,11 +123,14 @@ function parseArgs(args: string[]): Options | "help" {
   return o;
 }
 
-/** A saved diagram (the app's .json download, or a bare diagram), or a share link; else null. */
+/** A saved diagram (the app's .json download, a bare diagram, or a .md file saved from the app),
+ * or a share link; else null. */
 function savedDiagram(input: string): Diagram | null {
   const s = input.trim();
   const link = s.match(/#\/share\/([A-Za-z0-9_-]+)/);
   if (link) return decodeShare(link[1])?.diagram ?? null;
+  // A Markdown file the app saved a diagram in (the drawing, and the diagram hidden after it).
+  if (/<!--\s*asciigraph:v1\s/.test(s)) return readFile("diagram.md", input).diagram;
   if (!s.startsWith("{")) return null;
   try {
     const obj = JSON.parse(s);

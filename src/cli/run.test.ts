@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { writeFile } from "../storage/diskFile";
 import { encodeShare } from "../storage/share";
 import { type CliIO, cliRun, toDiagram } from "./run";
 
@@ -65,6 +66,10 @@ describe("asciigraph render", () => {
     expect(run(["d.json"], { "d.json": JSON.stringify(diagram) }).stdout).toBe(expected);
     const link = `https://example.com/graph/#/share/${encodeShare(diagram, "x")}`;
     expect(run([], { "-": link }).stdout).toBe(expected);
+    // A Markdown file the app saved it in: the diagram hidden in it, so Mermaid comes out as it was.
+    const md = writeFile("notes.md", "# Notes\n", diagram, "x");
+    expect(run(["notes.md"], { "notes.md": md }).stdout).toBe(expected);
+    expect(run(["mermaid", "notes.md"], { "notes.md": md }).stdout).toBe(run(["mermaid", "d.json"], { "d.json": JSON.stringify(diagram) }).stdout);
   });
 
   it("writes to a file with -o", () => {

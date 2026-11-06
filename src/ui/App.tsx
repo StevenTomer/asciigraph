@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { attachClipboard } from "../editor/clipboard";
 import { attachKeyboard } from "../editor/keyboard";
 import { openFromHash, startAutosave } from "../editor/session";
+import { restoreFile } from "../editor/file";
 import { useEditor } from "../editor/store";
 import { Canvas } from "./Canvas";
 import { ContextMenu } from "./ContextMenu";
-import { DiagramsDialog, ExportDialog, HelpDialog } from "./Dialogs";
+import { DiagramsDialog, ExportDialog, FileConflictDialog, HelpDialog, Notice } from "./Dialogs";
 import { Inspector } from "./Inspector";
 import { TextEditor } from "./TextEditor";
 import { FindBar } from "./FindBar";
@@ -23,7 +24,11 @@ export function App() {
   }, [dark]);
 
   useEffect(() => {
-    const cleanups = [attachKeyboard(), attachClipboard(), startAutosave()];
+    // The file a diagram is kept in comes back with it.
+    const unlinkFiles = useEditor.subscribe((s, prev) => {
+      if (s.diagramId && s.diagramId !== prev.diagramId) void restoreFile(s.diagramId);
+    });
+    const cleanups = [attachKeyboard(), attachClipboard(), startAutosave(), unlinkFiles];
     const onHash = () => void openFromHash();
     window.addEventListener("hashchange", onHash);
     void openFromHash();
@@ -45,6 +50,8 @@ export function App() {
       <TextSourceDialog />
       <StampsDialog />
       <FindBar />
+      <FileConflictDialog />
+      <Notice />
       {dialog === "export" && <ExportDialog onClose={close} />}
       {dialog === "diagrams" && <DiagramsDialog onClose={close} />}
       {dialog === "help" && <HelpDialog onClose={close} />}

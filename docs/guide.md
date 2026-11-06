@@ -669,6 +669,34 @@ objects, not linked.
 toolbar to rename it, switch between diagrams, start a new one, delete one, or import a `.json`
 file.
 
+**Files:** a diagram can be kept in a file on disk as well, to check in next to code or keep in a
+README:
+
+- **open file…** (<kbd>Ctrl</kbd>+<kbd>O</kbd>, or in the diagrams dialog) opens a `.md`, `.txt`
+  or `.json` file as a diagram kept in that file. Opening the same file again goes back to that
+  diagram, as the file has it now.
+- **save** (<kbd>Ctrl</kbd>+<kbd>S</kbd>) writes it back. The file's name sits next to the
+  diagram's in the toolbar, with a `•` when there are changes it doesn't have yet; click it to
+  save. **save as** `.md`, `.txt` or `.json` (diagrams dialog, or
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) starts a new file, and <kbd>Ctrl</kbd>+<kbd>S</kbd>
+  with no file yet saves as `.md`. **forget file** stops keeping it there.
+- **`.md`:** the drawing goes in a ` ```text ` block, followed by the diagram itself in a comment
+  Markdown doesn't show (`<!-- asciigraph:v1 … -->`), so it opens again exactly: connectors still
+  attached, links to Mermaid text and all. Everything else in the file is left as it is, so the
+  drawing can live in a README: save as `.md` and pick the README, and the drawing is added at
+  the end (move it where you like; saving again updates it where it is). A Markdown file
+  without one opens its first drawing in a code block. If someone changes the drawing in another
+  editor, the changed drawing is what opens (read back from its characters).
+- **`.txt`:** just the drawing. It's read back from its characters, so boxes, connectors and
+  tables come back, but not what only the diagram knew (Mermaid links, locks).
+- **`.json`:** the diagram, as **download .json** writes it.
+- If the drawing in the file changed since you opened or saved it (in another editor, or another
+  tab), saving asks: **save over it**, or **load the file's** (undo goes back to yours).
+
+Chrome and Edge save into the file itself (they ask once for permission). Firefox and Safari
+can't write files from a web page: opening works the same, and saving downloads the file again
+(with its other contents kept, for Markdown) for you to put back.
+
 **Export** in the toolbar:
 
 ![The export dialog](images/export.png)
@@ -785,6 +813,8 @@ On a Mac, use <kbd>⌘</kbd> for <kbd>Ctrl</kbd>.
 | <kbd>Shift</kbd>+<kbd>1</kbd> | zoom to fit |
 | <kbd>Shift</kbd>+<kbd>2</kbd> | zoom to the selection |
 | <kbd>Ctrl</kbd>+<kbd>F</kbd> | find text |
+| <kbd>Ctrl</kbd>+<kbd>O</kbd> | open a file |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | save to the diagram's file / save as a new one |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | in the draw from text dialog: draw or update |
 
 While dragging:

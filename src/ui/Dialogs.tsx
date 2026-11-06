@@ -10,6 +10,8 @@ import { setDirection } from "../text/sync";
 import type { DiagramMeta } from "../storage/repository";
 import { download, downloadDiagram, readDiagramFile, safeFilename } from "../storage/file";
 import { shareUrl } from "../storage/share";
+import { FORMATS } from "../storage/diskFile";
+import { canWriteFiles, forgetFile, openFile, resolveConflict, saveFile, saveFileAs } from "../editor/file";
 import { Kbd } from "./Toolbar";
 
 export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -243,13 +245,71 @@ export function DiagramsDialog({ onClose }: { onClose: () => void }) {
       </ul>
       <div className="row buttons">
         <button className="tb accent" onClick={() => void newDiagram().then(onClose)}>new diagram</button>
-        <button className="tb" onClick={() => fileRef.current?.click()}>import .json</button>
+        <button className="tb" onClick={() => void openFile().then(onClose)} title="A .md, .txt or .json file: opened as a diagram kept in that file (Ctrl+O)">open file…</button>
+        <button className="tb" onClick={() => fileRef.current?.click()} title="A copy of a downloaded .json diagram, not kept in the file">import .json</button>
         <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && void importFile(e.target.files[0])} />
       </div>
+      <FileRows onDone={onClose} />
       {error && <p className="note error" role="alert">{error}</p>}
-      <p className="note muted">Diagrams are saved in this browser.</p>
+      <p className="note muted">
+        Diagrams are saved in this browser as you work. To keep one in a file too, save it as a file: a <b>.md</b> file
+        holds the drawing in a <code>```text</code> block (and the diagram itself, hidden, so it opens again exactly),
+        leaving the rest of the file as it is; a <b>.txt</b> file is just the drawing.
+        {!canWriteFiles() && " This browser can't write to files, so saving downloads the file instead."}
+      </p>
     </Dialog>
   );
+}
+
+/** The file the open diagram is kept in: save to it, save as another, or stop keeping it there. */
+function FileRows({ onDone }: { onDone: () => void }) {
+  const file = useEditor((s) => s.file);
+  const unsaved = useEditor((s) => !!s.file && s.file.saved !== s.diagram);
+  const verb = canWriteFiles() ? "save" : "download";
+  return (
+    <>
+      {file && (
+        <div className="row buttons">
+          <span className="row-label">file</span>
+          <span className="row-text">{file.name}{unsaved ? " (changed)" : ""}</span>
+          <button className="tb accent" onClick={() => void saveFile().then(onDone)} title="Ctrl+S">{verb}</button>
+          <button className="tb" onClick={forgetFile} title="Stop keeping this diagram in the file (the file stays as it is)">forget file</button>
+        </div>
+      )}
+      <div className="row buttons">
+        <span className="row-label">{verb} as</span>
+        {FORMATS.map((f) => (
+          <button key={f.format} className="tb" onClick={() => void saveFileAs(f.format).then(onDone)} title={`Keep this diagram in a ${f.label} file${f.format === "markdown" ? " (pick an existing one to add the drawing to it)" : ""}`}>
+            {f.ext}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** The diagram's file changed on disk since it was opened or saved here. */
+export function FileConflictDialog() {
+  const conflict = useEditor((s) => s.fileConflict);
+  const file = useEditor((s) => s.file);
+  if (!conflict) return null;
+  return (
+    <Dialog title="changed on disk" onClose={() => void resolveConflict("cancel")}>
+      <p>The drawing in <b>{file?.name}</b> has changed since it was opened or saved here (in another editor, or another tab).</p>
+      <div className="row buttons">
+        <button className="tb accent" onClick={() => void resolveConflict("overwrite")}>save over it</button>
+        <button className="tb" onClick={() => void resolveConflict("load")} title="Replace this drawing with the file's (undo comes back)">load the file's</button>
+        <button className="tb" onClick={() => void resolveConflict("cancel")}>cancel</button>
+      </div>
+    </Dialog>
+  );
+}
+
+/** A short message (opened, saved, couldn't save). */
+export function Notice() {
+  const notice = useEditor((s) => s.notice);
+  if (!notice) return null;
+  return <div className="notice" role="status">{notice}</div>;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -282,6 +342,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt><Kbd>ctrl+f</Kbd> find</dt><dd>search the text of boxes and connectors; Enter for the next match, Shift+Enter the one before, "all" to select every match</dd>
         <dt>stamps</dt><dd>select some objects, right-click → Save as Stamp… to keep them; "stamps" in the toolbar inserts one (in the middle of the screen, selected) into any diagram. Kept in this browser; "export all" / "import" move them as a file</dd>
         <dt>lists</dt><dd>in a box, lines starting <code>- </code>, <code>* </code> or <code>1. </code> become bullet and numbered lists; indent to nest. To keep a line as typed, put a backslash before the marker (<code>\- not a list</code>); to keep all of a box's text as typed, set "lists: off" in the properties panel</dd>
+        <dt>files</dt><dd>keep a diagram in a file too: <b>open file…</b> (<Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>) a .md, .txt or .json file, or save as one from the diagrams dialog (the diagram's name); then <Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> saves to it (its name in the toolbar shows • when there are unsaved changes). A .md file keeps the drawing in a <code>```text</code> block and the diagram itself hidden after it, so it opens again exactly; the rest of the file is left as it is. Chrome and Edge write to the file; other browsers download it</dd>
         <dt>export</dt><dd>copy or download the drawing as text: plain, a Markdown code block, or a comment block for source code (C/C++ <code>//</code> or <code>/* */</code>, Python or Bash <code>#</code>, or your own first line, line prefix and last line), optionally ASCII only. Or as a picture: PNG (download or copy) or SVG (font included), light or dark, optionally transparent. Also as JSON (to import later) or a share link. With something selected, all of these can be just the selection</dd>
         <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align, Distribute and Auto Layout (arranges boxes in layers following their connectors; on empty space it lays out the whole diagram)</dd>
         <dt>sizes</dt><dd>right-click (or the properties panel): Shrink to Text makes boxes the smallest size that shows their text unwrapped (boxes with boxes inside are left alone); with several selected, Normalize Size makes them all as wide and/or tall as the largest</dd>

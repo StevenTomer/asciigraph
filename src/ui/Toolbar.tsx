@@ -2,6 +2,7 @@ import { openFind, openStampsDialog, openTextDialog, redo, setPrefs, setShape, s
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import { TOOLS } from "../editor/tools";
 import { saveCopy } from "../editor/session";
+import { saveFile } from "../editor/file";
 
 export type DialogId = "diagrams" | "export" | "help" | null;
 
@@ -16,6 +17,8 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
   const shared = useEditor((s) => s.diagramId === null);
   const shape = useEditor((s) => s.shape);
   const tableSize = useEditor((s) => s.tableSize);
+  const file = useEditor((s) => s.file);
+  const unsaved = useEditor((s) => !!s.file && s.file.saved !== s.diagram);
 
   return (
     <div className="toolbar-wrap">
@@ -28,6 +31,16 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
         <button className="tb name" onClick={() => openDialog("diagrams")} title="Diagrams" data-testid="diagrams">
           {name || "Untitled"} ▾
         </button>
+        {file && (
+          <button
+            className={"tb file" + (unsaved ? " unsaved" : "")}
+            onClick={() => void saveFile()}
+            title={`Kept in ${file.name}${unsaved ? ": changed since it was saved" : ""}. ${file.writable ? "Save" : "Download"} it (Ctrl+S)`}
+            data-testid="file"
+          >
+            {file.name}{unsaved ? " •" : ""}
+          </button>
+        )}
         {shared && (
           <button className="tb accent" onClick={() => void saveCopy()} title="This is a shared diagram; keep a copy">
             save a copy
