@@ -290,6 +290,7 @@ into a drawing once. asciigraph does both, and keeps the two linked.
 | Price | free, open source | free, open source | paid | free, open source | free, open source |
 | You edit | objects | objects | objects | characters | text only |
 | Connectors stay attached when boxes move | yes, and reroute around other boxes | yes | yes | no | — |
+| Tables | yes: a table tool, typing cell to cell, rows and columns added, moved and deleted, Markdown in and out | not built in (a box can show a command's output) | not built in | no | no |
 | Draw from Mermaid | yes, and stays linked: edit the text and it redraws, keeping your changes | not built in | not built in | no | yes, once |
 | Turn a drawing into Mermaid | yes | not built in | not built in | no | no |
 | Export | text (Unicode or ASCII, comment styles), PNG, SVG, JSON, share link | text, SVG (with goat) | text (comment styles), PNG, SVG | text | text |
@@ -315,6 +316,11 @@ adapted here. It's a free hand-drawing tool that edits characters, so lines don'
 single step. They suit scripts and pipelines; to change the result, you change the text and
 render it again. asciigraph's command line does that too (and keeps the drawings in a Markdown
 file up to date), with the editor there for when you want to move things by hand.
+
+**Table tools** such as Emacs [Org mode](https://orgmode.org/manual/Tables.html) tables and
+online ASCII table generators make tables on their own, and some do more with them (sorting,
+formulas). asciigraph's tables sit in a diagram, with connectors to them, and come and go as
+Markdown.
 
 ## How it works
 
