@@ -89,6 +89,8 @@ export interface Node {
   autosize?: boolean;
   /** A table's settings (shapes/table.ts). */
   table?: TableOptions;
+  /** Banner text (text/banner.ts): what it says and the font; `text` is the lettering. */
+  banner?: { text: string; font: string };
   /** Moving this box takes along what's inside it (default true). See model/containment.ts. */
   carry?: boolean;
   gen?: Generated;

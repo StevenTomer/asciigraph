@@ -1,22 +1,27 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { insertCentered, selectedPart } from "../editor/clipboard";
-import { closeStampsDialog, useEditor } from "../editor/store";
+import { apply, closeStampsDialog, getState, useEditor } from "../editor/store";
+import { addNode, emptyDiagram, makeNode, updateNode } from "../model/ops";
 import { diagramToText } from "../render/rasterize";
 import { download } from "../storage/file";
+import { STAMP_SETS } from "../storage/stampSets";
 import { type Stamp, deleteStamp, exportStamps, importStamps, listStamps, renameStamp, saveStamp, suggestName } from "../storage/stamps";
 import { Dialog } from "./Dialogs";
 
 /**
- * Stamps: groups of objects saved to insert again. Opened from the toolbar (to insert one), or
- * from the right-click menu with something selected (to save it as one).
+ * Stamps: groups of objects to insert. Your own (saved from the right-click menu with something
+ * selected), ready-made sets, and banner text. Opened from the toolbar.
  */
 export function StampsDialog() {
   const dialog = useEditor((s) => s.stampsDialog);
   if (!dialog) return null;
-  return <Body save={dialog.save} />;
+  if (dialog.banner) return <Dialog title="banner text" onClose={closeStampsDialog}><BannerPane id={dialog.banner} /></Dialog>;
+  return <Body save={dialog.save} tab0={dialog.tab} />;
 }
 
-function Body({ save }: { save: string[] | null }) {
+const TABS = [{ id: "yours", label: "yours" }, ...STAMP_SETS.map((s) => ({ id: s.id, label: s.label })), { id: "banner", label: "banner text" }];
+
+function Body({ save, tab0 }: { save: string[] | null; tab0?: string }) {
   const [list, setList] = useState<Stamp[]>(listStamps);
   const refresh = () => setList(listStamps());
   const part = useMemo(() => (save ? selectedPart(save) : null), [save]);
@@ -25,6 +30,9 @@ function Body({ save }: { save: string[] | null }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState(() => tab0 ?? (list.length ? "yours" : STAMP_SETS[0].id));
+  const set = STAMP_SETS.find((x) => x.id === tab);
+  const ready = useMemo(() => set?.stamps() ?? [], [set]);
 
   const insert = (s: Stamp) => {
     insertCentered(s.diagram);
@@ -67,10 +75,34 @@ function Body({ save }: { save: string[] | null }) {
         </>
       )}
       {!part && (
+        <div className="row tabs" role="tablist" aria-label="Stamp sets">
+          {TABS.map((t) => (
+            <button key={t.id} role="tab" aria-selected={tab === t.id} className={"choice" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {!part && tab === "banner" && <BannerPane id={null} />}
+      {!part && set && (
+        <ul className="stamp-list ready">
+          {ready.map((s) => (
+            <li key={s.name}>
+              <button className="stamp-insert" onClick={() => { insertCentered(s.diagram); closeStampsDialog(); }} title={`Insert ${s.name}`} aria-label={`Insert ${s.name}`}>
+                <pre className="stamp-preview">{diagramToText(s.diagram)}</pre>
+              </button>
+              <div className="stamp-row">
+                <span className="grow stamp-name">{s.name}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!part && tab === "yours" && (
         <>
           {list.length === 0 && (
             <p className="note muted">
-              No stamps yet. Select some objects, right-click and choose <b>Save as Stamp…</b> to insert them again later, in any diagram.
+              None of your own yet. Select some objects, right-click and choose <b>Save as Stamp…</b> to insert them again later, in any diagram. The other tabs have ready-made ones.
             </p>
           )}
           <ul className="stamp-list">
@@ -123,5 +155,67 @@ function Body({ save }: { save: string[] | null }) {
         </>
       )}
     </Dialog>
+  );
+}
+
+/** Banner text: words in big lettering, as a text label (a new one, or changing banner `id`). The
+ * fonts load with this. */
+function BannerPane({ id }: { id: string | null }) {
+  const node = id ? getState().diagram.nodes[id] : undefined;
+  const [text, setText] = useState(node?.banner?.text ?? "");
+  const [font, setFont] = useState(node?.banner?.font ?? "standard");
+  const [mod, setMod] = useState<typeof import("../text/banner") | null>(null);
+  useEffect(() => {
+    void import("../text/banner").then(setMod);
+  }, []);
+  const art = mod && text.trim() ? mod.bannerArt(text, font) : "";
+
+  const done = () => {
+    if (!art) return;
+    const lines = art.split("\n");
+    const size = { w: Math.max(...lines.map((l) => Array.from(l).length)), h: lines.length };
+    const fields = { text: art, banner: { text: text.trim(), font }, autosize: true };
+    if (node) {
+      apply((d) => (d.nodes[node.id] ? updateNode(d, node.id, { ...fields, rect: { ...d.nodes[node.id].rect, ...size } }) : d));
+    } else {
+      const n = makeNode({ x: 0, y: 0, ...size }, { border: "none", align: { h: "left", v: "top" }, lists: false, ...fields });
+      insertCentered(addNode(emptyDiagram(), n));
+    }
+    closeStampsDialog();
+  };
+
+  return (
+    <>
+      <div className="row">
+        <span className="row-label">text</span>
+        <textarea
+          className="field grow"
+          rows={2}
+          value={text}
+          autoFocus
+          aria-label="Banner text"
+          placeholder="Words to show big (a line each)"
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && done()}
+        />
+      </div>
+      <div className="row">
+        <span className="row-label">font</span>
+        <span className="row-items">
+          {(mod?.BANNER_FONTS ?? []).map((f) => (
+            <button key={f.id} className={"choice" + (font === f.id ? " active" : "")} aria-pressed={font === f.id} onClick={() => setFont(f.id)}>
+              {f.label}
+            </button>
+          ))}
+        </span>
+      </div>
+      <pre className="stamp-preview large banner-preview" aria-label="Banner preview">{art || " "}</pre>
+      <div className="row buttons">
+        <button className="tb accent" onClick={done} disabled={!art} title="Ctrl+Enter">{node ? "update" : "insert"}</button>
+      </div>
+      <p className="note muted">
+        Lettering in <a href="http://www.figlet.org/" target="_blank" rel="noreferrer">FIGlet</a> fonts. It's a text label: move it like one, and double-click it to change the words or the font.
+      </p>
+    </>
   );
 }

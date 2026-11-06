@@ -150,7 +150,13 @@ export function arrowGlyph(pointing: Side, style: LineStyle, head: Head = "arrow
 
 /** ASCII stand-ins for the drawing characters shapes use, for ASCII-only output. (People's own
  * text is left as they typed it.) */
-const ASCII_CHARS: Record<string, string> = { "╱": "/", "╲": "\\", "…": ".", "•": "*", "◦": "-", "▪": "+" };
+const ASCII_CHARS: Record<string, string> = {
+  "╱": "/", "╲": "\\", "…": ".", "•": "*", "◦": "-", "▪": "+",
+  // In stamps and banners.
+  "█": "#", "▓": "#", "▒": "#", "░": ".", "■": "#", "□": "o", "●": "o", "○": "o", "◉": "@",
+  "☐": "_", "☑": "x", "✓": "v", "×": "x", "▾": "v", "▼": "v", "▲": "^", "◀": "<", "▶": ">",
+  "←": "<", "→": ">", "↑": "^", "↓": "v",
+};
 
 export function asciiChar(ch: string): string {
   return ASCII_CHARS[ch] ?? ch;

@@ -5,7 +5,9 @@
   "description": "Object-based ASCII/Unicode diagram editor: boxes, text and connectors, rendered as text.",
   "license": "MIT",
   "type": "module",
-  "bin": { "asciigraph": "cli/asciigraph.mjs" },
+  "bin": {
+    "asciigraph": "cli/asciigraph.mjs"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -18,6 +20,7 @@
     "screenshots": "npm run build && playwright test -c docs/playwright.config.mjs"
   },
   "dependencies": {
+    "figlet": "^1.12.0",
     "js-base64": "^3.9.6",
     "pako": "^2.2.0",
     "react": "^19.3.1",

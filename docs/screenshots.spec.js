@@ -229,26 +229,20 @@ test("pasted ASCII art becomes objects", async ({ page }) => {
 
 test("stamps", async ({ page }) => {
   await open(page);
-  // Two stamps, made the way anyone would: draw, select, right-click → Save as Stamp….
-  await drawFromText(page, "flowchart LR\n  S(Service) --> D[(Data)]");
-  await page.keyboard.press("Control+a");
-  await clickNode(page, "Service", { button: "right" });
-  await page.getByRole("menuitem", { name: /Save as Stamp/ }).click();
-  await page.getByLabel("Stamp name").fill("service with its database");
-  await page.getByRole("button", { name: "save", exact: true }).click();
-  await page.keyboard.press("Control+a");
-  await page.keyboard.press("Delete");
-  await drawFromText(page, "classDiagram\n  class Entity {\n    +id: UUID\n    +created: Date\n  }");
-  await page.keyboard.press("Control+a");
-  await clickNode(page, "Entity", { button: "right" });
-  await page.getByRole("menuitem", { name: /Save as Stamp/ }).click();
-  await page.getByLabel("Stamp name").fill("entity");
-  await page.getByRole("button", { name: "save", exact: true }).click();
-  await page.keyboard.press("Control+a");
-  await page.keyboard.press("Delete");
   await page.getByRole("button", { name: "stamps" }).click();
+  await page.getByRole("tab", { name: "architecture" }).click();
   await page.waitForTimeout(200);
   await shot(page, "stamps.png");
+});
+
+test("banner text", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: "stamps" }).click();
+  await page.getByRole("tab", { name: "banner text" }).click();
+  await page.getByLabel("Banner text").fill("Release 2.0");
+  await page.getByRole("button", { name: "slant", exact: true }).click();
+  await page.waitForTimeout(200);
+  await shot(page, "banner.png");
 });
 
 test("export dialog", async ({ page }) => {

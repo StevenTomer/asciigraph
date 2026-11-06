@@ -62,8 +62,9 @@ export interface EditorState {
   /** The "draw from text" dialog: for a new drawing (sourceId null), to edit one, or to edit a
    * hand-drawn selection as text (`adopt`: its ids). */
   textDialog: { sourceId: Id | null; adopt?: Id[] } | null;
-  /** The stamps dialog: to insert one, or (with `save`) to save these objects as one. */
-  stampsDialog: { save: Id[] | null } | null;
+  /** The stamps dialog: to insert one, or (with `save`) to save these objects as one. `tab`: the
+   * set shown ("yours", a ready-made set's id, or "banner"); `banner`: the banner being changed. */
+  stampsDialog: { save: Id[] | null; tab?: string; banner?: Id } | null;
   /** The find box is open. */
   findOpen: boolean;
   /** The file on disk this diagram is kept in (editor/file.ts): its name, the diagram as last
@@ -211,6 +212,8 @@ export function onFinishEditing(hook: (() => void) | null) {
 }
 
 export function startEditing(id: Id, field: "text" | "name" | "label" = "text") {
+  // Banner text is changed in its dialog (its text is the lettering).
+  if (field === "text" && getState().diagram.nodes[id]?.banner) return openBannerDialog(id);
   finishEditing();
   begin();
   setState({ editing: { id, field }, selection: [id] });
@@ -250,8 +253,14 @@ export function openTextDialog(sourceId: Id | null, adopt?: Id[]) {
   setState({ textDialog: { sourceId, ...(adopt && { adopt }) }, menu: null });
 }
 
-export function openStampsDialog(save: Id[] | null = null) {
-  setState({ stampsDialog: { save }, menu: null });
+export function openStampsDialog(save: Id[] | null = null, tab?: string) {
+  setState({ stampsDialog: { save, ...(tab && { tab }) }, menu: null });
+}
+
+/** The banner dialog: to make banner text, or to change this one. */
+export function openBannerDialog(id: Id | null = null) {
+  finishEditing();
+  setState({ stampsDialog: { save: null, tab: "banner", ...(id && { banner: id }) }, menu: null, ...(id && { selection: [id] }) });
 }
 
 export function openFind() {

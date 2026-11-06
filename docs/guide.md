@@ -744,8 +744,21 @@ Right-click shows what applies to what's under the pointer and the selection.
 
 ## Stamps
 
-A stamp is a group of objects saved to insert again, in any diagram: a box styled the way you
-like, a service with its database, a whole little pattern.
+A stamp is a group of objects to insert, in any diagram. **stamps** in the toolbar (or
+right-click the canvas → **Insert Stamp…**) has ready-made sets, one tab each:
+
+- **flowchart:** start, steps, end; a yes / no decision; a retry loop; input, process, output; a
+  subprocess.
+- **architecture:** client, server, database; a load balancer; a queue and workers; a cache in
+  front of a database; layers; public and private networks.
+- **sequence:** request and response; sign-in through an identity provider; retrying in a loop;
+  success or failure (`alt`); a callback later.
+- **UI mockups:** a window, a browser, a dialog, a sign-in form, tabs, form controls (check
+  boxes, radio buttons, a drop-down, a search field, a button), a phone.
+- **notes:** a note, a callout, a table, a checklist, a legend, a timeline.
+
+Click one to insert it. The tab **yours** has your own: a box styled the way you like, a service
+with its database, a whole little pattern.
 
 - **Save one:** select the objects, right-click → **Save as Stamp…**, and name it. What's inside
   a selected box comes too, and connectors between the selected boxes.
@@ -759,7 +772,22 @@ like, a service with its database, a whole little pattern.
 Inserted objects are ordinary ones: a stamp made from a drawing linked to text inserts plain
 objects, not linked.
 
-![The stamps dialog with two stamps](images/stamps.png)
+![The stamps dialog showing the ready-made architecture set](images/stamps.png)
+
+### Banner text
+
+Big lettering made of characters, for a heading in a README or a code comment. **stamps** →
+**banner text** (or right-click the canvas → **Insert Banner Text…**): type the words (a line
+each), pick a font, and **insert**.
+
+- **Fonts:** standard, small, mini, slant, big and shadow, from
+  [FIGlet](http://www.figlet.org/), and blocks (FIGlet's banner font in solid `█`, which the
+  ASCII export writes as `#`).
+- **Changing it:** double-click it (or <kbd>Enter</kbd>, or the panel's **banner: change…**) to
+  change the words or the font; that's one undo step.
+- It's a text label, so it moves, aligns and exports like one.
+
+![The banner text tab, lettering "Release 2.0" in the slant font](images/banner.png)
 
 ## Saving, sharing and exporting
 

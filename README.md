@@ -72,7 +72,11 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   lifelines and messages.
 - **Arranging:** Snapping with guides, align and distribute, Auto Layout, locking boxes together,
   matching sizes, and shrinking a box to fit its text.
-- **Stamps:** save a group of objects and insert it again in any diagram; share them as a file.
+- **Stamps:** ready-made sets (flowchart and architecture patterns, sequence-diagram exchanges,
+  UI mockup pieces, notes and legends), and your own: save a group of objects and insert it
+  again in any diagram; share them as a file.
+- **Banner text:** big lettering for headings, in seven [FIGlet](http://www.figlet.org/) fonts;
+  double-click it to change the words or the font.
 - **Markdown lists** in boxes: bullets, numbering, nesting, and wrapped lines that hang under the
   item.
 - **Export:** Text (plain, a Markdown code block, or a comment block for C, Python, shell or your
@@ -281,10 +285,17 @@ Distribute and Normalize Size; Shrink to Text; Lock Together; Auto Layout.
 
 ### Stamps
 
-Save a selection as a stamp (right-click → **Save as Stamp…**) and insert it again, in any
-diagram, from **stamps** in the toolbar. Export them to a file to share.
+**stamps** in the toolbar inserts ready-made pieces: flowchart and architecture patterns (a
+load balancer, a queue and workers, a cache), sequence-diagram exchanges, UI mockups (a window, a
+dialog, a sign-in form, a phone) and notes (a legend, a checklist, a timeline). Save your own
+from a selection (right-click → **Save as Stamp…**) to insert again in any diagram, and export
+them to a file to share.
 
-![The stamps dialog with two saved stamps](docs/images/stamps.png)
+![The stamps dialog showing the ready-made architecture set](docs/images/stamps.png)
+
+Its **banner text** tab letters words big, for a heading in a README or a comment:
+
+![The banner text tab, lettering "Release 2.0" in the slant font](docs/images/banner.png)
 
 ### Files
 
@@ -317,6 +328,8 @@ into a drawing once. asciigraph does both, and keeps the two linked.
 | Keep a diagram in a file | `.md` (the drawing in a code block, opening again exactly; the rest of the file kept, so it can be a README), `.txt` or `.json`; open, edit, save back | its own format, and text out | its own document format, and text out | kept in the browser; text out | the Mermaid text is the file |
 | Draw from Mermaid | yes, and stays linked: edit the text and it redraws, keeping your changes | not built in | not built in | no | yes, once |
 | Turn a drawing into Mermaid | yes | not built in | not built in | no | no |
+| Ready-made pieces | stamp sets (flowchart, architecture, sequence, UI mockups, notes), and your own | stencils (shape libraries), and your own | not built in | no | — |
+| Banner text (big lettering) | yes: 7 FIGlet fonts | not built in (a box can show a command's output, such as figlet's) | yes: FIGlet, 148 fonts | no | — |
 | Export | text (Unicode or ASCII, comment styles), PNG, SVG, JSON, share link | text, SVG (with goat) | text (comment styles), PNG, SVG | text | text |
 
 **Asciio** is the closest open-source relative. Like asciigraph, it treats boxes and arrows as
@@ -325,7 +338,7 @@ largely from the keyboard with vim-like bindings, and it has custom stencils (sh
 and a command that builds a drawing from text. Choose it if you live in a terminal or in Vim.
 asciigraph is edited in a browser, on phones too, mostly with the mouse; its connectors find
 their own way around other boxes, it reads and writes Mermaid, and it reads existing ASCII art
-back into objects. Its stamps play the part of stencils, and its command line draws text into
+back into objects. Its stamp sets play the part of stencils, and its command line draws text into
 text for scripts and editors, without the editor.
 
 **Monodraw** is a polished Mac app with lines that attach to shapes, and much more besides

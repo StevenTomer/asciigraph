@@ -6,7 +6,7 @@ import { arrange } from "../editor/commands";
 import { locksOf, unlock } from "../model/locks";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import { type BorderStyle, type Edge, type HAlign, type LineStyle, type Node, type VAlign, HEADS } from "../model/types";
-import { apply, begin, commit, getState, openTextDialog, select, set, setPrefs, startEditing, useEditor } from "../editor/store";
+import { apply, begin, commit, getState, openBannerDialog, openTextDialog, select, set, setPrefs, startEditing, useEditor } from "../editor/store";
 import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "../editor/tableCommands";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
@@ -166,6 +166,11 @@ export function Inspector() {
             </>
           )}
           {nodes.length === 1 && n0.kind === "table" && <TableRows node={n0} />}
+          {nodes.length === 1 && n0.banner && (
+            <Row label="banner">
+              <Choice active={false} onClick={() => openBannerDialog(n0.id)} title={`"${n0.banner.text}" in ${n0.banner.font}: change the words or the font`}>change…</Choice>
+            </Row>
+          )}
           <Row label="size">
             <Choice
               active={false}

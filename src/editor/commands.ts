@@ -10,7 +10,7 @@ import { HEAD_NAMES } from "../render/charsets";
 import { type Diagram, type Id, HEADS } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
-import { apply, editCell, getState, openStampsDialog, openTextDialog, select, startEditing } from "./store";
+import { apply, editCell, getState, openBannerDialog, openStampsDialog, openTextDialog, select, startEditing } from "./store";
 import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "./tableCommands";
 import { cellAt, parseTable } from "../shapes/table";
 import { zoomToSelection } from "./view";
@@ -80,6 +80,8 @@ export function contextMenu(at: Point): MenuEntry[] {
   if (!selection.length) {
     return [
       { label: "Draw from Text…", run: () => openTextDialog(null) },
+      { label: "Insert Stamp…", run: () => openStampsDialog() },
+      { label: "Insert Banner Text…", hint: "big lettering", run: () => openBannerDialog() },
       "separator",
       paste,
       ...(d.order.length >= 2 ? (["separator", layoutMenu([])] as MenuEntry[]) : []),
@@ -127,7 +129,8 @@ export function contextMenu(at: Point): MenuEntry[] {
     }
     entries.push("separator");
   } else if (nodes.length === 1 && !edges.length) {
-    entries.push({ label: "Edit Text", shortcut: "Enter, F2", run: () => startEditing(nodes[0]) }, "separator");
+    const banner = !!d.nodes[nodes[0]].banner;
+    entries.push({ label: banner ? "Edit Banner…" : "Edit Text", shortcut: "Enter, F2", run: () => startEditing(nodes[0]) }, "separator");
   }
   entries.push(
     { label: "Cut", shortcut: `${mod}X`, run: cutCommand },

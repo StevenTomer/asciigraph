@@ -894,7 +894,56 @@ test("save a selection as a stamp, insert it again, and delete it", async ({ pag
     await stamps.getByRole("button", { name: `Delete ${name}` }).click();
     await stamps.getByRole("button", { name: "delete it" }).click();
   }
-  await expect(stamps.getByText(/No stamps yet/)).toBeVisible();
+  await expect(stamps.getByText(/None of your own yet/)).toBeVisible();
+});
+
+test("ready-made stamps: pick a set, insert one", async ({ page }) => {
+  await page.getByRole("button", { name: "stamps" }).click();
+  const stamps = page.getByRole("dialog", { name: "stamps" });
+  // With none of your own, it opens on the first ready-made set.
+  await expect(stamps.getByRole("tab", { name: "flowchart" })).toHaveAttribute("aria-selected", "true");
+  await stamps.getByRole("tab", { name: "UI mockups" }).click();
+  await stamps.getByRole("button", { name: "Insert Sign-in form" }).click();
+  await expect(stamps).toBeHidden();
+  const t = await text(page);
+  expect(t).toContain("┌─ Sign in ─");
+  expect(t).toContain("│ you@example.com");
+  // Inserted selected, as plain objects.
+  const s = await state(page);
+  expect(s.selection.length).toBe(Object.keys(s.diagram.nodes).length);
+  expect(Object.values(s.diagram.nodes).every((n) => !n.gen)).toBe(true);
+});
+
+test("banner text: insert it, then double-click to change it", async ({ page }) => {
+  await page.getByRole("button", { name: "stamps" }).click();
+  const stamps = page.getByRole("dialog", { name: "stamps" });
+  await stamps.getByRole("tab", { name: "banner text" }).click();
+  await stamps.getByLabel("Banner text").fill("Hi");
+  await expect(stamps.getByLabel("Banner preview")).toContainText("|_| |_|_|");
+  await stamps.getByRole("button", { name: "insert", exact: true }).click();
+  expect(await text(page)).toBe(block(`
+ _   _ _
+| | | (_)
+| |_| | |
+|  _  | |
+|_| |_|_|`));
+  // Double-click it: the dialog again, to change the words and the font.
+  const n = Object.values((await state(page)).diagram.nodes)[0];
+  const p = await at(page, n.rect.x + 1, n.rect.y + 2);
+  await page.mouse.dblclick(p.x, p.y);
+  const dialog = page.getByRole("dialog", { name: "banner text" });
+  await expect(dialog.getByLabel("Banner text")).toHaveValue("Hi");
+  await dialog.getByRole("button", { name: "blocks" }).click();
+  await dialog.getByRole("button", { name: "update" }).click();
+  const after = await text(page);
+  expect(after).toContain("█");
+  expect(after).not.toContain("|_|");
+  const s = await state(page);
+  expect(Object.keys(s.diagram.nodes)).toEqual([n.id]);
+  expect(s.diagram.nodes[n.id].banner).toEqual({ text: "Hi", font: "blocks" });
+  // One undo step back to the first lettering.
+  await page.keyboard.press("Control+z");
+  expect(await text(page)).toContain("|_| |_|_|");
 });
 
 test("end labels: type them in the panel; they sit by each end", async ({ page }) => {
