@@ -302,6 +302,7 @@ into a drawing once. asciigraph does both, and keeps the two linked.
 | You edit | objects | objects | objects | characters | text only |
 | Connectors stay attached when boxes move | yes, and reroute around other boxes | yes | yes | no | — |
 | Tables | yes: a table tool, typing cell to cell, rows and columns added, moved and deleted, Markdown in and out | not built in (a box can show a command's output) | not built in | no | no |
+| Keep a diagram in a file | `.md` (the drawing in a code block, opening again exactly; the rest of the file kept, so it can be a README), `.txt` or `.json`; open, edit, save back | its own format, and text out | its own document format, and text out | kept in the browser; text out | the Mermaid text is the file |
 | Draw from Mermaid | yes, and stays linked: edit the text and it redraws, keeping your changes | not built in | not built in | no | yes, once |
 | Turn a drawing into Mermaid | yes | not built in | not built in | no | no |
 | Export | text (Unicode or ASCII, comment styles), PNG, SVG, JSON, share link | text, SVG (with goat) | text (comment styles), PNG, SVG | text | text |
