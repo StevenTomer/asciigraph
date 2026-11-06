@@ -340,11 +340,22 @@ Select the connector and fill in **end labels** in the properties panel (**at st
 end**). Each goes just past its end, above (or below) a line leaving sideways, or beside one
 leaving up or down; **Reverse Direction** keeps them by their boxes.
 
+<!-- drawing: end-labels -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/end-labels-dark.png">
+  <img src="images/end-labels.png" width="436" alt="A Customer box connected to an Order box by a connector labeled places, with end labels 1 and 0..*">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
 ```
 ┌──────────┐ 1                0..* ┌───────┐
 │ Customer ├─────── places ───────►│ Order │
 └──────────┘                       └───────┘
 ```
+
+</details>
 
 ### Where a connector turns
 
@@ -648,12 +659,23 @@ W --> User -- : welcome
 
 Any of these:
 
+<!-- drawing: folder-tree-inputs -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/folder-tree-inputs-dark.png">
+  <img src="images/folder-tree-inputs.png" width="652" alt="The same folder tree written three ways: as tree output, as an indented list, and as a list of paths">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
 ```
 project/                 project/                 src/main.ts
 ├── src/                   src/                   src/util/format.ts
 │   └── main.ts              main.ts              tests/main.test.ts
 └── README.md              README.md              README.md
 ```
+
+</details>
 
 That is, `tree` command output, an indented list (spaces, tabs or `- ` bullets), or a list of
 paths. Folders are entries ending in `/` or having children. Choose the style in the dialog:
