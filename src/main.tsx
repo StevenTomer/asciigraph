@@ -7,6 +7,7 @@ import { getState } from "./editor/store";
 import { cellCenter } from "./editor/view";
 import { initFont, metrics } from "./render/font";
 import { App } from "./ui/App";
+import { listenForInstall } from "./pwa/pwa";
 import { paintCount } from "./ui/Canvas";
 
 // For end-to-end tests: read state and convert cells to screen positions.
@@ -19,4 +20,5 @@ import { paintCount } from "./ui/Canvas";
 };
 
 loadPrefs();
+listenForInstall();
 void initFont().then(() => createRoot(document.getElementById("root")!).render(<App />));

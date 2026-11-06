@@ -73,7 +73,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   hidden after it, so it opens again exactly; the rest of the file is left alone, so it can be a
   README), a `.txt` file (just the drawing) or `.json`. Open, edit, <kbd>Ctrl</kbd>+<kbd>S</kbd>.
 - **No server, no account.** Diagrams are kept in your browser, and undo history survives a
-  reload.
+  reload. Once loaded it works offline, and it installs as an app with its own window (which can
+  open `.md` and `.txt` files from the desktop).
 - **Phones too:** The properties panel becomes a bottom sheet, and you can pinch to zoom.
 
 ## Running it
@@ -297,7 +298,7 @@ into a drawing once. asciigraph does both, and keeps the two linked.
 
 |  | asciigraph | [Asciio](https://github.com/nkh/P5-App-Asciio) | [Monodraw](https://monodraw.helftone.com/) | [ASCIIFlow](https://asciiflow.com/) | Mermaid-to-ASCII tools |
 |---|---|---|---|---|---|
-| Runs on | any browser, locally in Docker; and a command line | Linux desktop (Gtk3), and a terminal version | macOS | any browser | command line or library |
+| Runs on | any browser (installable, works offline), locally in Docker; and a command line | Linux desktop (Gtk3), and a terminal version | macOS | any browser | command line or library |
 | Price | free, open source | free, open source | paid | free, open source | free, open source |
 | You edit | objects | objects | objects | characters | text only |
 | Connectors stay attached when boxes move | yes, and reroute around other boxes | yes | yes | no | — |

@@ -69,7 +69,19 @@ export async function openFile() {
     if (!aborted(e)) notify(`Couldn't open it: ${e instanceof Error ? e.message : e}`);
     return;
   }
-  if (!file) return;
+  if (file) await openPicked(file, handle);
+}
+
+/** A file the system handed over (the installed app opened with a file): as openFile does. */
+export async function openHandle(handle: FileHandle) {
+  try {
+    await openPicked(await handle.getFile(), handle);
+  } catch (e) {
+    notify(`Couldn't open it: ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+async function openPicked(file: File, handle?: FileHandle) {
   const content = await file.text();
   let r;
   try {

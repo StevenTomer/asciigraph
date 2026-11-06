@@ -74,6 +74,8 @@ export interface EditorState {
   fileConflict: { disk: string } | null;
   /** A short message about files (opened, saved, couldn't save), shown for a few seconds. */
   notice: string | null;
+  /** The browser offers to install asciigraph as an app (pwa/pwa.ts). */
+  canInstall: boolean;
   /** The right-click menu: where it opened (screen px) and the cell under it. */
   menu: { x: number; y: number; cell: { x: number; y: number } } | null;
 }
@@ -106,6 +108,7 @@ export const useEditor = create<EditorState>(() => ({
   file: null,
   fileConflict: null,
   notice: null,
+  canInstall: false,
 }));
 
 export const getState = useEditor.getState;

@@ -3,6 +3,7 @@ import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import { TOOLS } from "../editor/tools";
 import { saveCopy } from "../editor/session";
 import { saveFile } from "../editor/file";
+import { install } from "../pwa/pwa";
 
 export type DialogId = "diagrams" | "export" | "help" | null;
 
@@ -18,6 +19,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
   const shape = useEditor((s) => s.shape);
   const tableSize = useEditor((s) => s.tableSize);
   const file = useEditor((s) => s.file);
+  const canInstall = useEditor((s) => s.canInstall);
   const unsaved = useEditor((s) => !!s.file && s.file.saved !== s.diagram);
 
   return (
@@ -84,6 +86,11 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
         </button>
         <button className="tb" onClick={() => setPrefs({ dark: !dark })} aria-pressed={dark}>{dark ? "light" : "dark"}</button>
         <button className="tb" onClick={() => openDialog("help")}>help</button>
+        {canInstall && (
+          <button className="tb accent" onClick={() => void install()} title="Install asciigraph as an app: its own window, works offline, opens .md and .txt files">
+            install
+          </button>
+        )}
       </div>
       {tool === "box" && (
         <div className="toolbar sub" role="toolbar" aria-label="Shape">

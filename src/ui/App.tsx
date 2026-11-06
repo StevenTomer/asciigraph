@@ -3,6 +3,7 @@ import { attachClipboard } from "../editor/clipboard";
 import { attachKeyboard } from "../editor/keyboard";
 import { openFromHash, startAutosave } from "../editor/session";
 import { restoreFile } from "../editor/file";
+import { startOffline } from "../pwa/pwa";
 import { useEditor } from "../editor/store";
 import { Canvas } from "./Canvas";
 import { ContextMenu } from "./ContextMenu";
@@ -31,7 +32,8 @@ export function App() {
     const cleanups = [attachKeyboard(), attachClipboard(), startAutosave(), unlinkFiles];
     const onHash = () => void openFromHash();
     window.addEventListener("hashchange", onHash);
-    void openFromHash();
+    // Once the first diagram is open (a file handed over by the system opens after it).
+    void openFromHash().then(startOffline);
     return () => {
       cleanups.forEach((c) => c());
       window.removeEventListener("hashchange", onHash);

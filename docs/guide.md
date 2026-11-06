@@ -12,6 +12,7 @@
 - [Stamps](#stamps)
 - [Saving, sharing and exporting](#saving-sharing-and-exporting)
 - [The command line](#the-command-line)
+- [Offline, and as an app](#offline-and-as-an-app)
 - [Phones and tablets](#phones-and-tablets)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 
@@ -780,6 +781,22 @@ viewer) the drawing is there to read.
 
 **In an editor:** anything that can pipe a selection through a command can use it. In Vim, select
 some Mermaid and run `:'<,'>!asciigraph` to replace it with its drawing.
+
+## Offline, and as an app
+
+Once it has loaded, asciigraph works without a connection: everything happens in the browser, and
+a copy of the app is kept for when you're offline. A new version is picked up the next time it
+loads online (an open window says when one is ready).
+
+It can also be installed as an app, with a window of its own: **install** in the toolbar (when
+the browser offers it), or the install icon in Chrome or Edge's address bar. In Safari on a Mac,
+**File** → **Add to Dock**; on an iPhone or iPad, **Share** → **Add to Home Screen**; on
+Android, the browser menu's **Install app** or **Add to Home screen**. The installed app keeps
+the same diagrams as the browser it came from.
+
+Installed from Chrome or Edge on a computer, it can open `.md`, `.txt` and `.json` files from
+your desktop or file manager (**Open With** → asciigraph): the file opens as a diagram kept in
+it, as with **open file…**.
 
 ## Phones and tablets
 

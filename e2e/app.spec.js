@@ -1511,3 +1511,21 @@ test("files, where the browser can't write them: open with the file chooser, sav
   await box(page, [20, 2], [30, 4], "db");
   await expect(page.getByTestId("file")).toHaveText("map.md •");
 });
+
+test("works offline: once loaded, it loads again without a connection", async ({ page, context }) => {
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  // Controlled by the service worker (it takes over open pages once it has cached everything).
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  await box(page, [2, 2], [12, 4], "offline");
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page).toHaveTitle("asciigraph");
+  await page.waitForFunction(() => window.__asciigraph__?.state().diagramId);
+  expect(await text(page)).toContain("offline");
+  // The fonts came from the cache too.
+  expect(await page.evaluate(() => document.fonts.check('16px "Source Code Pro"'))).toBe(true);
+  // The manifest that makes it installable is there.
+  const manifest = await page.evaluate(async () => (await fetch("manifest.webmanifest")).json());
+  expect(manifest).toMatchObject({ name: "asciigraph", display: "standalone", start_url: "./" });
+  await context.setOffline(false);
+});
