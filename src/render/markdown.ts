@@ -10,6 +10,12 @@ import { chars, wrap } from "./textLayout";
  *   - second                       •  second
  *     1. nested                       1. nested
  *
+ * Checklists (task lists, as in GitHub's Markdown): `- [ ] to do` and `- [x] done` show a box in
+ * place of the bullet, `[ ]` or `[✓]` (`[x]` in ASCII); numbered items take one too (`1. [ ]`):
+ *
+ *   - [x] write it                 [✓] write it
+ *   - [ ] test it                  [ ] test it
+ *
  * Everything else is plain text, wrapped as usual. A backslash before the marker (`\- not a
  * list`, `\1. nor this`) keeps a line as written, minus the backslash. With `plain` (a box set to
  * "lists: off"), nothing is treated as Markdown: the text shows exactly as typed.
@@ -18,6 +24,8 @@ import { chars, wrap } from "./textLayout";
 const ITEM = /^([ \t]*)([-*+]|(\d+)([.)]))\s+(.*)$/;
 const ESCAPED = /^([ \t]*)\\(?=([-*+]|\d+[.)])\s)/;
 const BULLETS = ["•", "◦", "▪"];
+/** A checklist item's box, at the start of an item's text. */
+const TASK = /^\[([ xX])\](?:\s+|$)/;
 
 export interface Rendered {
   lines: string[];
@@ -44,7 +52,11 @@ export function renderText(text: string, width: number, plain = false): Rendered
       continue;
     }
     list = true;
-    const [, indent, , num, delim, body] = m;
+    const [, indent, , num, delim] = m;
+    let body = m[5] ?? "";
+    const task = TASK.exec(body);
+    if (task) body = body.slice(task[0].length);
+    const box = task ? (task[1] === " " ? "[ ]" : "[✓]") : "";
     const level = Math.floor(indent.replace(/\t/g, "  ").length / 2);
     counters = counters.slice(0, level + 1);
     let marker: string;
@@ -54,8 +66,9 @@ export function renderText(text: string, width: number, plain = false): Rendered
       marker = `${n}${delim}`;
     } else {
       counters[level] = undefined;
-      marker = BULLETS[level % BULLETS.length];
+      marker = task ? "" : BULLETS[level % BULLETS.length];
     }
+    if (box) marker = marker ? `${marker} ${box}` : box;
     const prefix = "  ".repeat(level) + marker + " ";
     const hang = chars(prefix).length;
     if (hang >= w) {

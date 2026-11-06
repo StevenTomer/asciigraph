@@ -1091,7 +1091,7 @@ function readText(rows: string[][], left: number, right: number, y0: number, y1:
  */
 function cellFromLines(cell: string): string {
   const lines = cell.split("\n").filter((l) => l.trim());
-  const MARKER = /^([•◦▪]|\d+[.)]) /;
+  const MARKER = /^([•◦▪]|\d+[.)]|\[[ ✓xX]\])( |$)/;
   if (!lines.some((l) => MARKER.test(l.trim()))) return lines.map((l) => l.trim()).join("\n");
   const lead = (l: string) => l.length - l.trimStart().length;
   const base = Math.min(...lines.map(lead));
@@ -1099,7 +1099,11 @@ function cellFromLines(cell: string): string {
   for (const l of lines) {
     const at = " ".repeat(lead(l) - base);
     const t = l.trim();
-    if (MARKER.test(t)) out.push(at + t.replace(/^[•◦▪] /, "- "));
+    if (MARKER.test(t)) {
+      // A checklist item's box ([ ], [✓] or [x]) takes the bullet's place.
+      const item = t.replace(/^[•◦▪] /, "- ").replace(/^(\d+[.)] )?\[([ ✓xX])\]( |$)/, (_, num, c, sp) => `${num ?? "- "}[${c === " " ? " " : "x"}]${sp}`);
+      out.push(at + item);
+    }
     else if (out.length && lead(l) > base) out[out.length - 1] += " " + t; // wrapped: part of the item above
     else out.push(t);
   }

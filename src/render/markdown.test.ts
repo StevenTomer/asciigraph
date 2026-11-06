@@ -41,6 +41,30 @@ describe("markdown lists", () => {
   });
 });
 
+describe("checklists", () => {
+  it("shows a box in place of the bullet, ticked for [x], nested and numbered like other items", () => {
+    expect(renderText("- [x] tag it\n- [ ] build it, which takes a while\n  - [ ] amd64\n  - arm64\n1. [ ] publish\n2. [X] announce", 24).lines).toEqual([
+      "[✓] tag it",
+      "[ ] build it, which",
+      "    takes a while",
+      "  [ ] amd64",
+      "  ◦ arm64",
+      "1. [ ] publish",
+      "2. [✓] announce",
+    ]);
+  });
+
+  it("needs the space after the box, and can be escaped", () => {
+    expect(renderText("- [x]done\n\\- [ ] as typed", 40).lines).toEqual(["• [x]done", "- [ ] as typed"]);
+  });
+
+  it("draws in a box, and in ASCII as [x]", () => {
+    const d = setNodeText(addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 16, h: 3 }, { id: "n" })), "n", "- [x] write it\n- [ ] ship it");
+    expect(diagramToText(d)).toBe(["┌──────────────┐", "│ [✓] write it │", "│ [ ] ship it  │", "└──────────────┘"].join("\n"));
+    expect(diagramToText(d, true)).toBe(["+--------------+", "| [x] write it |", "| [ ] ship it  |", "+--------------+"].join("\n"));
+  });
+});
+
 describe("literal text", () => {
   it("keeps a line as typed when its marker is escaped with a backslash", () => {
     expect(renderText("\\- not a list\n  \\* nor this\n\\1. nor this\n- a list", 40)).toEqual({

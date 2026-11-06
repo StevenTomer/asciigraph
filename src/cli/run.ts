@@ -5,6 +5,7 @@ import { readFile } from "../storage/diskFile";
 import { exportText, tablesMarkdown, type Wrap, WRAPS } from "../export/text";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { isTableText, tableNode } from "../shapes/table";
+import { isTimelineText, timelineMermaid, timelineNode } from "../shapes/timeline";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
 import { drawSource, setDirection } from "../text/sync";
@@ -37,7 +38,7 @@ Usage:
   asciigraph table [FILE]                write the tables in a drawing, a saved diagram or table
                                          text as Markdown tables (line breaks in cells as <br>)
 
-FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram), DOT, PlantUML
+FILE can be Mermaid (sequenceDiagram, flowchart, stateDiagram, classDiagram, erDiagram, timeline), DOT, PlantUML
 sequence and class diagrams, the
 shorthand (A -> B: message, A -> B -> C), a drawing (box-drawing or +--+ ASCII text), a
 Markdown table,
@@ -45,7 +46,7 @@ a folder tree, a diagram saved from the app (.json), or a share link. Without FI
 it reads standard input.
 
 Options:
-  --kind auto|sequence|graph|tree|drawing|table
+  --kind auto|sequence|graph|tree|timeline|drawing|table
                                     what the text is (default: detected)
   --lr, --td                        lay graphs out left to right, or top to bottom
   --boxes                           draw folder trees as boxes and connectors
@@ -67,7 +68,7 @@ Examples:
 interface Options {
   command: "render" | "mermaid" | "markdown" | "import" | "table";
   file: string | null;
-  kind: SourceKind | "auto" | "drawing" | "table";
+  kind: SourceKind | "auto" | "drawing" | "table" | "timeline";
   direction?: "down" | "right";
   boxes: boolean;
   ascii: boolean;
@@ -93,7 +94,7 @@ function parseArgs(args: string[]): Options | "help" {
     if (a === "-h" || a === "--help" || a === "help") return "help";
     else if (a === "--kind") {
       const k = value(a);
-      if (!["auto", "sequence", "graph", "tree", "drawing", "table"].includes(k)) throw new UsageError(`unknown kind "${k}"`);
+      if (!["auto", "sequence", "graph", "tree", "timeline", "drawing", "table"].includes(k)) throw new UsageError(`unknown kind "${k}"`);
       o.kind = k as Options["kind"];
     } else if (a === "--lr") o.direction = "right";
     else if (a === "--td" || a === "--tb") o.direction = "down";
@@ -146,6 +147,10 @@ function savedDiagram(input: string): Diagram | null {
 export function toDiagram(input: string, o: Pick<Options, "kind" | "direction" | "boxes">): { diagram: Diagram; warnings: string[] } {
   const saved = savedDiagram(input);
   if (saved) return { diagram: saved, warnings: [] };
+  if (o.kind === "timeline" || (o.kind === "auto" && isTimelineText(input))) {
+    const t = timelineNode(input, { x: 0, y: 0 });
+    return { diagram: addNode(emptyDiagram(), makeNode(t.rect, t)), warnings: [] };
+  }
   if (o.kind === "table" || (o.kind === "auto" && isTableText(input))) {
     const t = tableNode(input, { x: 0, y: 0 });
     return { diagram: addNode(emptyDiagram(), makeNode(t.rect, t)), warnings: [] };
@@ -188,6 +193,9 @@ function mermaid(input: string): string {
   if (!d) throw new Error("mermaid needs a diagram saved from the app (.json), a share link, or a drawing");
   const sources = Object.values(d.sources ?? {});
   const ids = [...d.order, ...Object.keys(d.edges)];
+  // A timeline: its own text, as Mermaid.
+  const nodes = Object.values(d.nodes);
+  if (nodes.length === 1 && nodes[0].kind === "timeline") return timelineMermaid(nodes[0].text);
   // Drawn from one text and nothing else: that text is the answer.
   if (sources.length === 1 && ids.every((id) => (d.nodes[id] ?? d.edges[id]).gen?.source === sources[0].id)) return sources[0].text;
   const desc = describe(d, ids);

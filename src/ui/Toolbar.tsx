@@ -72,7 +72,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
         <button className="tb" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">redo</button>
         <Sep />
         <button className="tb" onClick={() => openTextDialog(null)} title="Draw a sequence, graph or folder tree from text">from text</button>
-        <button className="tb" onClick={() => openStampsDialog()} title="Insert ready-made pieces (flowchart, architecture, sequence, UI mockups, notes), your own saved ones, or banner text">stamps</button>
+        <button className="tb" onClick={() => openStampsDialog()} title="Insert ready-made pieces (flowchart, architecture, sequence, notes), your own saved ones, or banner text">stamps</button>
         <button className="tb" onClick={openFind} title="Find text (Ctrl+F)">find</button>
         <button className="tb" onClick={() => openDialog("export")} data-testid="export">export</button>
         <button className="tb" onClick={() => setPrefs({ grid: !grid })} aria-pressed={grid}>grid</button>
@@ -95,7 +95,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
       {tool === "box" && (
         <div className="toolbar sub" role="toolbar" aria-label="Shape">
           <span className="muted">shape</span>
-          {SHAPE_KINDS.filter((k) => k !== "table").map((k) => (
+          {SHAPE_KINDS.filter((k) => k !== "table" && k !== "timeline").map((k) => (
             <button key={k} className={"tb" + (shape === k ? " active" : "")} aria-pressed={shape === k} onClick={() => setShape(k)}>
               {shapeFor(k).label}
             </button>

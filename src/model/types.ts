@@ -66,7 +66,7 @@ export type HAlign = "left" | "center" | "right";
  * sequence-diagram lifelines and activation bars. */
 export type NodeKind =
   | "box" | "decision" | "io" | "terminal" | "database" | "document" | "subroutine" | "note"
-  | "class" | "table" | "frame" | "lifeline" | "activation";
+  | "class" | "table" | "timeline" | "frame" | "lifeline" | "activation";
 export type VAlign = "top" | "middle" | "bottom";
 
 /**
@@ -89,6 +89,8 @@ export interface Node {
   autosize?: boolean;
   /** A table's settings (shapes/table.ts). */
   table?: TableOptions;
+  /** A timeline's settings (shapes/timeline.ts): drawn across (default) or down. */
+  timeline?: { direction?: "down" };
   /** Banner text (text/banner.ts): what it says and the font; `text` is the lettering. */
   banner?: { text: string; font: string };
   /** Moving this box takes along what's inside it (default true). See model/containment.ts. */

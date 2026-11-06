@@ -52,7 +52,9 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   input/output, start/end, database, document, subroutine), notes, frames, class boxes in
   compartments, tables (made with the table tool and typed into cell by cell, rows and columns
   added, moved and deleted, or written as Markdown tables; with a title, set or automatic column
-  widths, wrapping, cells over several lines, and lists in cells), and sequence-diagram lifelines and activation bars.
+  widths, wrapping, cells over several lines, and lists and checklists in cells), timelines (across
+  or down, with sections; written as Mermaid `timeline` text), and sequence-diagram lifelines and
+  activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
   diamond, dot, circle, cross, bar); labels, and end labels by each end (`1`, `0..*`); bend
   points; and a turn point you can drag.
@@ -60,8 +62,9 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   [sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html),
   [flowcharts](https://mermaid.js.org/syntax/flowchart.html),
   [state diagrams](https://mermaid.js.org/syntax/stateDiagram.html),
-  [class diagrams](https://mermaid.js.org/syntax/classDiagram.html) and
-  [entity–relationship diagrams](https://mermaid.js.org/syntax/entityRelationshipDiagram.html),
+  [class diagrams](https://mermaid.js.org/syntax/classDiagram.html),
+  [entity–relationship diagrams](https://mermaid.js.org/syntax/entityRelationshipDiagram.html) and
+  [timelines](https://mermaid.js.org/syntax/timeline.html),
   [Graphviz DOT](https://graphviz.org/doc/info/lang.html), [PlantUML](https://plantuml.com/)
   sequence and class diagrams, a looser shorthand
   (`Client -> API: GET /x`, `A -> B -> C`), and folder trees. The drawing stays linked to the
@@ -73,12 +76,12 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
 - **Arranging:** Snapping with guides, align and distribute, Auto Layout, locking boxes together,
   matching sizes, and shrinking a box to fit its text.
 - **Stamps:** ready-made sets (flowchart and architecture patterns, sequence-diagram exchanges,
-  UI mockup pieces, notes and legends), and your own: save a group of objects and insert it
+  notes and legends), and your own: save a group of objects and insert it
   again in any diagram; share them as a file.
 - **Banner text:** big lettering for headings, in seven [FIGlet](http://www.figlet.org/) fonts;
   double-click it to change the words or the font.
-- **Markdown lists** in boxes: bullets, numbering, nesting, and wrapped lines that hang under the
-  item.
+- **Markdown lists** in boxes and table cells: bullets, numbering, checklists (`- [ ]`, `- [x]`),
+  nesting, and wrapped lines that hang under the item.
 - **Export:** Text (plain, a Markdown code block, or a comment block for C, Python, shell or your
   own style; Unicode or ASCII only), PNG and SVG pictures (light or dark), JSON, or a share link.
   Export the whole diagram or just the selection.
@@ -286,8 +289,7 @@ Distribute and Normalize Size; Shrink to Text; Lock Together; Auto Layout.
 ### Stamps
 
 **stamps** in the toolbar inserts ready-made pieces: flowchart and architecture patterns (a
-load balancer, a queue and workers, a cache), sequence-diagram exchanges, UI mockups (a window, a
-dialog, a sign-in form, a phone) and notes (a legend, a checklist, a timeline). Save your own
+load balancer, a queue and workers, a cache), sequence-diagram exchanges and notes (a legend, a checklist, a timeline). Save your own
 from a selection (right-click → **Save as Stamp…**) to insert again in any diagram, and export
 them to a file to share.
 
@@ -328,7 +330,7 @@ into a drawing once. asciigraph does both, and keeps the two linked.
 | Keep a diagram in a file | `.md` (the drawing in a code block, opening again exactly; the rest of the file kept, so it can be a README), `.txt` or `.json`; open, edit, save back | its own format, and text out | its own document format, and text out | kept in the browser; text out | the Mermaid text is the file |
 | Draw from Mermaid | yes, and stays linked: edit the text and it redraws, keeping your changes | not built in | not built in | no | yes, once |
 | Turn a drawing into Mermaid | yes | not built in | not built in | no | no |
-| Ready-made pieces | stamp sets (flowchart, architecture, sequence, UI mockups, notes), and your own | stencils (shape libraries), and your own | not built in | no | — |
+| Ready-made pieces | stamp sets (flowchart, architecture, sequence, notes), and your own | stencils (shape libraries), and your own | not built in | no | — |
 | Banner text (big lettering) | yes: 7 FIGlet fonts | not built in (a box can show a command's output, such as figlet's) | yes: FIGlet, 148 fonts | no | — |
 | Export | text (Unicode or ASCII, comment styles), PNG, SVG, JSON, share link | text, SVG (with goat) | text (comment styles), PNG, SVG | text | text |
 

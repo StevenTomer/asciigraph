@@ -2,12 +2,13 @@ import type { Rect } from "../geometry/geom";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
 import type { Diagram, Edge, Endpoint, Node, SourceKind } from "../model/types";
 import { tableNode } from "../shapes/table";
+import { timelineNode } from "../shapes/timeline";
 import { drawSource } from "../text/sync";
 import { stampOf } from "./stamps";
 
 /**
  * Ready-made stamps, in sets: flowchart and architecture patterns, sequence-diagram exchanges,
- * UI mockup pieces, and notes for documents. Each is drawn when the dialog first shows its set:
+ * and notes for documents. Each is drawn when the dialog first shows its set:
  * from Mermaid (by the same code as "from text", then unlinked), or built from objects.
  */
 export interface ReadyStamp {
@@ -65,8 +66,6 @@ interface Builder {
 }
 
 const free = (x: number, y: number): Endpoint => ({ kind: "free", at: { x, y } });
-const button = (b: Builder, x: number, y: number, text: string) =>
-  b.box({ x, y, w: Array.from(text).length + 4, h: 3 }, { border: "rounded", text });
 
 export const STAMP_SETS: StampSet[] = [
   {
@@ -113,68 +112,6 @@ export const STAMP_SETS: StampSet[] = [
     ],
   },
   {
-    id: "ui",
-    label: "UI mockups",
-    stamps: () => [
-      {
-        name: "Window",
-        diagram: build((b) => {
-          b.box({ x: 0, y: 0, w: 40, h: 14 }, { kind: "class", text: "● ● ●   Window title\n---\n", align: { h: "left", v: "top" } });
-        }),
-      },
-      {
-        name: "Browser",
-        diagram: build((b) => {
-          b.box({ x: 0, y: 0, w: 44, h: 16 }, { kind: "class", text: "● ● ●\n---\n◀ ▶ ↻  https://example.com\n---\n", align: { h: "left", v: "top" } });
-        }),
-      },
-      {
-        name: "Dialog",
-        diagram: build((b) => {
-          b.box({ x: 0, y: 0, w: 34, h: 9 }, { name: "Delete file?", text: "This can't be undone.", align: { h: "left", v: "top" } });
-          button(b, 13, 5, "Cancel");
-          button(b, 23, 5, "Delete");
-        }),
-      },
-      {
-        name: "Sign-in form",
-        diagram: build((b) => {
-          b.box({ x: 0, y: 0, w: 34, h: 15 }, { name: "Sign in" });
-          b.label(3, 2, "Email");
-          b.box({ x: 3, y: 3, w: 28, h: 3 }, { text: "you@example.com", align: { h: "left", v: "middle" } });
-          b.label(3, 6, "Password");
-          b.box({ x: 3, y: 7, w: 28, h: 3 }, { text: "••••••••", align: { h: "left", v: "middle" } });
-          b.label(3, 11, "☐ Remember me");
-          button(b, 21, 10, "Sign in");
-        }),
-      },
-      {
-        name: "Tabs",
-        diagram: build((b) => {
-          b.box({ x: 0, y: 0, w: 36, h: 10 }, { kind: "class", text: "General │ Account │ Privacy │\n---\n", align: { h: "left", v: "top" } });
-        }),
-      },
-      {
-        name: "Form controls",
-        diagram: build((b) => {
-          b.label(0, 0, "☑ Checked\n☐ Not checked\n\n◉ Chosen\n○ Not chosen");
-          b.box({ x: 18, y: 0, w: 18, h: 3 }, { text: "Choose…     ▾", align: { h: "left", v: "middle" } });
-          b.box({ x: 18, y: 3, w: 18, h: 3 }, { text: "Search…", align: { h: "left", v: "middle" } });
-          button(b, 18, 6, "Button");
-        }),
-      },
-      {
-        name: "Phone",
-        diagram: build((b) => {
-          b.box({ x: 0, y: 0, w: 22, h: 16 }, {
-            kind: "class", border: "rounded", align: { h: "left", v: "top" },
-            text: "9:41          ●●●\n---\n" + "\n".repeat(10) + "---\n  ◀     ●     ■",
-          });
-        }),
-      },
-    ],
-  },
-  {
     id: "notes",
     label: "notes",
     stamps: () => [
@@ -189,7 +126,7 @@ export const STAMP_SETS: StampSet[] = [
       { name: "Table", diagram: build((b) => void b.table(0, 0, "| Name | Value |\n|------|-------|\n| one  | 1     |\n| two  | 2     |")) },
       {
         name: "Checklist",
-        diagram: build((b) => void b.box({ x: 0, y: 0, w: 22, h: 6 }, { name: "To do", text: "☑ Write it\n☐ Test it\n☐ Ship it", align: { h: "left", v: "top" }, lists: false })),
+        diagram: build((b) => void b.box({ x: 0, y: 0, w: 22, h: 5 }, { name: "To do", text: "- [x] Write it\n- [ ] Test it\n- [ ] Ship it", align: { h: "left", v: "top" } })),
       },
       {
         name: "Legend",
@@ -208,7 +145,8 @@ export const STAMP_SETS: StampSet[] = [
       {
         name: "Timeline",
         diagram: build((b) => {
-          b.label(0, 0, " Plan      Build     Test      Ship\n──●─────────●─────────●─────────●──►");
+          const { rect, ...fields } = timelineNode("2024 : Plan\n2025 : Build : Test\n2026 : Ship", { x: 0, y: 0 });
+          b.box(rect, fields);
         }),
       },
     ],

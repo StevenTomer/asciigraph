@@ -90,6 +90,18 @@ describe("asciigraph render", () => {
   });
 });
 
+describe("asciigraph timelines", () => {
+  const TL = "timeline\n    title Launch\n    Jan : Plan\n    Feb : Build : Test";
+  it("draws a Mermaid timeline, and gives its Mermaid back from a saved diagram", () => {
+    const r = run(["render"], { "-": TL });
+    expect(r.stdout).toBe(["Launch", "   Jan    Feb", "───●──────●──────►", "   Plan   Build", "          Test"].join("\n"));
+    const { diagram } = toDiagram(TL, { kind: "auto", boxes: false });
+    const back = run(["mermaid", "d.json"], { "d.json": JSON.stringify(diagram) }).stdout;
+    expect(back).toBe("timeline\n    title Launch\n    Jan : Plan\n    Feb : Build : Test");
+    expect(run(["render", "--kind", "timeline"], { "-": "Jan : Plan" }).stdout).toContain("●");
+  });
+});
+
 describe("asciigraph mermaid", () => {
   it("gives back the text a diagram was drawn from", () => {
     const { diagram } = toDiagram(SEQ, { kind: "auto", boxes: false });

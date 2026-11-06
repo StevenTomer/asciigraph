@@ -5,7 +5,7 @@ import {
 import { autoLayout } from "../model/layout";
 import { lockTogether, locksOf, unlock } from "../model/locks";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
-import { bringToFront, headOf, updateEdge, withHead } from "../model/ops";
+import { addNode, bringToFront, headOf, makeNode, updateEdge, withHead } from "../model/ops";
 import { HEAD_NAMES } from "../render/charsets";
 import { type Diagram, type Id, HEADS } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
@@ -13,6 +13,7 @@ import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { apply, editCell, getState, openBannerDialog, openStampsDialog, openTextDialog, select, startEditing } from "./store";
 import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "./tableCommands";
 import { cellAt, parseTable } from "../shapes/table";
+import { timelineNode } from "../shapes/timeline";
 import { zoomToSelection } from "./view";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -82,6 +83,7 @@ export function contextMenu(at: Point): MenuEntry[] {
       { label: "Draw from Text…", run: () => openTextDialog(null) },
       { label: "Insert Stamp…", run: () => openStampsDialog() },
       { label: "Insert Banner Text…", hint: "big lettering", run: () => openBannerDialog() },
+      { label: "Insert Timeline", run: () => insertTimeline(at) },
       "separator",
       paste,
       ...(d.order.length >= 2 ? (["separator", layoutMenu([])] as MenuEntry[]) : []),
@@ -130,7 +132,8 @@ export function contextMenu(at: Point): MenuEntry[] {
     entries.push("separator");
   } else if (nodes.length === 1 && !edges.length) {
     const banner = !!d.nodes[nodes[0]].banner;
-    entries.push({ label: banner ? "Edit Banner…" : "Edit Text", shortcut: "Enter, F2", run: () => startEditing(nodes[0]) }, "separator");
+    const timelineNode = d.nodes[nodes[0]].kind === "timeline";
+    entries.push({ label: banner ? "Edit Banner…" : timelineNode ? "Edit Timeline" : "Edit Text", shortcut: "Enter, F2", run: () => startEditing(nodes[0]) }, "separator");
   }
   entries.push(
     { label: "Cut", shortcut: `${mod}X`, run: cutCommand },
@@ -226,7 +229,7 @@ export function contextMenu(at: Point): MenuEntry[] {
   }
   const sourceIds = new Set(selection.map((id) => (d.nodes[id] ?? d.edges[id])?.gen?.source));
   const sourceId = sourceIds.size === 1 ? [...sourceIds][0] : undefined;
-  if (!sourceId && nodes.length) {
+  if (!sourceId && nodes.length && !nodes.every((id) => d.nodes[id].kind === "timeline")) {
     entries.push("separator", { label: "Edit as Text…", hint: "Mermaid", run: () => openTextDialog(null, selection) });
   }
   if (sourceId) {
@@ -251,4 +254,12 @@ export function contextMenu(at: Point): MenuEntry[] {
   }
   entries.push("separator", { label: "Select All", shortcut: `${mod}A`, run: selectAll });
   return entries;
+}
+
+/** A new timeline at `at`, with a few periods to change, and its text open for editing. */
+function insertTimeline(at: Point) {
+  const t = timelineNode("2024 : Plan\n2025 : Build : Test\n2026 : Ship", at);
+  const node = makeNode(t.rect, t);
+  apply((d) => addNode(d, node));
+  startEditing(node.id);
 }

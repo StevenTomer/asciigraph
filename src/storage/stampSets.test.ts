@@ -31,15 +31,11 @@ describe("ready-made stamps", () => {
     }
   });
 
-  it("draw a window as a box in compartments", () => {
-    const w = all.find((t) => t.name === "Window")!;
-    expect(diagramToText(w.diagram).split("\n").slice(0, 4).join("\n")).toBe(
-      [
-        "┌──────────────────────────────────────┐",
-        "│ ● ● ●   Window title                 │",
-        "├──────────────────────────────────────┤",
-        "│                                      │",
-      ].join("\n"),
-    );
+  it("have a real timeline and a real checklist", () => {
+    const timeline = all.find((t) => t.name === "Timeline")!;
+    expect(Object.values(timeline.diagram.nodes).map((n) => n.kind)).toEqual(["timeline"]);
+    const checklist = all.find((t) => t.name === "Checklist")!;
+    expect(diagramToText(checklist.diagram)).toContain("│ [✓] Write it");
+    expect(STAMP_SETS.map((s) => s.id)).toEqual(["flowchart", "architecture", "sequence", "notes"]);
   });
 });

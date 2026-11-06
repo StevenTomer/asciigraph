@@ -5,6 +5,7 @@
 - [Selecting, moving and resizing](#selecting-moving-and-resizing)
 - [Boxes and shapes](#boxes-and-shapes)
 - [Text in boxes](#text-in-boxes)
+- [Timelines](#timelines)
 - [Connectors](#connectors)
 - [Sequence diagrams](#sequence-diagrams)
 - [Drawing from text](#drawing-from-text)
@@ -199,8 +200,8 @@ their widest cell, and the table grows as you type:
   When any row has more than one line, every row gets a line under it, so you can see where each
   row ends. `<br>` in a cell (as Markdown writes a line break) works too, and a pasted table's
   `<br>`s are turned into line breaks.
-- **Lists in cells:** as in boxes, lines starting `- `, `* ` or `+ ` are bullets and `1.` or
-  `1)` number themselves; two more spaces nest an item under the one above, and a wrapped item
+- **Lists in cells:** as in boxes, lines starting `- `, `* ` or `+ ` are bullets, `1.` or
+  `1)` number themselves, and `- [ ]` / `- [x]` are checklist items; two more spaces nest an item under the one above, and a wrapped item
   hangs under its text. Type them line by line (<kbd>Enter</kbd> between items):
 
   <!-- drawing: table-lists -->
@@ -291,8 +292,75 @@ Indent to nest. Numbers renumber themselves, and wrapped lines hang under the it
 
 </details>
 
+**Checklists:** an item starting `[ ]` is a box to tick, and `[x]` a ticked one: `- [ ] to do`,
+`- [x] done` (as in GitHub's Markdown). The box takes the bullet's place; numbered items take one
+too (`1. [ ] first`), and checklists nest and wrap like other lists. In ASCII, a tick is `[x]`.
+
+<!-- drawing: box-checklist -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/box-checklist-dark.png">
+  <img src="images/box-checklist.png" width="535" alt="A box with a checklist: one item ticked, one nested, one wrapped">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
+```
+- [x] tag the version          ┌──────────────────────┐
+- [ ] build the images         │ [✓] tag the version  │
+  - [x] amd64            →     │ [ ] build the images │
+  - [ ] arm64                  │   [✓] amd64          │
+- [ ] announce it to           │   [ ] arm64          │
+  everyone                     │ [ ] announce it to   │
+                               │     everyone         │
+                               └──────────────────────┘
+```
+
+</details>
+
 To keep one line as you typed it, put a backslash before the marker (`\- not a list`). To keep
 all of a box's text as typed, set **lists: off** in the properties panel.
+
+## Timelines
+
+A timeline is periods along a line, each with its events. Its text is a
+[Mermaid timeline](https://mermaid.js.org/syntax/timeline.html): a line per period, `when : event`,
+with more events after more colons or on lines starting `:`; `title` and `section` lines are
+optional.
+
+<!-- drawing: timeline -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/timeline-dark.png">
+  <img src="images/timeline.png" width="616" alt="Timeline text with a title, two sections and three periods, and the timeline drawn from it across the page">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
+```
+title Product history          Product history
+section Planning                  Planning  Delivery
+  2024 : Plan                     2024      2025    2026
+section Delivery          →    ───●─────────●───────●──────────►
+  2025 : Build : Test             Plan      Build   Ship
+  2026 : Ship                               Test    Celebrate
+       : Celebrate
+```
+
+</details>
+
+- **Making one:** draw it from text (**from text**, starting the text with `timeline`; it's
+  detected), paste Mermaid timeline text, right-click the canvas → **Insert Timeline**, or the
+  timeline stamp in **notes**.
+- **Changing it:** double-click it (or <kbd>Enter</kbd>, or the panel's **edit events**) to edit
+  its text; it resizes to fit as you type.
+- **Across or down:** the panel's **timeline: across** puts the periods along a line across, with
+  events under each; **down** runs the line down the page, periods on its left and events on its
+  right.
+- **Size and style:** it sizes itself to fit; drawn wider, the periods spread out, and narrower,
+  long events wrap. The border styles set the line (double, heavy, dashed, …).
+- In Mermaid out (`asciigraph mermaid`) and on the command line (`asciigraph render`), it's
+  Mermaid timeline text.
 
 ## Connectors
 
@@ -754,8 +822,6 @@ right-click the canvas → **Insert Stamp…**) has ready-made sets, one tab eac
   front of a database; layers; public and private networks.
 - **sequence:** request and response; sign-in through an identity provider; retrying in a loop;
   success or failure (`alt`); a callback later.
-- **UI mockups:** a window, a browser, a dialog, a sign-in form, tabs, form controls (check
-  boxes, radio buttons, a drop-down, a search field, a button), a phone.
 - **notes:** a note, a callout, a table, a checklist, a legend, a timeline.
 
 Click one to insert it. The tab **yours** has your own: a box styled the way you like, a service

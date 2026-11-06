@@ -110,7 +110,7 @@ export function Inspector() {
             ))}
           </Row>
           {/* (A table lines up each column itself, and doesn't draw lists.) */}
-          {!nodes.every((n) => n.kind === "table") && (
+          {!nodes.every((n) => n.kind === "table" || n.kind === "timeline") && (
             <>
           <Row label="text">
             {HALIGN.map(([v, l]) => (
@@ -123,7 +123,7 @@ export function Inspector() {
             ))}
           </Row>
           <Row label="lists">
-            <Choice active={n0.lists !== false} onClick={() => eachNode(() => ({ lists: undefined }))} title="Lines starting - * + or 1. are shown as lists (a \ before the marker keeps one line as typed)">
+            <Choice active={n0.lists !== false} onClick={() => eachNode(() => ({ lists: undefined }))} title="Lines starting - * + or 1. are shown as lists, and - [ ] / - [x] as a checklist (a \ before the marker keeps one line as typed)">
               on
             </Choice>
             <Choice active={n0.lists === false} onClick={() => eachNode(() => ({ lists: false }))} title="Show the text exactly as typed">
@@ -166,6 +166,17 @@ export function Inspector() {
             </>
           )}
           {nodes.length === 1 && n0.kind === "table" && <TableRows node={n0} />}
+          {nodes.length === 1 && n0.kind === "timeline" && (
+            <>
+              <Row label="timeline">
+                <Choice active={n0.timeline?.direction !== "down"} onClick={() => eachNode((n) => ({ timeline: undefined, ...refit(n, undefined) }))} title="Periods along a line across, events under each">across</Choice>
+                <Choice active={n0.timeline?.direction === "down"} onClick={() => eachNode((n) => ({ timeline: { direction: "down" }, ...refit(n, { direction: "down" }) }))} title="Periods down a line, events beside each">down</Choice>
+              </Row>
+              <Row label="">
+                <Choice active={false} onClick={() => startEditing(n0.id, "text")} title="Periods and events, as Mermaid timeline lines: 2024 : Plan : Design">edit events</Choice>
+              </Row>
+            </>
+          )}
           {nodes.length === 1 && n0.banner && (
             <Row label="banner">
               <Choice active={false} onClick={() => openBannerDialog(n0.id)} title={`"${n0.banner.text}" in ${n0.banner.font}: change the words or the font`}>change…</Choice>
@@ -344,6 +355,12 @@ export function Inspector() {
   );
 }
 
+/** A timeline turned the other way: sized to fit again. */
+function refit(n: Node, timeline: Node["timeline"]): Partial<Node> {
+  const m = { ...n, timeline, autosize: true };
+  return { autosize: true, rect: { ...n.rect, ...shapeFor("timeline").fitSize(m, n.text) } };
+}
+
 /** A table's title, column widths, wrapping, and copying it as Markdown. */
 function TableRows({ node: n }: { node: Node }) {
   const t = parseTable(n.text);
@@ -418,7 +435,7 @@ function TableRows({ node: n }: { node: Node }) {
         <Choice active={n.table?.wrap === false} onClick={() => patch((m) => withOptions(m, { wrap: false }))} title="Text that doesn't fit its column is cut off with …">cut off …</Choice>
       </Row>
       <Row label="lists">
-        <Choice active={n.table?.lists !== false} onClick={() => patch((m) => withOptions(m, { lists: undefined }))} title="Lines in a cell starting - * + or 1. are shown as lists (indent two spaces to nest)">on</Choice>
+        <Choice active={n.table?.lists !== false} onClick={() => patch((m) => withOptions(m, { lists: undefined }))} title="Lines in a cell starting - * + or 1. are shown as lists, and - [ ] / - [x] as a checklist (indent two spaces to nest)">on</Choice>
         <Choice active={n.table?.lists === false} onClick={() => patch((m) => withOptions(m, { lists: false }))} title="Show cells exactly as typed">off (as typed)</Choice>
       </Row>
       <Row label="Markdown">

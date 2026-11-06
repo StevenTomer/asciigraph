@@ -5,6 +5,7 @@ import { addEdge, addNode, deleteObjects, makeNode, newId } from "../model/ops";
 import type { Diagram, Endpoint, Id } from "../model/types";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { isTableText, tableNode } from "../shapes/table";
+import { isTimelineText, timelineNode } from "../shapes/timeline";
 import { middleClickRecently } from "./input";
 import { apply, getState, select } from "./store";
 import { screenToCell } from "./view";
@@ -83,6 +84,12 @@ function place(part: Diagram, at?: Point) {
 function pasteText(text: string, at?: Point) {
   if (copied && text === copied.text) {
     place(copied.diagram, at);
+  } else if (isTimelineText(text)) {
+    // A Mermaid timeline: a timeline.
+    const t = timelineNode(text, at ?? screenToCell(window.innerWidth / 3, window.innerHeight / 3));
+    const node = makeNode(t.rect, t);
+    apply((d) => addNode(d, node));
+    select([node.id]);
   } else if (isTableText(text)) {
     // A Markdown table: a table.
     const t = tableNode(text, at ?? screenToCell(window.innerWidth / 3, window.innerHeight / 3));

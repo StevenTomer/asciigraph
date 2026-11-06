@@ -34,7 +34,7 @@ export function sameSize(d: Diagram, ids: Id[], axes: { w: boolean; h: boolean }
 export function textFit(node: Node): Rect | null {
   if (NOT_TEXT_SIZED.has(node.kind)) return null;
   // A table: its columns at their own widths (as set, or their widest line).
-  if (node.kind === "table") return { ...node.rect, ...shapeOf(node).fitSize({ ...node, autosize: true }, node.text) };
+  if (node.kind === "table" || node.kind === "timeline") return { ...node.rect, ...shapeOf(node).fitSize({ ...node, autosize: true }, node.text) };
   const text = node.text;
   const name = node.border !== "none" ? node.name ?? "" : "";
   if (!text.trim() && !name) return null;

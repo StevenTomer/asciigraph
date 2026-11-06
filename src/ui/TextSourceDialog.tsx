@@ -7,6 +7,7 @@ import { diagramToText } from "../render/rasterize";
 import { pasteInto } from "../editor/clipboard";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
 import { isTableText, tableNode } from "../shapes/table";
+import { isTimelineText, timelineNode } from "../shapes/timeline";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
 import { adopt, drawSource, membersOf, updateSource } from "../text/sync";
@@ -82,15 +83,16 @@ const EXAMPLES: { label: string; text: string }[] = [
   { label: "class", text: EXAMPLE_TEXT.class },
   { label: "ER", text: EXAMPLE_TEXT.er },
   { label: "folder tree", text: EXAMPLE_TEXT.tree },
+  { label: "timeline", text: "timeline\n    title Release history\n    section Planning\n      Jan : Requirements : Design\n    section Delivery\n      Mar : Build\n      May : Beta : Feedback\n      Jul : Launch" },
   { label: "table", text: "| Service | Port | Owner |\n|---------|-----:|-------|\n| web     | 443  | web team |\n| api     | 8080 | platform |\n| db      | 5432 | data  |" },
 ];
 
 /** What the dialog can draw: a text source, or (not linked) a drawing read back into objects, or
  * a Markdown table as a table. */
-type Kind = SourceKind | "drawing" | "table";
+type Kind = SourceKind | "drawing" | "table" | "timeline";
 
 const KIND_LABEL: Record<Kind, string> = {
-  sequence: "message sequence", graph: "graph (flowchart, state, class, ER)", tree: "folder tree", drawing: "ASCII art", table: "Markdown table",
+  sequence: "message sequence", graph: "graph (flowchart, state, class, ER)", tree: "folder tree", drawing: "ASCII art", table: "Markdown table", timeline: "timeline",
 };
 
 /**
@@ -118,6 +120,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
   useEffect(() => ref.current?.focus(), []);
 
   const actual: Kind = kind !== "auto" ? kind
+    : !editing && isTimelineText(text) ? "timeline"
     : !editing && isTableText(text) ? "table"
     : !editing && looksLikeDrawing(text) ? "drawing"
     : detectKind(text);
@@ -131,8 +134,8 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
       const r = importAscii(text);
       return { text: diagramToText(r.diagram), warnings: r.warnings, drawing: r.diagram };
     }
-    if (actual === "table") {
-      const t = tableNode(text, { x: 0, y: 0 });
+    if (actual === "table" || actual === "timeline") {
+      const t = actual === "table" ? tableNode(text, { x: 0, y: 0 }) : timelineNode(text, { x: 0, y: 0 });
       const d = addNode(emptyDiagram(), makeNode(t.rect, t));
       return { text: diagramToText(d), warnings: [] as string[], drawing: d };
     }
@@ -143,7 +146,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
   const draw = () => {
     if (!text.trim()) return;
     let ids: string[] = [];
-    if (actual === "drawing" || actual === "table") {
+    if (actual === "drawing" || actual === "table" || actual === "timeline") {
       // Ordinary objects, placed where the text was going to go.
       const part = preview.drawing!;
       const lines = preview.text.split("\n");
@@ -212,7 +215,7 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
         <div className="row">
           <span className="row-label">kind</span>
           <span className="row-items">
-            {(editing ? (["auto", "sequence", "graph", "tree"] as const) : (["auto", "sequence", "graph", "tree", "drawing", "table"] as const)).map((k) => (
+            {(editing ? (["auto", "sequence", "graph", "tree"] as const) : (["auto", "sequence", "graph", "tree", "timeline", "drawing", "table"] as const)).map((k) => (
               <button key={k} className={"choice" + (kind === k ? " active" : "")} aria-pressed={kind === k} onClick={() => setKind(k)}>
                 {k === "auto" ? `auto${text.trim() ? `: ${KIND_LABEL[actual]}` : ""}` : KIND_LABEL[k]}
               </button>

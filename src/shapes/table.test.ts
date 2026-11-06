@@ -295,6 +295,17 @@ describe("tables", () => {
       ].join("\n"));
     });
 
+    it("include checklists", () => {
+      expect(draw("| Task | Done |\n|---|---|\n| ship | - [x] build\n         - [ ] release |")).toBe([
+        "┌──────┬─────────────┐",
+        "│ Task │ Done        │",
+        "├──────┼─────────────┤",
+        "│ ship │ [✓] build   │",
+        "│      │ [ ] release │",
+        "└──────┴─────────────┘",
+      ].join("\n"));
+    });
+
     it("typed into a cell, kept nested in the table's text; <br> in, <br> out; off: as typed", () => {
       let n = { ...makeNode({ x: 0, y: 0, w: 1, h: 1 }), ...newTable(1, 2, { x: 0, y: 0 }) } as Node;
       n = { ...n, ...withCell(n, { row: 1, col: 0 }, "- a\n  - b\n- c") };

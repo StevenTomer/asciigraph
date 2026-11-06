@@ -923,16 +923,68 @@ test("ready-made stamps: pick a set, insert one", async ({ page }) => {
   const stamps = page.getByRole("dialog", { name: "stamps" });
   // With none of your own, it opens on the first ready-made set.
   await expect(stamps.getByRole("tab", { name: "flowchart" })).toHaveAttribute("aria-selected", "true");
-  await stamps.getByRole("tab", { name: "UI mockups" }).click();
-  await stamps.getByRole("button", { name: "Insert Sign-in form" }).click();
+  await stamps.getByRole("tab", { name: "architecture" }).click();
+  await stamps.getByRole("button", { name: "Insert Load balancer" }).click();
   await expect(stamps).toBeHidden();
   const t = await text(page);
-  expect(t).toContain("┌─ Sign in ─");
-  expect(t).toContain("│ you@example.com");
+  expect(t).toContain("│ Load balancer ├");
+  expect(t).toContain("│ Server 3 │");
   // Inserted selected, as plain objects.
   const s = await state(page);
-  expect(s.selection.length).toBe(Object.keys(s.diagram.nodes).length);
+  expect(s.selection.length).toBe(Object.keys(s.diagram.nodes).length + Object.keys(s.diagram.edges).length);
   expect(Object.values(s.diagram.nodes).every((n) => !n.gen)).toBe(true);
+});
+
+test("timelines: from Mermaid text, edited as text, turned to run down", async ({ page }) => {
+  await page.getByRole("button", { name: "from text" }).click();
+  await page.getByLabel("Diagram text").fill("timeline\n    title Launch\n    Jan : Plan\n    Feb : Build : Test");
+  await expect(page.getByRole("button", { name: "auto: timeline" })).toBeVisible();
+  await page.getByRole("button", { name: "draw", exact: true }).click();
+  expect(await text(page)).toBe(block(`
+Launch
+   Jan    Feb
+───●──────●──────►
+   Plan   Build
+          Test`));
+  const id = (await state(page)).selection[0];
+  expect((await state(page)).diagram.nodes[id].kind).toBe("timeline");
+  // Its events are its text: add a period, and it grows to fit.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\nMar : Ship");
+  await page.keyboard.press("Escape");
+  expect(await text(page)).toContain("   Plan   Build   Ship");
+  // The panel turns it to run down.
+  const panel = page.getByRole("complementary", { name: "Properties" });
+  await panel.getByRole("button", { name: "down", exact: true }).click();
+  expect(await text(page)).toBe(block(`
+Launch
+Jan ● Plan
+    │
+Feb ● Build
+    │ Test
+    │
+Mar ● Ship
+    ▼`));
+});
+
+test("checklists in a box and in a table cell", async ({ page }) => {
+  await box(page, [2, 2], [22, 6]);
+  await click(page, 10, 4);
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("- [x] write it\n- [ ] ship it");
+  await page.keyboard.press("Escape");
+  const t = await text(page);
+  expect(t).toContain("│ [✓] write it");
+  expect(t).toContain("│ [ ] ship it");
+  // Pasted as a Markdown table, with a checklist in a cell.
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData("text/plain", "| Task | Steps |\n|---|---|\n| ship | - [x] build\n         - [ ] release |");
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+  });
+  await expect.poll(() => text(page)).toContain("│ ship │ [✓] build   │");
 });
 
 test("banner text: insert it, then double-click to change it", async ({ page }) => {

@@ -178,6 +178,19 @@ describe("reading a drawing back into objects", () => {
     }
   });
 
+  it("reads checklists in table cells back as Markdown task items", () => {
+    const TASKS = "| Task | Steps |\n|---|---|\n| ship | - [x] build it\n         - [ ] release it\n           1. [ ] tell people |";
+    const { rect, ...fields } = tableNode(TASKS, { x: 0, y: 0 });
+    const drawing = diagramToText(addNode(emptyDiagram(), makeNode(rect, fields)));
+    const [t] = nodes(importAscii(drawing).diagram);
+    expect(t.text).toContain("- [x] build it\n");
+    expect(t.text).toContain("- [ ] release it\n");
+    expect(t.text).toContain("  1. [ ] tell people");
+    expect(diagramToText(importAscii(drawing).diagram)).toBe(drawing);
+    // An ASCII drawing's [x] reads back the same.
+    expect(nodes(importAscii(diagramToText(addNode(emptyDiagram(), makeNode(rect, fields)), true)).diagram)[0].text).toContain("- [x] build it");
+  });
+
   it("reads class compartments, alignment and labels in line gaps", () => {
     const d = importAscii([
       "┌──────────────┐",
