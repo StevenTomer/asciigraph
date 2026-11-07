@@ -4,7 +4,7 @@ import { decodeShare } from "../storage/share";
 import { readFile } from "../storage/diskFile";
 import { exportText, tablesMarkdown, type Wrap, WRAPS } from "../export/text";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
-import { isTableText, table, tableNode } from "../shapes/table";
+import { isTableText, tableNode } from "../shapes/table";
 import { isTimelineText, timelineMermaid, timelineNode } from "../shapes/timeline";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
@@ -50,7 +50,7 @@ Options:
                                     what the text is (default: detected)
   --lr, --td                        lay graphs out left to right, or top to bottom
   --boxes                           draw folder trees as boxes and connectors
-  --no-lines                        draw folder trees (and tree tables) just indented, without ├── lines
+  --no-lines                        draw folder trees just indented, without ├── lines
   --no-slashes                      folders without a trailing "/"
   --ascii                           ASCII characters only (+ - | instead of box drawing)
   --wrap STYLE                      ${WRAPS.filter((w) => w.kind !== "custom").map((w) => w.kind).join(", ")}
@@ -159,9 +159,7 @@ export function toDiagram(input: string, o: Pick<Options, "kind" | "direction" |
   }
   if (o.kind === "table" || (o.kind === "auto" && isTableText(input))) {
     const t = tableNode(input, { x: 0, y: 0 });
-    const look = t.table?.tree && (o.lines === false || o.slashes === false) ? { ...t.table, ...(o.lines === false && { treeLines: false }), ...(o.slashes === false && { treeSlashes: false }) } : t.table;
-    const n = makeNode(t.rect, { ...t, table: look });
-    return { diagram: addNode(emptyDiagram(), makeNode({ ...t.rect, ...table.fitSize(n, n.text) }, { ...t, table: look })), warnings: [] };
+    return { diagram: addNode(emptyDiagram(), makeNode(t.rect, t)), warnings: [] };
   }
   if (o.kind === "drawing" || (o.kind === "auto" && looksLikeDrawing(input))) {
     const r = importAscii(input);

@@ -59,11 +59,8 @@ describe("asciigraph render", () => {
     expect(run(["--boxes"], { "-": "src/\n  main.ts" }).stdout).toContain("│ main.ts │");
   });
 
-  it("draws folder trees and tree tables without their lines or folders' /", () => {
+  it("draws folder trees without their lines or folders' /", () => {
     expect(run(["--no-lines", "--no-slashes"], { "-": "src/\n  main.ts" }).stdout).toBe("src\n  main.ts");
-    const tree = "| Name | About |\n|---|---|\n| src/ | code |\n| └── main.ts | start |";
-    expect(run([], { "-": tree }).stdout).toContain("│ └── main.ts │");
-    expect(run(["--no-lines"], { "-": tree }).stdout).toContain("│   main.ts │");
   });
 
   it("draws a diagram saved from the app, and a share link", () => {

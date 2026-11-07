@@ -129,10 +129,6 @@ export const STAMP_SETS: StampSet[] = [
         diagram: build((b) => void b.box({ x: 0, y: 0, w: 22, h: 5 }, { name: "To do", text: "- [x] Write it\n- [ ] Test it\n- [ ] Ship it", align: { h: "left", v: "top" } })),
       },
       {
-        name: "Tree table",
-        diagram: build((b) => void b.table(0, 0, "| Name | About |\n|------|-------|\n| project/ | the whole thing |\n| ├── src/ | the source |\n| │   └── main.ts | where it starts |\n| └── README.md | read this first |")),
-      },
-      {
         name: "Legend",
         diagram: build((b) => {
           b.box({ x: 0, y: 0, w: 30, h: 13 }, { kind: "frame", name: "Legend" });

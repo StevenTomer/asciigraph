@@ -7,7 +7,6 @@ import {
   type ToolId, apply, editCell, getState, openFind, redo, select, setOverlay, setTool, startEditing, undo,
 } from "./store";
 import { TOOLS } from "./tools";
-import { tableOp } from "./tableCommands";
 import { parseTable } from "../shapes/table";
 import { openFile, saveFile, saveFileAs } from "./file";
 import { formatOf } from "../storage/diskFile";
@@ -119,13 +118,6 @@ export function attachKeyboard(): () => void {
       case "ArrowLeft":
       case "ArrowRight": {
         if (!selection.length) return;
-        // A tree table's current row: Alt+Shift+→ / ← indents / outdents it.
-        const tc = getState().tableCell;
-        if (e.altKey && e.shiftKey && (k === "ArrowLeft" || k === "ArrowRight") && tc && selection.length === 1 && tc.node === selection[0] && diagram.nodes[tc.node]?.table?.tree) {
-          tableOp(tc.node, k === "ArrowRight" ? "rowIndent" : "rowOutdent", tc);
-          e.preventDefault();
-          return;
-        }
         const n = e.shiftKey ? 5 : 1;
         const delta = {
           x: k === "ArrowLeft" ? -n : k === "ArrowRight" ? n : 0,

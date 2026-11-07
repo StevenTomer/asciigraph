@@ -84,7 +84,6 @@ const EXAMPLES: { label: string; text: string }[] = [
   { label: "ER", text: EXAMPLE_TEXT.er },
   { label: "folder tree", text: EXAMPLE_TEXT.tree },
   { label: "timeline", text: "timeline\n    title Release history\n    section Planning\n      Jan : Requirements : Design\n    section Delivery\n      Mar : Build\n      May : Beta : Feedback\n      Jul : Launch" },
-  { label: "tree table", text: "| Name | About |\n|------|-------|\n| project/ | the whole thing |\n| ├── src/ | the source |\n| │   ├── main.ts | where it starts |\n| │   └── ui/ | what you see |\n| └── README.md | read this first |" },
   { label: "table", text: "| Service | Port | Owner |\n|---------|-----:|-------|\n| web     | 443  | web team |\n| api     | 8080 | platform |\n| db      | 5432 | data  |" },
 ];
 

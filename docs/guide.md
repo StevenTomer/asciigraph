@@ -246,54 +246,6 @@ their widest cell, and the table grows as you type:
 Pasting a Markdown table onto the canvas makes a table, as does **from text** (it's detected as
 **Markdown table**). A `**bold**` or `# heading` line just before it becomes the title.
 
-<a id="tree-tables"></a>**Tree tables:** a table whose first column is a tree, like a folder tree, with the other
-columns describing each entry. Right-click empty space → **Insert Tree Table**, paste a Markdown
-table whose first column has `├──` / `└──` lines (as `tree` draws them), or turn **tree** on for
-any table in the properties panel. Here is one with its lines (left) and the same one just indented,
-its folders without their `/` (right):
-
-<!-- drawing: tree-table -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="images/tree-table-dark.png">
-  <img src="images/tree-table.png" width="859" alt="A tree table of a project's files and what each is, drawn with the tree's lines, and again just indented">
-</picture>
-
-<details>
-<summary>The same, as text</summary>
-
-```
-┌─────────────────┬────────────────────────┐   ┌─────────────┬────────────────────────────┐
-│ Name            │ What it is             │   │ Name        │ What it is                 │
-├─────────────────┼────────────────────────┤   ├─────────────┼────────────────────────────┤
-│ project/        │ the whole thing        │   │ project     │ the whole thing            │
-│ ├── src/        │ the source             │   │   src       │ the source                 │
-│ │   ├── main.ts │ where it starts: reads │   │     main.ts │ where it starts: reads the │
-│ │   │           │ the settings, then     │   │             │ settings, then opens the   │
-│ │   │           │ opens the window       │   │             │ window                     │
-│ │   └── ui/     │ what you see           │   │     ui      │ what you see               │
-│ └── README.md   │ read this first        │   │   README.md │ read this first            │
-└─────────────────┴────────────────────────┘   └─────────────┴────────────────────────────┘
-```
-
-</details>
-
-- **Depth:** click an entry, then <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd> /
-  <kbd>←</kbd> makes it a level deeper or shallower, taking its children with it. This also
-  works while you type in the cell, and from the panel (⇥ ⇤) or right-click → **Row**.
-- **Order:** **move row up / down** moves an entry past its sibling, with its children. A new row
-  goes in beside the row it's put above. Deleting a row moves its children up a level, into its
-  place.
-- **Lines:** the tree's lines are always drawn to fit where things are, so they're right
-  whatever you move. They carry on down past a row whose other cells span several lines, and a
-  tree's rows aren't lined off from each other.
-- **Look:** in the panel, **lines** off draws the tree just indented, two spaces a level, and
-  **folder /** off leaves the trailing `/` off entries that end with one. The `/` stays in the
-  text.
-- **As text:** each first cell starts with the tree's lines, so the Markdown reads as a tree
-  anywhere. **copy table** keeps their spacing with no-break spaces, which Markdown doesn't
-  squeeze out. A drawn tree table that's pasted back in becomes a tree table again, with its lines
-  or just indented.
-
 **Borders:** single, double, rounded, heavy, dashed, dotted, ASCII, or none. A box with no
 border is a free label.
 
@@ -805,8 +757,7 @@ That is, `tree` command output, an indented list (spaces, tabs or `- ` bullets),
 paths. Folders are entries ending in `/` or having children. Choose the style in the dialog:
 **tree text** draws one `tree`-style label; **boxes** draws a box per entry, connected, top to
 bottom or left to right. Under **show**, **lines** off draws the tree text just indented, without
-its `├──` lines, and **folder /** off leaves the `/` off folders. To describe each entry, use a
-[tree table](#tree-tables).
+its `├──` lines, and **folder /** off leaves the `/` off folders.
 
 ![A folder tree drawn as boxes](images/tree.png)
 
@@ -879,7 +830,7 @@ right-click the canvas → **Insert Stamp…**) has ready-made sets, one tab eac
   front of a database; layers; public and private networks.
 - **sequence:** request and response; sign-in through an identity provider; retrying in a loop;
   success or failure (`alt`); a callback later.
-- **notes:** a note, a callout, a table, a checklist, a tree table, a legend, a timeline.
+- **notes:** a note, a callout, a table, a checklist, a legend, a timeline.
 
 Click one to insert it. The tab **yours** has your own: a box styled the way you like, a service
 with its database, a whole little pattern.
@@ -996,7 +947,7 @@ a saved diagram or table text as Markdown tables (line breaks in cells as `<br>`
 | `--kind auto\|sequence\|graph\|tree\|drawing\|table` | what the text is (default: detected, as in the app) |
 | `--lr`, `--td` | lay a graph out left to right, or top to bottom |
 | `--boxes` | draw a folder tree as boxes and connectors |
-| `--no-lines` | draw a folder tree (or a tree table) just indented, without its `├──` lines |
+| `--no-lines` | draw a folder tree just indented, without its `├──` lines |
 | `--no-slashes` | folders without a trailing `/` |
 | `--ascii` | ASCII characters only |
 | `--wrap STYLE` | `plain`, `markdown`, `c-line` (`//`), `c-block` (`/* */`), `python` or `bash` (`#`) |
@@ -1068,7 +1019,6 @@ On a Mac, use <kbd>⌘</kbd> for <kbd>Ctrl</kbd>.
 | <kbd>Esc</kbd> | deselect and go to select (while typing: finish) |
 | <kbd>Enter</kbd>, <kbd>F2</kbd> | edit the selected box's text or connector's label (a table: the cell clicked) |
 | <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> | in a table cell: the next / previous cell (in the last one: a new row) |
-| <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd> / <kbd>←</kbd> | in a tree table: the current row a level deeper / shallower |
 | <kbd>Shift</kbd>+<kbd>Enter</kbd> | new line, in a label |
 | <kbd>Delete</kbd>, <kbd>Backspace</kbd> | delete the selection |
 | arrow keys | nudge the selection (<kbd>Shift</kbd>: by 5) |

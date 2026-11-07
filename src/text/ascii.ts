@@ -112,8 +112,6 @@ interface Box {
   /** A table's column lines (x), and the line under its title row (y), if it has one. */
   columns?: number[];
   titleRow?: number;
-  /** A tree table: its first column's text starts with a tree's lines (see treeColumn). */
-  tree?: boolean;
   /** A lifeline: its line's cells (messages attach on either side), and its last row. */
   life?: Set<number>;
   lineEnd?: number;
@@ -200,30 +198,6 @@ export function importAscii(input: string, probe = false): ImportResult {
     }
   }
   const has = (x: number, y: number, s: Side) => !!((mask.get(k(x, y)) ?? 0) & BIT[s]);
-
-  /**
-   * A table whose first column, below its header, starts each line with a tree's lines
-   * (├── └── and the │ of the levels above, four characters a level), as a tree table draws it:
-   * those are text (the tree), not connectors.
-   */
-  const treeColumn = (b: Box) => {
-    const x0 = b.x0 + 2, x1 = b.columns![0] - 1;
-    const from = (b.dividers[0] ?? b.titleRow ?? b.y0) + 1;
-    const lines: { y: number; prefix: number }[] = [];
-    let branches = 0;
-    for (let y = from; y < b.y1; y++) {
-      let line = "";
-      for (let x = x0; x < x1; x++) line += ch(x, y);
-      const named = /^((?:│ {3}| {4})*[├└]──(?: |$))/.exec(line);
-      const through = /^((?:│ {3}| {4})*│?) *$/.exec(line);
-      if (named) branches++;
-      else if (!through && /^[│├└─]/.test(line)) return; // lines, but not a tree's
-      lines.push({ y, prefix: chars((named ?? through)?.[1] ?? "").length });
-    }
-    if (!branches) return;
-    b.tree = true;
-    for (const { y, prefix } of lines) for (let x = x0; x < x0 + prefix; x++) mask.delete(k(x, y));
-  };
 
   // 2. Boxes.
   const boxes: Box[] = [];
@@ -451,7 +425,6 @@ export function importAscii(input: string, probe = false): ImportResult {
         b.dividers = rows;
         columns.forEach(markColumn);
         rows.forEach(markRow);
-        treeColumn(b);
         continue;
       }
       // Column lines from the first divider down, and none above: a table with a title row.
@@ -469,7 +442,6 @@ export function importAscii(input: string, probe = false): ImportResult {
           b.dividers = rows.slice(1);
           for (const x of columns) for (let y = top + 1; y < b.y1; y++) structure.add(k(x, y));
           rows.forEach(markRow);
-          treeColumn(b);
           continue;
         }
       }
@@ -839,17 +811,6 @@ export function importAscii(input: string, probe = false): ImportResult {
           return raw.trimEnd();
         }));
       }
-      // A tree drawn just indented (a tree table with its lines off): see indentedTree. Its entries
-      // are given the lines a tree table's text has, so it reads as one.
-      const indented = !b.tree && indentedTree(groups, b.dividers.length);
-      if (indented) {
-        const body = groups[groups.length - 1];
-        body.forEach((line, i) => {
-          const level = indented[i];
-          if (level > 0) line[0] = " " + "    ".repeat(level - 1) + "├── " + line[0].trim();
-        });
-        b.tree = true;
-      }
       // Every row lined off, and lines that start with an empty cell carrying on the one above:
       // rows spanning lines (as a table whose rows span lines is drawn).
       const joined = groups.map((g) => g.reduce<string[][]>((acc, line) => {
@@ -859,47 +820,24 @@ export function importAscii(input: string, probe = false): ImportResult {
       }, []));
       const spans = groups.length > 1 && joined.every((g) => g.length === 1) && groups.some((g) => g.length > 1);
       const cellRows: string[][] = [], dividerAt = new Set<number>();
-      if (b.tree) {
-        // A tree table: the header, then the tree's rows, each starting where its first column
-        // has a name (the lines below one, just the tree's lines, carry it on). Each entry keeps
-        // the lines before its name: they say how deep it is.
-        const treeFrom = b.dividers.length ? 1 : 0;
-        groups.forEach((g, i) => {
-          if (i > 0 && i <= treeFrom) dividerAt.add(cellRows.length);
-          if (i < treeFrom) {
-            cellRows.push(...g.map((row) => row.map(cellFromLines)));
-            return;
-          }
-          const tree: string[][][] = [];
-          for (const line of g) {
-            if (tree.length && !line[0].replace(/[│\s]/g, "")) tree[tree.length - 1].push(line);
-            else tree.push([line]);
-          }
-          for (const lines of tree) {
-            cellRows.push(lines[0].map((_, c) => (c === 0 ? lines[0][0].replace(/^ /, "").trimEnd() : cellFromLines(lines.map((l) => l[c]).join("\n")))));
-          }
-        });
-      } else (spans ? joined : groups).forEach((g, i) => {
+      (spans ? joined : groups).forEach((g, i) => {
         // (Rows spanning lines are all lined off anyway: just the header's line is written.)
         if (i > 0 && (!spans || i === 1)) dividerAt.add(cellRows.length);
         cellRows.push(...g.map((row) => row.map(cellFromLines)));
       });
       // Each column's alignment, from where its text sits.
-      const aligns: HAlign[] = pads.map((ps, c) =>
-        c === 0 && b.tree ? "left" // (a tree's depth isn't how its column lines up)
-        : ps.length && ps.every((p) => p.r === 1) && ps.some((p) => p.l > 1) ? "right"
+      const aligns: HAlign[] = pads.map((ps) =>
+        ps.length && ps.every((p) => p.r === 1) && ps.some((p) => p.l > 1) ? "right"
         : ps.length && ps.every((p) => Math.abs(p.l - p.r) <= 1) && ps.some((p) => p.l > 1) ? "center"
         : "left");
       // A name in the top border is the table's title, there.
       const options = {
-        ...(indented && { treeLines: false }),
         ...(b.name && title === undefined && { title: "border" as const }),
         ...(titleAlign !== "center" && { titleAlign }),
         ...(b.name && title === undefined && b.nameAlign !== "center" && { titleAlign: b.nameAlign }),
       };
       title ??= b.name;
-      const made = tableNode(tableText({ rows: cellRows, dividers: dividerAt, aligns, title }), { x: b.x0, y: b.y0 });
-      const fields = { ...made, border: b.border, ...((Object.keys(options).length || made.table) && { table: { ...made.table, ...options } }) };
+      const fields = { ...tableNode(tableText({ rows: cellRows, dividers: dividerAt, aligns, title }), { x: b.x0, y: b.y0 }), border: b.border, ...(Object.keys(options).length && { table: options }) };
       const t = { ...fields, rect: { ...fields.rect, ...table.fitSize({ ...makeNode(fields.rect, fields) }, fields.text) } };
       const node = makeNode(t.rect, t);
       b.id = node.id;
@@ -1151,32 +1089,6 @@ function readText(rows: string[][], left: number, right: number, y0: number, y1:
  * Markdown: `- item`, nested by its indentation, with wrapped lines joined onto their item.
  * Anything else: each line trimmed.
  */
-/**
- * A tree table drawn just indented (its lines off: two spaces a level), from a table's lines
- * (`groups`: between its dividers; each line's cells as drawn, a space before the text): each
- * body line's depth (0 for a line carrying on the row above, its first cell empty), or null if
- * its first column isn't such a tree. It is when the table's rows aren't lined off (there's at
- * most the header's divider), its first column has text indented on some lines, every indent is
- * even, the first entry is at the top, each is no more than a level below the one before, and
- * the column isn't just lined up right or centered (indents that come from that).
- */
-function indentedTree(groups: string[][][], dividers: number): number[] | null {
-  if (dividers > 1 || groups.length > 2 || (dividers === 1) !== (groups.length === 2)) return null;
-  const body = groups[groups.length - 1];
-  const named = body.map((l) => l[0]).filter((c) => c.trim());
-  if (named.length < 2 || named.some((c) => /^ *([•◦▪]|\d+[.)]|\[[ ✓xX]\])( |$)/.test(c.slice(1)))) return null;
-  const indents = named.map((c) => c.length - c.trimStart().length - 1);
-  if (!indents.some((i) => i > 0) || indents[0] !== 0 || indents.some((i) => i % 2)) return null;
-  if (indents.some((i, j) => j > 0 && i > indents[j - 1] + 2)) return null;
-  const width = Math.max(...named.map((c) => c.length));
-  const ends = named.map((c) => width - c.length);
-  // Lined up right (every entry ends at the same place) or centered isn't a tree.
-  if (ends.every((e) => e === 0)) return null;
-  if (named.every((_, j) => Math.abs(indents[j] - ends[j]) <= 1)) return null;
-  let at = 0;
-  return body.map((l) => (l[0].trim() ? indents[at++] / 2 : 0));
-}
-
 function cellFromLines(cell: string): string {
   const lines = cell.split("\n").filter((l) => l.trim());
   const MARKER = /^([•◦▪]|\d+[.)]|\[[ ✓xX]\])( |$)/;

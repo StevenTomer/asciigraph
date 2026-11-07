@@ -1,7 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { deleteObjects, setNodeText, updateEdge, updateNode } from "../model/ops";
 import { editCell, finishEditing, getState, onFinishEditing, set, useEditor } from "../editor/store";
-import { tableOp } from "../editor/tableCommands";
 import { cellRect, cellText, insertRow, parseTable, withCell } from "../shapes/table";
 import type { Node } from "../model/types";
 import { rectToScreen, rendered } from "../editor/view";
@@ -184,10 +183,6 @@ function CellEditor({ node, row, col, serial, style }: { node: Node; row: number
         }
         go(row + 1, 0);
       }
-    } else if (e.altKey && e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight") && node.table?.tree && row >= 0) {
-      // A tree table: the row a level deeper or shallower (typing carries on).
-      e.preventDefault();
-      tableOp(node.id, e.key === "ArrowRight" ? "rowIndent" : "rowOutdent", { row, col });
     } else if (e.key === "ArrowUp" && !before.includes("\n") && !e.shiftKey && (row > 0 || (row === 0 && t.title))) {
       e.preventDefault();
       go(row - 1, row - 1 < 0 ? 0 : col);
@@ -201,7 +196,7 @@ function CellEditor({ node, row, col, serial, style }: { node: Node; row: number
       ref={ref}
       className="text-editor"
       aria-label={row < 0 ? "Table title" : `Cell, row ${row + 1}, column ${col + 1}`}
-      title={node.table?.tree ? "Tab: next cell · Alt+Shift+→ / ←: indent / outdent the row · Enter: new line · Esc: done" : "Tab: next cell · Enter: new line · Esc: done"}
+      title="Tab: next cell · Enter: new line · Esc: done"
       spellCheck={false}
       style={{ ...style, left: box.x, top: box.y, width: box.w, height: box.h, textAlign: align }}
       value={value}
