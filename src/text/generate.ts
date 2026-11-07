@@ -8,7 +8,7 @@ import { lifelineColumn } from "../shapes/lifeline";
 import { detectKind } from "./detect";
 import { type ParsedGraph, parseGraph } from "./graph";
 import { type ParsedSequence, parseSequence } from "./sequence";
-import { type TreeEntry, parseTree, treeText } from "./tree";
+import { type TreeEntry, type TreeLook, entryName, parseTree, treeText } from "./tree";
 
 /**
  * Turn a text source into the nodes and connectors it should draw, each with a stable key (so a
@@ -58,7 +58,9 @@ export function generate(source: Pick<TextSource, "kind" | "text" | "options">):
   const out =
     kind === "sequence" ? sequence(parseSequence(source.text))
     : kind === "graph" ? graph(parseGraph(source.text), source.options.direction)
-    : tree(parseTree(source.text).roots, source.options.treeStyle ?? "text", source.options.direction ?? "down");
+    : tree(parseTree(source.text).roots, source.options.treeStyle ?? "text", source.options.direction ?? "down", {
+      lines: source.options.treeLines, slashes: source.options.slashes,
+    });
   return normalize({ kind, ...out });
 }
 
@@ -397,10 +399,10 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
 // Folder trees
 // ---------------------------------------------------------------------------------------------
 
-function tree(roots: TreeEntry[], style: "text" | "boxes", direction: "down" | "right"): Omit<Desired, "kind"> {
+function tree(roots: TreeEntry[], style: "text" | "boxes", direction: "down" | "right", look: TreeLook): Omit<Desired, "kind"> {
   if (!roots.length) return { nodes: [], edges: [], warnings: ["nothing to draw"] };
   if (style === "text") {
-    const text = treeText(roots);
+    const text = treeText(roots, look);
     return {
       nodes: [{
         key: "tree",
@@ -417,7 +419,7 @@ function tree(roots: TreeEntry[], style: "text" | "boxes", direction: "down" | "
   };
   roots.forEach(walk);
   let scratch: Diagram = emptyDiagram();
-  const label = (e: TreeEntry) => e.name + (e.dir && e.name !== "." ? "/" : "");
+  const label = (e: TreeEntry) => entryName(e, { slashes: look.slashes });
   all.forEach((e, i) => {
     scratch = addNode(scratch, makeNode({ x: i * 1000, y: 0, w: width(label(e)) + 4, h: 3 }, { id: e.path }));
   });

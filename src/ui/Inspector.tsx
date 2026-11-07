@@ -7,11 +7,11 @@ import { locksOf, unlock } from "../model/locks";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
 import { type BorderStyle, type Edge, type HAlign, type LineStyle, type Node, type VAlign, HEADS } from "../model/types";
 import { apply, begin, commit, getState, openBannerDialog, openTextDialog, select, set, setPrefs, startEditing, useEditor } from "../editor/store";
-import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "../editor/tableCommands";
+import { canTableOp, tableOpsOf, columnAlign, tableOp } from "../editor/tableCommands";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
 import { withoutPoints } from "../shapes/timeline";
-import { autoSized, columnRooms, markdownTable, parseTable, withColumnWidth, withOptions, withTitle } from "../shapes/table";
+import { autoSized, columnRooms, markdownTable, parseTable, withColumnWidth, withOptions, withTitle, withTree, withTreeLook } from "../shapes/table";
 
 const BORDERS: [BorderStyle, string][] = [
   ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"],
@@ -405,6 +405,16 @@ function TableRows({ node: n }: { node: Node }) {
           </Row>
         </>
       )}
+      <Row label="tree">
+        <Choice active={!n.table?.tree} onClick={() => patch((m) => withTree(m, false))} title="A plain table">off</Choice>
+        <Choice active={!!n.table?.tree} onClick={() => patch((m) => withTree(m, true))} title="The first column is a tree (like a folder tree), the others describe each entry. Indent a row with Alt+Shift+→">first column</Choice>
+      </Row>
+      {n.table?.tree && (
+        <Row label="">
+          <Choice active={n.table.treeLines !== false} onClick={() => patch((m) => withTreeLook(m, { treeLines: m.table?.treeLines === false ? undefined : false }))} title="The tree's ├── lines; off: just indented">lines</Choice>
+          <Choice active={n.table.treeSlashes !== false} onClick={() => patch((m) => withTreeLook(m, { treeSlashes: m.table?.treeSlashes === false ? undefined : false }))} title='Entries ending in "/" (folders) shown with it; off: without (it stays in the text)'>folder /</Choice>
+        </Row>
+      )}
       <Row label="columns">
         {rooms.map((w, c) => {
           const set = n.table?.widths?.[c] ?? null;
@@ -465,7 +475,7 @@ function CellRows({ node: n }: { node: Node }) {
   }
   const at = { row: Math.min(current.row, t.rows.length - 1), col: Math.min(current.col, t.cols - 1) };
   const ops = (which: "row" | "col") =>
-    TABLE_OPS.filter((o) => o.op.startsWith(which)).map((o) => (
+    tableOpsOf(n, which).map((o) => (
       <Choice key={o.op} active={false} keepFocus disabled={!canTableOp(n, o.op, at)} onClick={() => tableOp(n.id, o.op, at)} title={o.menu} label={o.menu}>
         {o.label}
       </Choice>

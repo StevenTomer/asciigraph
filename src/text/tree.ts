@@ -94,13 +94,28 @@ function fromPaths(paths: string[]): TreeEntry[] {
   return roots;
 }
 
-/** The classic `tree` drawing of entries; folders get a trailing "/". */
-export function treeText(roots: TreeEntry[]): string {
+/** How a tree is drawn: with its lines (default) or just indented, and folders with a trailing
+ * "/" (default) or not. */
+export interface TreeLook {
+  lines?: boolean;
+  slashes?: boolean;
+}
+
+/** An entry's name as drawn. */
+export const entryName = (e: TreeEntry, look: TreeLook = {}) => e.name + (e.dir && e.name !== "." && look.slashes !== false ? "/" : "");
+
+/** How far in each level is when a tree is drawn without its lines. */
+export const INDENT = "  ";
+
+/** The classic `tree` drawing of entries (folders get a trailing "/"), or (lines off) just
+ * indented. */
+export function treeText(roots: TreeEntry[], look: TreeLook = {}): string {
   const out: string[] = [];
+  const lines = look.lines !== false;
   const walk = (e: TreeEntry, prefix: string, last: boolean, top: boolean) => {
-    const name = e.name + (e.dir && e.name !== "." ? "/" : "");
-    out.push(top ? name : `${prefix}${last ? "└── " : "├── "}${name}`);
-    const next = top ? "" : prefix + (last ? "    " : "│   ");
+    const name = entryName(e, look);
+    out.push(top ? name : !lines ? prefix + INDENT + name : `${prefix}${last ? "└── " : "├── "}${name}`);
+    const next = top ? "" : prefix + (!lines ? INDENT : last ? "    " : "│   ");
     e.children.forEach((c, i) => walk(c, next, i === e.children.length - 1, false));
   };
   roots.forEach((r) => walk(r, "", true, true));

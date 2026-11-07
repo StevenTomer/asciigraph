@@ -37,6 +37,8 @@ export interface TableText {
 }
 
 const SEPARATOR = /^\s*:?-+:?\s*$/;
+/** A cell starting with a tree's lines (│ ├── └──): in a tree table, how deep its row is. */
+const BRANCHED = /^(?:│ {3}| {4})*[├└]──( |$)/;
 const BR = /\s*<br\s*\/?>\s*/gi;
 /** A `<br>` before an indented list item: the indentation stays. */
 const BR_KEEP = /\s*<br\s*\/?>( +(?:[-*+]|\d+[.)])\s)/gi;
@@ -64,15 +66,19 @@ const closes = (line: string) => {
  * starts a new line (keeping the indentation after it only for a list item).
  */
 function cellsOf(row: string): string[] {
-  const cells: { text: string; start: number }[] = [];
+  const cells: { text: string; start: number; begin: number }[] = [];
   let text = "";
   let col = 0;
   let start = -1;
   let opened = false;
+  const lead = /^\s*\|/.exec(row);
+  // Where the cell's text may start: after its | and the one space that usually follows.
+  let begin = lead ? lead[0].length + 1 : 0;
   const end = () => {
-    cells.push({ text, start: start < 0 ? col : start });
+    cells.push({ text, start: start < 0 ? col : start, begin });
     text = "";
     start = -1;
+    begin = col + 2;
   };
   const t = row.replace(/^\s*\|/, (m) => " ".repeat(m.length));
   for (let i = 0; i < t.length; i++) {
@@ -106,10 +112,11 @@ function cellsOf(row: string): string[] {
   }
   // The text after the last |: a cell, unless the row ends with that | (then it's just space).
   if (text.trim() || !opened || !closes(row)) end();
-  return cells.map(({ text: raw, start: at }) => {
+  return cells.map(({ text: raw, start: at, begin: from }) => {
     const lines = raw.replace(/\r/g, "").split("\n");
     const out = lines.map((l, i) => {
-      if (i === 0) return l.trim();
+      // A tree's branch (a tree table's first column) keeps the room in front of it: its depth.
+      if (i === 0) return (BRANCHED.test(l.trim()) ? " ".repeat(Math.max(0, at - from)) : "") + l.trim();
       const lead = l.length - l.trimStart().length;
       return " ".repeat(Math.max(0, lead - at)) + l.trim();
     });
@@ -128,7 +135,8 @@ function cellsOf(row: string): string[] {
 const titleOf = (line: string) => line.trim().replace(/^#+\s+/, "").replace(/^(\*\*|__)(.*)\1$/, "$2").trim();
 
 export function parseTable(text: string): TableText {
-  const lines = text.split("\n");
+  // (A tree's room written as no-break spaces, as a Markdown export does, is room all the same.)
+  const lines = (/[├└]──/.test(text) ? text.replace(/\u00a0/g, " ") : text).split("\n");
   let i = 0;
   const title: string[] = [];
   for (; i < lines.length && !lines[i].includes("|"); i++) if (lines[i].trim()) title.push(titleOf(lines[i]));
@@ -183,10 +191,103 @@ export function isTableText(text: string): boolean {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Tree tables: the first column is a tree (drawn as `tree` draws folders), the others describe
+// each entry. In the text, each first cell starts with the tree's lines down to it:
+//
+//   | Name        | About       |
+//   |-------------|-------------|
+//   | src/        | the source  |
+//   | ├── main.ts | entry point |
+//   | └── ui/     |             |
+//   |     └── App | the app     |
+//
+// Rows above the header's divider are the header; the rest are the tree. A row's depth is read
+// from its lines (four characters a level); the lines themselves are drawn from the depths, so
+// they're always right, and carry on down past rows that span lines.
+// ---------------------------------------------------------------------------------------------
+
+const BRANCH_PREFIX = /^((?:│ {3}| {4})*[├└]──(?: |$))/;
+
+/** A first cell's depth (0 with no tree lines) and its name. */
+export function branchOf(cell: string): { level: number; name: string } {
+  const m = BRANCH_PREFIX.exec(cell);
+  const prefix = m ? m[1] : "";
+  // (A row with no name yet has its line's end space trimmed off.)
+  return { level: Math.ceil(chars(prefix).length / 4), name: cell.slice(prefix.length).replace(/\s*\n\s*/g, " ").trim() };
+}
+
+/** Whether a table's text has tree lines in its first column (so it's a tree table). */
+export const hasTree = (t: TableText): boolean => t.rows.some((r) => BRANCH_PREFIX.test(r[0] ?? ""));
+
+/** The first tree row: the one after the header's divider (0 when there's none). */
+export const treeStart = (t: Pick<TableText, "dividers" | "rows">): number =>
+  Math.min(t.rows.length, ...[...t.dividers].filter((d) => d > 0), t.dividers.size ? Infinity : 0);
+
+/** Each row's depth (-1: a header row), each no more than one below the row before. */
+export function treeLevels(t: TableText): number[] {
+  const head = treeStart(t);
+  let before = -1;
+  return t.rows.map((r, i) => {
+    if (i < head) return -1;
+    before = Math.min(branchOf(r[0] ?? "").level, before + 1);
+    return before;
+  });
+}
+
+export interface TreeRow {
+  level: number;
+  name: string;
+  /** The lines before its name (├── and those of the levels above). */
+  prefix: string;
+  /** The lines on the row's further lines, when it spans lines: the trunks passing by, and its
+   * own going down to its children. */
+  through: string;
+}
+
+/** The tree's rows (null for header rows), from each row's depth and name. */
+export function treeRows(levels: number[], names: string[]): (TreeRow | null)[] {
+  // Whether each row is the last of its parent's children.
+  const last = levels.map((l, i) => {
+    if (l < 0) return true;
+    for (let j = i + 1; j < levels.length; j++) if (levels[j] <= l) return levels[j] < l;
+    return true;
+  });
+  const hasChildren = levels.map((l, i) => l >= 0 && i + 1 < levels.length && levels[i + 1] > l);
+  const chain: number[] = []; // the row at each depth above, down to this one
+  return levels.map((l, i) => {
+    if (l < 0) return null;
+    chain.length = l;
+    chain.push(i);
+    const trunk = (row: number) => (last[row] ? "    " : "│   ");
+    let prefix = "";
+    for (let d = 1; d < l; d++) prefix += trunk(chain[d]);
+    if (l > 0) prefix += last[i] ? "└── " : "├── ";
+    let through = "";
+    for (let d = 1; d <= l; d++) through += trunk(chain[d]);
+    if (hasChildren[i]) through += "│";
+    return { level: l, name: names[i], prefix, through: through.trimEnd() };
+  });
+}
+
+/** The tree of a tree table's text (null for a plain table, and for header rows). */
+function treeOf(n: Pick<Node, "table">, t: TableText): (TreeRow | null)[] | null {
+  if (!n.table?.tree) return null;
+  const slashes = n.table.treeSlashes !== false;
+  const rows = treeRows(treeLevels(t), t.rows.map((r) => branchOf(r[0] ?? "").name));
+  if (n.table.treeLines !== false && slashes) return rows;
+  // As drawn: just indented (two a level), and folders without their "/".
+  return rows.map((b) => b && {
+    ...b,
+    ...(n.table!.treeLines === false && { prefix: "  ".repeat(b.level), through: "" }),
+    ...(!slashes && b.name.length > 1 && { name: b.name.replace(/\/$/, "") }),
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------------------------
 
-const optionsOf = (n: Pick<Node, "table">): Required<Omit<TableOptions, "widths">> & { widths: (number | null)[] } => ({
+const optionsOf = (n: Pick<Node, "table">): Required<Omit<TableOptions, "widths" | "tree" | "treeLines" | "treeSlashes">> & { widths: (number | null)[] } => ({
   title: n.table?.title ?? "row",
   titleAlign: n.table?.titleAlign ?? "center",
   widths: n.table?.widths ?? [],
@@ -238,9 +339,16 @@ export interface TableLayout {
 /** Where everything goes in a table drawn in `r` (only `r.w` matters for the sizes). */
 export function tableLayout(t: TableText, n: Pick<Node, "table" | "border">, r: Rect): TableLayout {
   const o = optionsOf(n);
+  const tree = treeOf(n, t);
+  /** A cell's text as laid out: a tree's entry is its lines and name, on one line. */
+  const cellOf = (row: number, c: number) => {
+    const b = c === 0 && tree?.[row];
+    return b ? b.prefix + b.name : t.rows[row][c] ?? "";
+  };
   const fixed = Array.from({ length: t.cols }, (_, c) => o.widths[c] ?? null);
-  const natural = fixed.map((f, c) => f ?? Math.max(1, ...t.rows.map((row) => cellWidth(row[c] ?? "", o))));
-  const least = natural.map((w, c) => (fixed[c] !== null || !o.wrap ? w : Math.min(w, MIN_AUTO)));
+  const natural = fixed.map((f, c) => f ?? Math.max(1, ...t.rows.map((_, i) => cellWidth(cellOf(i, c), o))));
+  // (The tree doesn't wrap: its column is as narrow as its widest entry.)
+  const least = natural.map((w, c) => (fixed[c] !== null || !o.wrap || (tree && c === 0) ? w : Math.min(w, MIN_AUTO)));
   const outside = 3 * t.cols + 1; // a space each side of each column, and the lines between them
   const sum = (ws: number[]) => ws.reduce((s, w) => s + w, 0);
   const inBorder = o.title === "border" && n.border !== "none";
@@ -273,8 +381,13 @@ export function tableLayout(t: TableText, n: Pick<Node, "table" | "border">, r: 
   }
   const width = Math.max(r.w, outside + sum(rooms));
   const titleLines = title && !inBorder ? cellLines(title, Math.max(1, width - 4), { wrap: o.wrap, lists: false }) : [];
-  const heights = t.rows.map((row) => Math.max(1, ...rooms.map((w, c) => cellLines(row[c] ?? "", w, o).length)));
-  const dividers = heights.some((h) => h > 1)
+  const heights = t.rows.map((_, i) => Math.max(1, ...rooms.map((w, c) => (tree?.[i] && c === 0 ? 1 : cellLines(cellOf(i, c), w, o).length))));
+  // A tree's rows aren't lined off (its lines run down through them, and show where each starts):
+  // just the header's divider.
+  const head = treeStart(t);
+  const dividers = tree
+    ? new Set(head > 0 && head < t.rows.length ? [head] : [])
+    : heights.some((h) => h > 1)
     ? new Set(t.rows.map((_, i) => i).filter((i) => i > 0))
     : new Set([...t.dividers].filter((i) => i > 0 && i < t.rows.length));
   let y = r.y + 1;
@@ -366,8 +479,16 @@ export const table: ShapeDef = {
       });
     };
     l.titleLines.forEach((line, j) => put(line, r.x + 2, r.y + 1 + j, Math.max(1, r.w - 4), o.titleAlign));
+    const tree = treeOf(n, t);
     t.rows.forEach((row, i) => {
+      const b = tree?.[i];
       for (let c = 0; c < t.cols; c++) {
+        if (b && c === 0) {
+          // The tree's lines and the entry's name, and its lines carrying on below it.
+          put(b.prefix + b.name, edges[0] + 2, rowY[i], rooms[0], "left");
+          for (let j = 1; j < heights[i]; j++) put(b.through, edges[0] + 2, rowY[i] + j, rooms[0], "left");
+          continue;
+        }
         const shown = cellText_(row[c] ?? "", rooms[c], o);
         const align = shown.list ? "left" : t.aligns[c] ?? "left";
         shown.lines.slice(0, heights[i]).forEach((line, j) => put(line, edges[c] + 2, rowY[i] + j, rooms[c], align));
@@ -431,10 +552,15 @@ export const autoSized = (n: Node): Partial<Node> => ({ ...withOptions(n, { widt
 /** A table node's fields for some Markdown table text, at `at`: it fits its cells. */
 export function tableNode(text: string, at: { x: number; y: number }) {
   const t = parseTable(text);
+  // Tree lines in the first column: a tree table (its lines written afresh, so they're right).
+  const tree = hasTree(t);
   // <br> (as Markdown writes a line break in a cell) is shown as the line break it is.
-  const shown = /<br\s*\/?>/i.test(text) || /^\s*(#|\*\*|__)/.test(text) ? tableText(t) : text.trim();
-  const fields = { kind: "table" as const, text: shown, autosize: true, lists: false, align: { h: "left" as const, v: "top" as const } };
-  const { natural } = tableLayout(t, { border: "single" }, { x: at.x, y: at.y, w: 0, h: 0 });
+  const shown = tree ? write(t, treeLevels(t)) : /<br\s*\/?>/i.test(text) || /^\s*(#|\*\*|__)/.test(text) ? tableText(t) : text.trim();
+  const fields = {
+    kind: "table" as const, text: shown, autosize: true, lists: false, align: { h: "left" as const, v: "top" as const },
+    ...(tree && { table: { tree: true } as TableOptions }),
+  };
+  const { natural } = tableLayout(parseTable(shown), { border: "single", table: fields.table }, { x: at.x, y: at.y, w: 0, h: 0 });
   return { ...fields, rect: { x: at.x, y: at.y, ...natural } };
 }
 
@@ -486,7 +612,13 @@ export function markdownTable(text: string): string {
   if (!t.rows.length) return "";
   const cols = t.cols;
   const cell = (s: string) => escape(s).replace(/\n/g, "<br>");
-  const cells = t.rows.map((r) => Array.from({ length: cols }, (_, c) => cell(r[c] ?? "")));
+  // A tree's lines with no-break spaces, which Markdown keeps (it would drop a cell's leading
+  // spaces, and a page squeeze the rest together).
+  const branch = (s: string) => {
+    const m = BRANCH_PREFIX.exec(s);
+    return m ? m[1].replace(/ /g, "\u00a0") + s.slice(m[1].length) : s;
+  };
+  const cells = t.rows.map((r) => Array.from({ length: cols }, (_, c) => cell(c === 0 ? branch(r[0] ?? "") : r[c] ?? "")));
   const widths = Array.from({ length: cols }, (_, c) => Math.max(3, ...cells.map((r) => chars(r[c]).length)));
   const pad = (s: string, w: number) => s + " ".repeat(Math.max(0, w - chars(s).length));
   const line = (r: string[]) => "| " + r.map((s, c) => pad(s, widths[c])).join(" | ") + " |";
@@ -516,9 +648,23 @@ export interface TableCell {
   col: number;
 }
 
-/** A table's text written back from its parts (each row given every column). */
-const write = (t: TableText): string =>
-  tableText({ rows: t.rows.map((r) => Array.from({ length: t.cols }, (_, c) => r[c] ?? "")), dividers: t.dividers, aligns: t.aligns, title: t.title });
+/**
+ * A table's text written back from its parts (each row given every column). A tree table's
+ * depths (`levels`, -1 for header rows) are written as the tree's lines at the start of each
+ * first cell, drawn afresh (any in other cells, from a column moved, are taken off).
+ */
+function write(t: TableText, levels?: number[] | null): string {
+  let rows = t.rows.map((r) => Array.from({ length: t.cols }, (_, c) => r[c] ?? ""));
+  if (levels) {
+    const bare = rows.map((r) => r.map((cell) => (BRANCH_PREFIX.test(cell) ? branchOf(cell).name : cell)));
+    const tree = treeRows(levels, bare.map((r) => r[0]));
+    rows = bare.map((r, i) => (tree[i] ? [tree[i]!.prefix + r[0], ...r.slice(1)] : r));
+  }
+  return tableText({ rows, dividers: t.dividers, aligns: t.aligns, title: t.title });
+}
+
+/** A tree table's depths (null for a plain table). */
+const levelsOf = (n: Node, t: TableText) => (n.table?.tree ? treeLevels(t) : null);
 
 /** The cell at `cell` (a grid line counts with the cell after it), or null outside the table. */
 export function cellAt(n: Node, cell: Point): TableCell | null {
@@ -551,14 +697,18 @@ export function cellRect(n: Node, at: TableCell): { text: Rect; area: Rect } {
     return { text, area: { ...text, x: text.x - 1, w: text.w + 2 } };
   }
   const row = Math.min(at.row, t.rows.length - 1), col = Math.min(at.col, t.cols - 1);
-  const text = { x: l.edges[col] + 2, y: l.rowY[row], w: l.rooms[col], h: l.heights[row] };
-  return { text, area: { ...text, x: text.x - 1, w: text.w + 2 } };
+  // (A tree's entry is typed after its lines.)
+  const b = col === 0 ? treeOf(n, t)?.[row] : null;
+  const indent = b ? Math.min(chars(b.prefix).length, l.rooms[0] - 1) : 0;
+  const text = { x: l.edges[col] + 2 + indent, y: l.rowY[row], w: l.rooms[col] - indent, h: l.heights[row] };
+  return { text, area: { ...text, x: l.edges[col] + 1, w: l.rooms[col] + 2 } };
 }
 
-/** What's in a cell (the title, for row -1). */
+/** What's in a cell (the title, for row -1; a tree's entry, without its lines). */
 export function cellText(text: string, at: TableCell): string {
   const t = parseTable(text);
-  return at.row < 0 ? t.title ?? "" : t.rows[at.row]?.[at.col] ?? "";
+  const cell = at.row < 0 ? t.title ?? "" : t.rows[at.row]?.[at.col] ?? "";
+  return at.col === 0 && BRANCH_PREFIX.test(cell) ? branchOf(cell).name : cell;
 }
 
 /** The table's text with one cell (or the title) changed. */
@@ -568,7 +718,10 @@ export function withCellText(text: string, at: TableCell, value: string): string
   if (!t.rows[at.row]) return text;
   const rows = t.rows.map((r) => [...r]);
   // (Lines after the first keep their indentation: nested list items.)
-  rows[at.row][at.col] = value.split("\n").map((l, i) => (i === 0 ? l.trim() : l.trimEnd())).join("\n").replace(/^\n+|\s+$/g, "");
+  const typed = value.split("\n").map((l, i) => (i === 0 ? l.trim() : l.trimEnd())).join("\n").replace(/^\n+|\s+$/g, "");
+  // A tree's entry keeps its lines (and its name stays on one line).
+  const prefix = at.col === 0 ? BRANCH_PREFIX.exec(rows[at.row][0] ?? "")?.[1] : undefined;
+  rows[at.row][at.col] = prefix ? prefix.trimEnd() + " " + typed.replace(/\s*\n\s*/g, " ") : typed;
   return write({ ...t, rows });
 }
 
@@ -610,7 +763,11 @@ export function insertRow(n: Node, at: number): Partial<Node> {
   const rows = [...t.rows];
   rows.splice(at, 0, Array(t.cols).fill(""));
   const dividers = shiftDividers(t.dividers, (d) => (d > at ? d + 1 : d), rows.length);
-  return refit(n, write({ ...t, rows, dividers }), n.table, n.rect.w);
+  const levels = levelsOf(n, t);
+  // In a tree: as deep as the row it goes above (so it's that one's sibling), or the one before
+  // it, at the end.
+  levels?.splice(at, 0, at >= treeStart(t) ? Math.max(0, levels[at] ?? levels[at - 1] ?? 0) : -1);
+  return refit(n, write({ ...t, rows, dividers }, levels), n.table, n.rect.w);
 }
 
 /** Row `row` taken out (a table keeps at least one). */
@@ -619,7 +776,85 @@ export function deleteRow(n: Node, row: number): Partial<Node> {
   if (t.rows.length <= 1) return {};
   const rows = t.rows.filter((_, i) => i !== row);
   const dividers = shiftDividers(t.dividers, (d) => (d > row ? d - 1 : d), rows.length);
-  return refit(n, write({ ...t, rows, dividers }), n.table, n.rect.w);
+  // In a tree, its children move up a level, into its place.
+  let levels = levelsOf(n, t);
+  if (levels) {
+    const l = levels[row];
+    const end = subtreeEnd(levels, row);
+    levels = levels.map((v, i) => (i > row && i < end && l >= 0 ? v - 1 : v)).filter((_, i) => i !== row);
+  }
+  return refit(n, write({ ...t, rows, dividers }, levels), n.table, n.rect.w);
+}
+
+/** The row after a tree row's children (and theirs). */
+function subtreeEnd(levels: number[], row: number): number {
+  let end = row + 1;
+  while (end < levels.length && levels[end] > levels[row]) end++;
+  return end;
+}
+
+/** Where row `row` of a tree goes moved up (by -1) or down (by 1), with its children: past the
+ * entry before or after it at its depth. -1 when it can't (it's first or last of its parent's). */
+export function treeMoveTarget(n: Node, row: number, by: -1 | 1): number {
+  const t = parseTable(n.text);
+  const levels = treeLevels(t);
+  const l = levels[row];
+  if (l < 0) return -1;
+  if (by < 0) {
+    for (let j = row - 1; j >= 0 && levels[j] >= l; j--) if (levels[j] === l) return j;
+    return -1;
+  }
+  const next = subtreeEnd(levels, row);
+  if (next >= levels.length || levels[next] !== l) return -1;
+  // Its first row lands where the next one's children end, less its own.
+  return row + (subtreeEnd(levels, next) - next);
+}
+
+/** A tree row (with its children) moved past its sibling before (-1) or after (1). */
+function moveTreeRow(n: Node, t: TableText, row: number, by: -1 | 1): Partial<Node> {
+  const levels = treeLevels(t);
+  const sibling = by < 0 ? treeMoveTarget(n, row, -1) : subtreeEnd(levels, row);
+  if (sibling < 0 || (by > 0 && treeMoveTarget(n, row, 1) < 0)) return {};
+  const [a, b] = by < 0 ? [sibling, row] : [row, sibling];
+  const aEnd = b, bEnd = subtreeEnd(levels, b);
+  const order = [...levels.keys()];
+  const moved = [...order.slice(0, a), ...order.slice(b, bEnd), ...order.slice(a, aEnd), ...order.slice(bEnd)];
+  return refit(n, write({ ...t, rows: moved.map((i) => t.rows[i]) }, moved.map((i) => levels[i])), n.table, n.rect.w);
+}
+
+/** A tree row made a level deeper (by 1: a child of the entry before it) or shallower (by -1),
+ * its children going with it. */
+export function indentRow(n: Node, row: number, by: -1 | 1): Partial<Node> {
+  const t = parseTable(n.text);
+  if (!canIndent(n, row, by)) return {};
+  const levels = treeLevels(t);
+  const end = subtreeEnd(levels, row);
+  const next = levels.map((l, i) => (i >= row && i < end ? l + by : l));
+  return refit(n, write(t, next), n.table, n.rect.w);
+}
+
+/** Whether a tree row can go a level deeper (there's an entry before it at its depth) or
+ * shallower (it isn't at the top). */
+export function canIndent(n: Node, row: number, by: -1 | 1): boolean {
+  if (!n.table?.tree) return false;
+  const levels = treeLevels(parseTable(n.text));
+  const l = levels[row];
+  if (l === undefined || l < 0) return false;
+  return by < 0 ? l > 0 : row > 0 && levels[row - 1] >= l;
+}
+
+/** A table made a tree table (its first column the tree; rows that say nothing of their depth at
+ * the top), or a plain table again (the tree's lines left as text in the first column). */
+export function withTree(n: Node, on: boolean): Partial<Node> {
+  const table = withOptions(n, { tree: on || undefined }).table;
+  if (!on) return refit(n, n.text, table, n.rect.w);
+  const t = parseTable(n.text);
+  return refit(n, write(t, treeLevels(t)), table, n.rect.w);
+}
+
+/** A tree table's tree drawn with or without its lines, and its folders' "/"; the table refitted. */
+export function withTreeLook(n: Node, change: Pick<TableOptions, "treeLines" | "treeSlashes">): Partial<Node> {
+  return refit(n, n.text, withOptions(n, change).table, n.rect.w);
 }
 
 /** Row `row` swapped with the one above (by -1) or below (by 1). */
@@ -627,9 +862,10 @@ export function moveRow(n: Node, row: number, by: -1 | 1): Partial<Node> {
   const t = parseTable(n.text);
   const to = row + by;
   if (to < 0 || to >= t.rows.length) return {};
+  if (n.table?.tree && row >= treeStart(t)) return moveTreeRow(n, t, row, by);
   const rows = [...t.rows];
   [rows[row], rows[to]] = [rows[to], rows[row]];
-  return refit(n, write({ ...t, rows }), n.table, n.rect.w);
+  return refit(n, write({ ...t, rows }, levelsOf(n, t)), n.table, n.rect.w);
 }
 
 /** An empty column put in at `at`, as wide as the one beside it if that has a set width. */
@@ -646,7 +882,7 @@ export function insertColumn(n: Node, at: number): Partial<Node> {
   const beside = widths[Math.min(at, t.cols - 1)] ?? null;
   widths.splice(at, 0, beside);
   const room = beside ?? 3;
-  return refit(n, write({ ...t, rows, aligns, cols: t.cols + 1 }), withWidths(n, widths), n.rect.w + room + 3);
+  return refit(n, write({ ...t, rows, aligns, cols: t.cols + 1 }, levelsOf(n, t)), withWidths(n, widths), n.rect.w + room + 3);
 }
 
 /** Column `col` taken out (a table keeps at least one); the table narrows by its width. */
@@ -657,7 +893,7 @@ export function deleteColumn(n: Node, col: number): Partial<Node> {
   const rows = t.rows.map((r) => Array.from({ length: t.cols }, (_, c) => r[c] ?? "").filter((_, c) => c !== col));
   const aligns = Array.from({ length: t.cols }, (_, c) => t.aligns[c] ?? "left").filter((_, c) => c !== col);
   const widths = widthsOf(n, t.cols).filter((_, c) => c !== col);
-  return refit(n, write({ ...t, rows, aligns, cols: t.cols - 1 }), withWidths(n, widths), n.rect.w - room - 3);
+  return refit(n, write({ ...t, rows, aligns, cols: t.cols - 1 }, levelsOf(n, t)), withWidths(n, widths), n.rect.w - room - 3);
 }
 
 /** Column `col` swapped with the one to its left (by -1) or right (by 1), width and all. */
@@ -673,7 +909,7 @@ export function moveColumn(n: Node, col: number, by: -1 | 1): Partial<Node> {
   const rows = t.rows.map((r) => swap(Array.from({ length: t.cols }, (_, c) => r[c] ?? "")));
   const aligns = swap(Array.from({ length: t.cols }, (_, c) => t.aligns[c] ?? "left"));
   const widths = swap(widthsOf(n, t.cols));
-  return refit(n, write({ ...t, rows, aligns }), withWidths(n, widths), n.rect.w);
+  return refit(n, write({ ...t, rows, aligns }, levelsOf(n, t)), withWidths(n, widths), n.rect.w);
 }
 
 /** How column `col`'s text lines up. */

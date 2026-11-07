@@ -84,6 +84,7 @@ const EXAMPLES: { label: string; text: string }[] = [
   { label: "ER", text: EXAMPLE_TEXT.er },
   { label: "folder tree", text: EXAMPLE_TEXT.tree },
   { label: "timeline", text: "timeline\n    title Release history\n    section Planning\n      Jan : Requirements : Design\n    section Delivery\n      Mar : Build\n      May : Beta : Feedback\n      Jul : Launch" },
+  { label: "tree table", text: "| Name | About |\n|------|-------|\n| project/ | the whole thing |\n| ├── src/ | the source |\n| │   ├── main.ts | where it starts |\n| │   └── ui/ | what you see |\n| └── README.md | read this first |" },
   { label: "table", text: "| Service | Port | Owner |\n|---------|-----:|-------|\n| web     | 443  | web team |\n| api     | 8080 | platform |\n| db      | 5432 | data  |" },
 ];
 
@@ -116,6 +117,8 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
   const [text, setText] = useState(existing?.text ?? "");
   const [direction, setDirection] = useState<"auto" | "down" | "right">(existing?.options.direction ?? "auto");
   const [treeStyle, setTreeStyle] = useState<"text" | "boxes">(existing?.options.treeStyle ?? "text");
+  const [treeLines, setTreeLines] = useState(existing?.options.treeLines !== false);
+  const [slashes, setSlashes] = useState(existing?.options.slashes !== false);
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => ref.current?.focus(), []);
 
@@ -127,6 +130,8 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
   const options: TextSource["options"] = {
     ...((actual === "graph" || (actual === "tree" && treeStyle === "boxes")) && direction !== "auto" && { direction }),
     ...(actual === "tree" && { treeStyle }),
+    ...(actual === "tree" && treeStyle === "text" && !treeLines && { treeLines: false }),
+    ...(actual === "tree" && !slashes && { slashes: false }),
   };
   const preview = useMemo(() => {
     if (!text.trim()) return { text: "", warnings: [] as string[], drawing: null };
@@ -255,6 +260,21 @@ function Body({ sourceId, adoptIds }: { sourceId: string | null; adoptIds?: stri
                   {v === "text" ? "tree text" : "boxes"}
                 </button>
               ))}
+            </span>
+          </div>
+        )}
+        {actual === "tree" && (
+          <div className="row">
+            <span className="row-label">show</span>
+            <span className="row-items">
+              {treeStyle === "text" && (
+                <button className={"choice" + (treeLines ? " active" : "")} aria-pressed={treeLines} onClick={() => setTreeLines(!treeLines)} title="The tree's ├── lines, or just indented">
+                  lines
+                </button>
+              )}
+              <button className={"choice" + (slashes ? " active" : "")} aria-pressed={slashes} onClick={() => setSlashes(!slashes)} title='Folders with a trailing "/"'>
+                folder /
+              </button>
             </span>
           </div>
         )}

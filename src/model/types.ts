@@ -34,7 +34,14 @@ export interface TextSource {
   id: Id;
   kind: SourceKind;
   text: string;
-  options: { direction?: "down" | "right"; treeStyle?: "text" | "boxes" };
+  options: {
+    direction?: "down" | "right";
+    treeStyle?: "text" | "boxes";
+    /** A folder tree drawn as text: false, just indented (no ├── lines). */
+    treeLines?: boolean;
+    /** A folder tree: false, folders without a trailing "/". */
+    slashes?: boolean;
+  };
   /** Top-left of where it's drawn. */
   origin: Point;
 }
@@ -112,6 +119,13 @@ export interface TableOptions {
   wrap?: boolean;
   /** false: Markdown lists in cells (`- item`, `1. item`) are shown as typed, not as lists. */
   lists?: boolean;
+  /** A tree table: its first column is a tree (each first cell starts with the tree's lines down
+   * to it, as `tree` draws them), and the other columns describe each entry. */
+  tree?: boolean;
+  /** A tree table's tree: false, just indented (no ├── lines). */
+  treeLines?: boolean;
+  /** A tree table: false, entries shown without a trailing "/" (it stays in the text). */
+  treeSlashes?: boolean;
 }
 
 /** Connector ends: filled / hollow triangle, filled / hollow diamond, dot, circle, cross, bar. */

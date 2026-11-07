@@ -1,20 +1,24 @@
 import type { HAlign, Id, Node } from "../model/types";
 import { updateNode } from "../model/ops";
 import {
-  type TableCell, deleteColumn, deleteRow, insertColumn, insertRow, moveColumn, moveRow, parseTable, withColumnAlign,
+  type TableCell, canIndent, deleteColumn, deleteRow, indentRow, insertColumn, insertRow, moveColumn, moveRow, parseTable,
+  treeMoveTarget, treeStart, withColumnAlign,
 } from "../shapes/table";
 import { apply, begin, commit, editCell, getState, setTableCell } from "./store";
 
 /** The row and column commands on a table's current cell (`EditorState.tableCell`). */
 export type TableOp =
-  | "rowAbove" | "rowBelow" | "rowUp" | "rowDown" | "rowDelete"
+  | "rowAbove" | "rowBelow" | "rowUp" | "rowDown" | "rowIndent" | "rowOutdent" | "rowDelete"
   | "colLeft" | "colRight" | "colMoveLeft" | "colMoveRight" | "colDelete";
 
-export const TABLE_OPS: { op: TableOp; label: string; menu: string; hint?: string }[] = [
+/** `tree`: only in a tree table. */
+export const TABLE_OPS: { op: TableOp; label: string; menu: string; hint?: string; tree?: true }[] = [
   { op: "rowAbove", label: "+ above", menu: "Insert Row Above" },
   { op: "rowBelow", label: "+ below", menu: "Insert Row Below" },
   { op: "rowUp", label: "↑", menu: "Move Row Up" },
   { op: "rowDown", label: "↓", menu: "Move Row Down" },
+  { op: "rowOutdent", label: "⇤", menu: "Outdent Row", hint: "Alt+Shift+←", tree: true },
+  { op: "rowIndent", label: "⇥", menu: "Indent Row", hint: "Alt+Shift+→", tree: true },
   { op: "rowDelete", label: "delete", menu: "Delete Row" },
   { op: "colLeft", label: "+ left", menu: "Insert Column Left" },
   { op: "colRight", label: "+ right", menu: "Insert Column Right" },
@@ -23,13 +27,21 @@ export const TABLE_OPS: { op: TableOp; label: string; menu: string; hint?: strin
   { op: "colDelete", label: "delete", menu: "Delete Column" },
 ];
 
-/** Whether `op` can be done at `at` (a table keeps a row and a column; moves stay inside it). */
+/** The ops a table has (a tree table's indenting only in one). */
+export const tableOpsOf = (n: Node, which: "row" | "col") => TABLE_OPS.filter((o) => o.op.startsWith(which) && (!o.tree || n.table?.tree));
+
+/** Whether `op` can be done at `at` (a table keeps a row and a column; moves stay inside it, and
+ * in a tree table, a row moves among its parent's). */
 export function canTableOp(n: Node, op: TableOp, at: TableCell): boolean {
   const t = parseTable(n.text);
   if (at.row < 0 || !t.rows.length) return false;
+  const tree = !!n.table?.tree;
+  const head = treeStart(t);
   switch (op) {
-    case "rowUp": return at.row > 0;
-    case "rowDown": return at.row < t.rows.length - 1;
+    case "rowUp": return tree && at.row >= head ? treeMoveTarget(n, at.row, -1) >= 0 : at.row > 0 && (!tree || at.row < head);
+    case "rowDown": return tree && at.row >= head ? treeMoveTarget(n, at.row, 1) >= 0 : at.row < t.rows.length - 1 && (!tree || at.row + 1 < head);
+    case "rowIndent": return canIndent(n, at.row, 1);
+    case "rowOutdent": return canIndent(n, at.row, -1);
     case "rowDelete": return t.rows.length > 1;
     case "colMoveLeft": return at.col > 0;
     case "colMoveRight": return at.col < t.cols - 1;
@@ -44,8 +56,10 @@ function change(n: Node, op: TableOp, { row, col }: TableCell): { patch: Partial
   switch (op) {
     case "rowAbove": return { patch: insertRow(n, row), at: { row, col } };
     case "rowBelow": return { patch: insertRow(n, row + 1), at: { row: row + 1, col } };
-    case "rowUp": return { patch: moveRow(n, row, -1), at: { row: row - 1, col } };
-    case "rowDown": return { patch: moveRow(n, row, 1), at: { row: row + 1, col } };
+    case "rowUp": return { patch: moveRow(n, row, -1), at: { row: n.table?.tree && row >= treeStart(t) ? treeMoveTarget(n, row, -1) : row - 1, col } };
+    case "rowDown": return { patch: moveRow(n, row, 1), at: { row: n.table?.tree && row >= treeStart(t) ? treeMoveTarget(n, row, 1) : row + 1, col } };
+    case "rowIndent": return { patch: indentRow(n, row, 1), at: { row, col } };
+    case "rowOutdent": return { patch: indentRow(n, row, -1), at: { row, col } };
     case "rowDelete": return { patch: deleteRow(n, row), at: { row: Math.min(row, t.rows.length - 2), col } };
     case "colLeft": return { patch: insertColumn(n, col), at: { row, col } };
     case "colRight": return { patch: insertColumn(n, col + 1), at: { row, col: col + 1 } };

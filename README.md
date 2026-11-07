@@ -52,7 +52,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   input/output, start/end, database, document, subroutine), notes, frames, class boxes in
   compartments, tables (made with the table tool and typed into cell by cell, rows and columns
   added, moved and deleted, or written as Markdown tables; with a title, set or automatic column
-  widths, wrapping, cells over several lines, and lists and checklists in cells), timelines (across
+  widths, wrapping, cells over several lines, and lists and checklists in cells), tree tables
+  (a tree in the first column, like a folder tree, and columns describing each entry), timelines (across
   or down, with sections; written as Mermaid `timeline` text), and sequence-diagram lifelines and
   activation bars.
 - **Connectors:** Six line styles; a head at either end (arrow, hollow arrow, diamond, hollow
@@ -254,7 +255,8 @@ The drawing stays linked to its text. Select it and choose **edit text** to chan
 
 ![A sequence diagram with activations, a note, a loop, an async message and a lost one, in dark mode](docs/images/sequence-dark.png)
 
-Folder trees can be drawn as boxes, as here, or as `tree`-style text.
+Folder trees can be drawn as boxes, as here, or as `tree`-style text, with or without the
+`├──` lines and the folders' trailing `/`.
 
 ![A folder tree drawn as boxes](docs/images/tree.png)
 
@@ -268,7 +270,9 @@ Press <kbd>E</kbd>, pick how many columns and rows, and click: type into the cel
 <kbd>Tab</kbd> from one to the next. Click a cell to add, move or delete its row or column (in
 the properties panel or the right-click menu). A pasted Markdown table becomes a table too. Give
 it a title, drag or type column widths, and let cells wrap or run over several lines; **copy
-table** writes it out as Markdown.
+table** writes it out as Markdown. A **tree table** has a tree in its first column (like a
+folder tree) and a description of each entry beside it: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>→</kbd>
+/ <kbd>←</kbd> indents and outdents an entry, and the tree's lines are always drawn to fit.
 
 ![A selected table with a title and a cell over two lines, one cell outlined, and the properties panel's row and column commands](docs/images/table.png)
 

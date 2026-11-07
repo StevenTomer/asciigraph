@@ -10,9 +10,9 @@ import { HEAD_NAMES } from "../render/charsets";
 import { type Diagram, type Id, HEADS } from "../model/types";
 import { copyCommand, cutCommand, deleteSelection, duplicateCommand, hasCopy, pasteCommand } from "./clipboard";
 import { directionOf, setDirection, unlinkSource } from "../text/sync";
-import { apply, editCell, getState, openBannerDialog, openStampsDialog, openTextDialog, select, startEditing } from "./store";
-import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "./tableCommands";
-import { cellAt, parseTable } from "../shapes/table";
+import { apply, editCell, getState, openBannerDialog, openStampsDialog, openTextDialog, select, setTableCell, startEditing } from "./store";
+import { canTableOp, tableOpsOf, columnAlign, tableOp } from "./tableCommands";
+import { cellAt, parseTable, tableNode } from "../shapes/table";
 import { timelineNode } from "../shapes/timeline";
 import { zoomToSelection } from "./view";
 
@@ -84,6 +84,7 @@ export function contextMenu(at: Point): MenuEntry[] {
       { label: "Insert Stamp…", run: () => openStampsDialog() },
       { label: "Insert Banner Text…", hint: "big lettering", run: () => openBannerDialog() },
       { label: "Insert Timeline", run: () => insertTimeline(at) },
+      { label: "Insert Tree Table", hint: "a tree, described", run: () => insertTreeTable(at) },
       "separator",
       paste,
       ...(d.order.length >= 2 ? (["separator", layoutMenu([])] as MenuEntry[]) : []),
@@ -103,9 +104,10 @@ export function contextMenu(at: Point): MenuEntry[] {
     // A table: its cell, and the row and column it's in.
     const id = n0.id;
     const ops = (which: "row" | "col"): MenuEntry[] =>
-      TABLE_OPS.filter((o) => o.op.startsWith(which)).map((o) => ({
+      tableOpsOf(n0, which).map((o) => ({
         label: o.menu,
         disabled: !canTableOp(n0, o.op, cell),
+        ...(o.hint && { shortcut: o.hint }),
         run: () => tableOp(id, o.op, cell),
       }));
     const align = parseTable(n0.text).aligns[cell.col] ?? "left";
@@ -254,6 +256,24 @@ export function contextMenu(at: Point): MenuEntry[] {
   }
   entries.push("separator", { label: "Select All", shortcut: `${mod}A`, run: selectAll });
   return entries;
+}
+
+/** A sample tree table: a tree in its first column, and what each entry is beside it. */
+export const SAMPLE_TREE_TABLE = `| Name | About |
+|------|-------|
+| project/ | the whole thing |
+| ├── src/ | the source |
+| │   ├── main.ts | where it starts |
+| │   └── ui/ | what you see |
+| └── README.md | read this first |`;
+
+/** A new tree table at `at`, selected, with its first entry's cell current. */
+function insertTreeTable(at: Point) {
+  const t = tableNode(SAMPLE_TREE_TABLE, at);
+  const node = makeNode(t.rect, t);
+  apply((d) => addNode(d, node));
+  select([node.id]);
+  setTableCell({ node: node.id, row: 1, col: 0 });
 }
 
 /** A new timeline at `at`, with a few periods to change, and its text open for editing. */

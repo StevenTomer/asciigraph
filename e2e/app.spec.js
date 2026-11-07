@@ -1692,3 +1692,45 @@ test("lists in table cells: typed with Enter and spaces, drawn as bullets; off s
   await page.getByRole("complementary", { name: "Properties" }).getByRole("button", { name: "off (as typed)" }).click();
   expect(await text(page)).toContain("│   - sketch │");
 });
+
+test("tree tables: insert one, indent and outdent rows with Alt+Shift+arrows, show it without lines", async ({ page }) => {
+  const p = await at(page, 5, 5);
+  await page.mouse.click(p.x, p.y, { button: "right" });
+  await page.getByRole("menuitem", { name: /Insert Tree Table/ }).click();
+  expect(await text(page)).toContain("│ └── README.md   │");
+  // README.md's row: a level deeper, under src/ (then the last entry there).
+  await click(page, 8, 12);
+  await page.keyboard.press("Alt+Shift+ArrowRight");
+  let drawn = await text(page);
+  expect(drawn).toContain("│ └── src/          │");
+  expect(drawn).toContain("│     └── README.md │");
+  // Typing in its cell, then outdenting it: typing carries on.
+  await page.keyboard.press("Enter");
+  await page.keyboard.type(" (start");
+  await page.keyboard.press("Alt+Shift+ArrowLeft");
+  await page.keyboard.type(" here)");
+  await page.keyboard.press("Escape");
+  drawn = await text(page);
+  expect(drawn).toContain("│ └── README.md (start here) │");
+  const id = (await state(page)).selection[0];
+  expect((await state(page)).diagram.nodes[id].table.tree).toBe(true);
+  // The tree just indented, and its folders without their /.
+  const panel = page.getByRole("complementary", { name: "Properties" });
+  await panel.getByRole("button", { name: "lines" }).click();
+  await panel.getByRole("button", { name: "folder /" }).click();
+  drawn = await text(page);
+  expect(drawn).toMatch(/│ project +│/);
+  expect(drawn).toMatch(/│     main\.ts +│/);
+  expect(drawn).not.toMatch(/[├└]── \w/);
+});
+
+test("folder trees from text: without the tree's lines, and folders without their /", async ({ page }) => {
+  await page.getByRole("button", { name: "from text" }).click();
+  await page.getByLabel("Diagram text").fill("src/\n  main.ts\n  ui/\n    App.tsx");
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "lines" }).click();
+  await dialog.getByRole("button", { name: "folder /" }).click();
+  await expect(page.getByTestId("source-preview")).toHaveText("src\n  main.ts\n  ui\n    App.tsx");
+  await page.getByRole("button", { name: "draw", exact: true }).click();
+  expect(await text(page)).toBe("src\n  main.ts\n  ui\n    App.tsx");
+});

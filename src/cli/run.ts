@@ -4,7 +4,7 @@ import { decodeShare } from "../storage/share";
 import { readFile } from "../storage/diskFile";
 import { exportText, tablesMarkdown, type Wrap, WRAPS } from "../export/text";
 import { importAscii, looksLikeDrawing } from "../text/ascii";
-import { isTableText, tableNode } from "../shapes/table";
+import { isTableText, table, tableNode } from "../shapes/table";
 import { isTimelineText, timelineMermaid, timelineNode } from "../shapes/timeline";
 import { detectKind } from "../text/detect";
 import { describe } from "../text/fromDiagram";
@@ -50,6 +50,8 @@ Options:
                                     what the text is (default: detected)
   --lr, --td                        lay graphs out left to right, or top to bottom
   --boxes                           draw folder trees as boxes and connectors
+  --no-lines                        draw folder trees (and tree tables) just indented, without ├── lines
+  --no-slashes                      folders without a trailing "/"
   --ascii                           ASCII characters only (+ - | instead of box drawing)
   --wrap STYLE                      ${WRAPS.filter((w) => w.kind !== "custom").map((w) => w.kind).join(", ")}
   --max-width N                     at most N columns: a left-to-right graph that's too wide is
@@ -71,6 +73,8 @@ interface Options {
   kind: SourceKind | "auto" | "drawing" | "table" | "timeline";
   direction?: "down" | "right";
   boxes: boolean;
+  lines?: false;
+  slashes?: false;
   ascii: boolean;
   wrap: Wrap;
   output: string | null;
@@ -99,6 +103,8 @@ function parseArgs(args: string[]): Options | "help" {
     } else if (a === "--lr") o.direction = "right";
     else if (a === "--td" || a === "--tb") o.direction = "down";
     else if (a === "--boxes") o.boxes = true;
+    else if (a === "--no-lines") o.lines = false;
+    else if (a === "--no-slashes") o.slashes = false;
     else if (a === "--ascii") o.ascii = true;
     else if (a === "--wrap") {
       const w = value(a);
@@ -144,7 +150,7 @@ function savedDiagram(input: string): Diagram | null {
 }
 
 /** Draw text (or load a saved diagram): the diagram, and any warnings. */
-export function toDiagram(input: string, o: Pick<Options, "kind" | "direction" | "boxes">): { diagram: Diagram; warnings: string[] } {
+export function toDiagram(input: string, o: Pick<Options, "kind" | "direction" | "boxes"> & Partial<Pick<Options, "lines" | "slashes">>): { diagram: Diagram; warnings: string[] } {
   const saved = savedDiagram(input);
   if (saved) return { diagram: saved, warnings: [] };
   if (o.kind === "timeline" || (o.kind === "auto" && isTimelineText(input))) {
@@ -153,14 +159,19 @@ export function toDiagram(input: string, o: Pick<Options, "kind" | "direction" |
   }
   if (o.kind === "table" || (o.kind === "auto" && isTableText(input))) {
     const t = tableNode(input, { x: 0, y: 0 });
-    return { diagram: addNode(emptyDiagram(), makeNode(t.rect, t)), warnings: [] };
+    const look = t.table?.tree && (o.lines === false || o.slashes === false) ? { ...t.table, ...(o.lines === false && { treeLines: false }), ...(o.slashes === false && { treeSlashes: false }) } : t.table;
+    const n = makeNode(t.rect, { ...t, table: look });
+    return { diagram: addNode(emptyDiagram(), makeNode({ ...t.rect, ...table.fitSize(n, n.text) }, { ...t, table: look })), warnings: [] };
   }
   if (o.kind === "drawing" || (o.kind === "auto" && looksLikeDrawing(input))) {
     const r = importAscii(input);
     return { diagram: r.diagram, warnings: r.warnings };
   }
   const kind = o.kind === "auto" ? detectKind(input) : o.kind;
-  const options = { direction: o.direction, treeStyle: o.boxes ? "boxes" as const : "text" as const };
+  const options = {
+    direction: o.direction, treeStyle: o.boxes ? "boxes" as const : "text" as const,
+    ...(o.lines === false && { treeLines: false }), ...(o.slashes === false && { slashes: false }),
+  };
   const r = drawSource(emptyDiagram(), { kind, text: input, options }, { x: 0, y: 0 });
   return { diagram: r.diagram, warnings: r.warnings };
 }
