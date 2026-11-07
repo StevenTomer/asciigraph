@@ -291,8 +291,8 @@ its folders without their `/` (right):
   text.
 - **As text:** each first cell starts with the tree's lines, so the Markdown reads as a tree
   anywhere. **copy table** keeps their spacing with no-break spaces, which Markdown doesn't
-  squeeze out. A drawn tree table that's pasted back in becomes a tree table again, as long as it
-  was drawn with its lines.
+  squeeze out. A drawn tree table that's pasted back in becomes a tree table again, with its lines
+  or just indented.
 
 **Borders:** single, double, rounded, heavy, dashed, dotted, ASCII, or none. A box with no
 border is a free label.

@@ -147,6 +147,44 @@ describe("tree tables", () => {
   });
 });
 
+describe("tree tables drawn just indented", () => {
+  it("read back as tree tables with their lines off", () => {
+    for (const options of [{ treeLines: false }, { treeLines: false, treeSlashes: false }] as TableOptions[]) {
+      const n = node(TREE, undefined, options);
+      const before = draw(edit(n, withTreeLook(n, {})));
+      const r = importAscii(before);
+      expect(r.warnings).toEqual([]);
+      const [t] = Object.values(r.diagram.nodes);
+      expect(t.table).toMatchObject({ tree: true, treeLines: false });
+      expect(diagramToText(r.diagram)).toBe(before);
+    }
+  });
+
+  it("keep their rows that span lines, and their header", () => {
+    const n = node(TREE, 40, { treeLines: false });
+    const before = draw(n);
+    expect(before).toContain("│   main.ts   │ where it starts, and a │");
+    const [t] = Object.values(importAscii(before).diagram.nodes);
+    expect(firstColumn(t)).toEqual(["Name", "src/", "├── main.ts", "├── ui/", "│   └── App.tsx", "└── util.ts", "README.md"]);
+    expect(parseTable(t.text).rows[2][1]).toBe("where it starts, and a\nlonger note");
+  });
+
+  it("aren't mistaken for a column lined up right or centered, or a plain table", () => {
+    const plain = (rows: string[]) => {
+      const [t] = Object.values(importAscii(draw(node("| N | v |\n|---|---|\n" + rows.join("\n")))).diagram.nodes);
+      return t.table?.tree;
+    };
+    expect(plain(["| a | 1 |", "| b | 2 |"])).toBeFalsy();
+    // Right-aligned: 100 then 1, lined up on the right.
+    const [right] = Object.values(importAscii(draw(node("| N | v |\n|--:|---|\n| 100 | a |\n| 1 | b |"))).diagram.nodes);
+    expect(right.table?.tree).toBeFalsy();
+    expect(parseTable(right.text).aligns[0]).toBe("right");
+    // Centered.
+    const [mid] = Object.values(importAscii(draw(node("| Name | v |\n|:-----:|---|\n| abcde | a |\n| a | b |"))).diagram.nodes);
+    expect(mid.table?.tree).toBeFalsy();
+  });
+});
+
 describe("folder trees from text", () => {
   const tree = (options: object) =>
     diagramToText(drawSource(emptyDiagram(), { kind: "tree", text: "src/\n  main.ts\n  ui/\n    App.tsx\nREADME.md", options }, { x: 0, y: 0 }).diagram);

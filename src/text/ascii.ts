@@ -839,6 +839,17 @@ export function importAscii(input: string, probe = false): ImportResult {
           return raw.trimEnd();
         }));
       }
+      // A tree drawn just indented (a tree table with its lines off): see indentedTree. Its entries
+      // are given the lines a tree table's text has, so it reads as one.
+      const indented = !b.tree && indentedTree(groups, b.dividers.length);
+      if (indented) {
+        const body = groups[groups.length - 1];
+        body.forEach((line, i) => {
+          const level = indented[i];
+          if (level > 0) line[0] = " " + "    ".repeat(level - 1) + "├── " + line[0].trim();
+        });
+        b.tree = true;
+      }
       // Every row lined off, and lines that start with an empty cell carrying on the one above:
       // rows spanning lines (as a table whose rows span lines is drawn).
       const joined = groups.map((g) => g.reduce<string[][]>((acc, line) => {
@@ -874,12 +885,14 @@ export function importAscii(input: string, probe = false): ImportResult {
         cellRows.push(...g.map((row) => row.map(cellFromLines)));
       });
       // Each column's alignment, from where its text sits.
-      const aligns: HAlign[] = pads.map((ps) =>
-        ps.length && ps.every((p) => p.r === 1) && ps.some((p) => p.l > 1) ? "right"
+      const aligns: HAlign[] = pads.map((ps, c) =>
+        c === 0 && b.tree ? "left" // (a tree's depth isn't how its column lines up)
+        : ps.length && ps.every((p) => p.r === 1) && ps.some((p) => p.l > 1) ? "right"
         : ps.length && ps.every((p) => Math.abs(p.l - p.r) <= 1) && ps.some((p) => p.l > 1) ? "center"
         : "left");
       // A name in the top border is the table's title, there.
       const options = {
+        ...(indented && { treeLines: false }),
         ...(b.name && title === undefined && { title: "border" as const }),
         ...(titleAlign !== "center" && { titleAlign }),
         ...(b.name && title === undefined && b.nameAlign !== "center" && { titleAlign: b.nameAlign }),
@@ -1138,6 +1151,32 @@ function readText(rows: string[][], left: number, right: number, y0: number, y1:
  * Markdown: `- item`, nested by its indentation, with wrapped lines joined onto their item.
  * Anything else: each line trimmed.
  */
+/**
+ * A tree table drawn just indented (its lines off: two spaces a level), from a table's lines
+ * (`groups`: between its dividers; each line's cells as drawn, a space before the text): each
+ * body line's depth (0 for a line carrying on the row above, its first cell empty), or null if
+ * its first column isn't such a tree. It is when the table's rows aren't lined off (there's at
+ * most the header's divider), its first column has text indented on some lines, every indent is
+ * even, the first entry is at the top, each is no more than a level below the one before, and
+ * the column isn't just lined up right or centered (indents that come from that).
+ */
+function indentedTree(groups: string[][][], dividers: number): number[] | null {
+  if (dividers > 1 || groups.length > 2 || (dividers === 1) !== (groups.length === 2)) return null;
+  const body = groups[groups.length - 1];
+  const named = body.map((l) => l[0]).filter((c) => c.trim());
+  if (named.length < 2 || named.some((c) => /^ *([•◦▪]|\d+[.)]|\[[ ✓xX]\])( |$)/.test(c.slice(1)))) return null;
+  const indents = named.map((c) => c.length - c.trimStart().length - 1);
+  if (!indents.some((i) => i > 0) || indents[0] !== 0 || indents.some((i) => i % 2)) return null;
+  if (indents.some((i, j) => j > 0 && i > indents[j - 1] + 2)) return null;
+  const width = Math.max(...named.map((c) => c.length));
+  const ends = named.map((c) => width - c.length);
+  // Lined up right (every entry ends at the same place) or centered isn't a tree.
+  if (ends.every((e) => e === 0)) return null;
+  if (named.every((_, j) => Math.abs(indents[j] - ends[j]) <= 1)) return null;
+  let at = 0;
+  return body.map((l) => (l[0].trim() ? indents[at++] / 2 : 0));
+}
+
 function cellFromLines(cell: string): string {
   const lines = cell.split("\n").filter((l) => l.trim());
   const MARKER = /^([•◦▪]|\d+[.)]|\[[ ✓xX]\])( |$)/;
