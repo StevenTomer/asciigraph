@@ -230,7 +230,9 @@ their widest cell, and the table grows as you type:
 
   A list is laid out from the left, whatever its column's alignment. **lists**: **off (as
   typed)** in the panel shows cells exactly as written. A drawn table read back in (pasted, or
-  **open file…**) gets its lists back as Markdown.
+  **open file…**) gets its lists back as Markdown. A drawn table whose rows don't quite line
+  up (one cell a few characters short or long, as tables written by hand or by other tools
+  often are) is straightened out as it's read, so it still comes in as one table.
 - **Column widths:** with the table selected, drag a line between two columns (it has a small
   handle) to set the width of the column to its left; the table's right edge moves with it.
   Or type a width under **columns** in the properties panel (each shows its current width).

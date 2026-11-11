@@ -5,6 +5,7 @@ import { DIR_BITS, DOWN, LEFT, RIGHT, UP, lineGlyph } from "../render/charsets";
 import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
 import { table, tableNode, tableText } from "../shapes/table";
+import { repairTables } from "./repairTables";
 
 /**
  * Reading a drawing back into objects: paste box-drawing (or +--+ ASCII) text and get boxes,
@@ -133,9 +134,9 @@ interface Terminal {
 
 export function importAscii(input: string, probe = false): ImportResult {
   const warnings: string[] = [];
-  const rows = input.replace(/\r/g, "").split("\n")
+  const rows = repairTables(input.replace(/\r/g, "").split("\n").map(expandTabs))
     // An ASCII hollow arrow left or right, |> or <|, at the end of a line: one head (and a line).
-    .map((l) => expandTabs(l).replace(/([-+])\|>/g, "$1-▷").replace(/<\|([-+])/g, "◁-$1"))
+    .map((l) => l.replace(/([-+])\|>/g, "$1-▷").replace(/<\|([-+])/g, "◁-$1"))
     .map((l) => chars(l));
   // Leading and trailing blank lines don't matter; nor does a common indent.
   while (rows.length && !rows[0].join("").trim()) rows.shift();
