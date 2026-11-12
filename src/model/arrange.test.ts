@@ -53,6 +53,14 @@ describe("distribute", () => {
     expect(rects(distribute(v, ["a", "b", "c"], "vertical"))).toEqual({ a: [0, 0], b: [3, 9], c: [1, 20] });
   });
 
+  it("keeps the first selected box in place, spacing the others around it", () => {
+    const d = diagram(n("a", 0, 0, 4), n("b", 5, 3, 6), n("c", 30, 1, 2));
+    // Same gaps of 10 as above (b would go to 14); b selected first stays at 5, so all shift by -9.
+    expect(rects(distribute(d, ["b", "a", "c"], "horizontal"))).toEqual({ a: [-9, 0], b: [5, 3], c: [21, 1] });
+    // The last box picked first: the same as keeping the ends.
+    expect(rects(distribute(d, ["c", "b", "a"], "horizontal"))).toEqual({ a: [0, 0], b: [14, 3], c: [30, 1] });
+  });
+
   it("does nothing for fewer than three", () => {
     const d = diagram(n("a", 0, 0), n("b", 9, 0));
     expect(distribute(d, ["a", "b"], "horizontal")).toBe(d);

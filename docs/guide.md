@@ -812,7 +812,9 @@ Right-click shows what applies to what's under the pointer and the selection.
 ![The right-click menu](images/context-menu.png)
 
 - **Align** (left, center, right; top, middle, bottom) with two or more boxes selected, and
-  **Distribute** (horizontally or vertically: even gaps) with three or more.
+  **Distribute** (horizontally or vertically: even gaps) with three or more. The box selected
+  first stays put and the others are spaced around it (select an end box first to keep both
+  ends where they are).
 - **Auto Layout** arranges the selected boxes in layers that follow their connectors, top to
   bottom or left to right. On empty space, it lays out the whole diagram.
 - **Lock Together ▸ Horizontally / Vertically / Both:** the boxes then move together left–right,

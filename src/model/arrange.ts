@@ -76,8 +76,9 @@ export function align(d: Diagram, ids: Id[], how: Alignment): Diagram {
 }
 
 /**
- * Equal gaps between nodes across their combined span, keeping the first and last in place
- * (PowerPoint's Distribute Horizontally/Vertically). Needs three or more.
+ * Equal gaps between nodes across their combined span (PowerPoint's Distribute Horizontally/
+ * Vertically). The first selected node is the anchor: it stays put, and the others are spaced
+ * around it (picked at either end, both ends stay put). Needs three or more.
  */
 export function distribute(d: Diagram, ids: Id[], axis: "horizontal" | "vertical"): Diagram {
   const nodes = topLevel(d, ids);
@@ -89,12 +90,19 @@ export function distribute(d: Diagram, ids: Id[], axis: "horizontal" | "vertical
   const first = sorted[0].r, last = sorted[sorted.length - 1].r;
   const span = pos(last) + size(last) - pos(first);
   const gap = (span - sorted.reduce((sum, s) => sum + size(s.r), 0)) / (sorted.length - 1);
-  let out = d;
   let used = 0;
-  const settled = new Set(nodes);
-  sorted.forEach((s, i) => {
+  const at = sorted.map((s, i) => {
     const p = Math.round(pos(first) + used + gap * i);
     used += size(s.r);
+    return p;
+  });
+  // Shift the lot so the anchor (the first selected) is where it was.
+  const anchor = sorted.findIndex((s) => s.id === nodes[0]);
+  const shift = pos(sorted[anchor].r) - at[anchor];
+  let out = d;
+  const settled = new Set(nodes);
+  sorted.forEach((s, i) => {
+    const p = at[i] + shift;
     out = h ? moveTo(out, s.id, p, s.r.y, settled) : moveTo(out, s.id, s.r.x, p, settled);
   });
   return out;
