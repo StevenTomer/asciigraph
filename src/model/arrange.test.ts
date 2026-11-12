@@ -27,13 +27,15 @@ describe("stacking order", () => {
 describe("align", () => {
   const d = diagram(n("a", 2, 0, 4, 3), n("b", 10, 5, 8, 5), n("c", 5, 12, 6, 3));
 
-  it("lines up edges and centers within the selection's bounds", () => {
+  it("lines up edges and centers with the first selected box, which stays put", () => {
+    expect(rects(align(d, ["b", "a", "c"], "left"))).toEqual({ a: [10, 0], b: [10, 5], c: [10, 12] });
+    expect(rects(align(d, ["b", "a", "c"], "right"))).toEqual({ a: [14, 0], b: [10, 5], c: [12, 12] });
+    expect(rects(align(d, ["b", "a", "c"], "center"))).toEqual({ a: [12, 0], b: [10, 5], c: [11, 12] });
+    expect(rects(align(d, ["b", "a", "c"], "top"))).toEqual({ a: [2, 5], b: [10, 5], c: [5, 5] });
+    expect(rects(align(d, ["b", "a", "c"], "bottom"))).toEqual({ a: [2, 7], b: [10, 5], c: [5, 7] });
+    expect(rects(align(d, ["b", "a", "c"], "middle"))).toEqual({ a: [2, 6], b: [10, 5], c: [5, 6] });
+    // a first: to its left edge.
     expect(rects(align(d, ["a", "b", "c"], "left"))).toEqual({ a: [2, 0], b: [2, 5], c: [2, 12] });
-    expect(rects(align(d, ["a", "b", "c"], "right"))).toEqual({ a: [14, 0], b: [10, 5], c: [12, 12] });
-    expect(rects(align(d, ["a", "b", "c"], "center"))).toEqual({ a: [8, 0], b: [6, 5], c: [7, 12] });
-    expect(rects(align(d, ["a", "b", "c"], "top"))).toEqual({ a: [2, 0], b: [10, 0], c: [5, 0] });
-    expect(rects(align(d, ["a", "b", "c"], "bottom"))).toEqual({ a: [2, 12], b: [10, 10], c: [5, 12] });
-    expect(rects(align(d, ["a", "b", "c"], "middle"))).toEqual({ a: [2, 6], b: [10, 5], c: [5, 6] });
   });
 
   it("moves what's inside a box with it, and ignores selected boxes inside other selected boxes", () => {

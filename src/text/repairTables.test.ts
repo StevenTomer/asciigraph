@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { repairTables } from "./repairTables";
-import { importAscii } from "./ascii";
+import { importAscii, looksLikeDrawing } from "./ascii";
 
 const lines = (s: string) => s.replace(/^\n/, "").split("\n");
 
@@ -56,5 +56,45 @@ note
     const nodes = Object.values(r.diagram.nodes);
     expect(nodes.map((n) => n.kind)).toEqual(["table"]);
     expect(nodes[0].text).toContain("| one | the first one |");
+  });
+});
+
+describe("repairTables: missing borders", () => {
+  it("adds a missing top and bottom border, and re-pads a short row", () => {
+    expect(repairTables(lines(`
+│ Key   │ Note   │
+├───────┼────────┤
+│ a     │ short │
+│ b     │ fine   │`))).toEqual(lines(`
+┌───────┬────────┐
+│ Key   │ Note   │
+├───────┼────────┤
+│ a     │ short  │
+│ b     │ fine   │
+└───────┴────────┘`));
+  });
+
+  it("reads rows with a line under the header as a table", () => {
+    const text = `
+│ Key                 │ Required │ Meaning                                                │
+├─────────────────────┼──────────┼────────────────────────────────────────────────────────┤
+│ <GCS name>          │ Yes      │ Must match a GCS name under root.gcs in topology      │
+│ parameter_context   │ Yes      │ Context name for this GCS; normally matches topology  │
+│ variables           │ No       │ Values substituted into {{token}} defaults            │`;
+    expect(looksLikeDrawing(text)).toBe(true);
+    const nodes = Object.values(importAscii(text).diagram.nodes);
+    expect(nodes.map((n) => n.kind)).toEqual(["table"]);
+    expect(nodes[0].text.split("\n")).toHaveLength(5);
+    expect(nodes[0].text).toMatch(/\| variables +\| No +\| Values substituted into \{\{token\}\} defaults +\|$/);
+  });
+
+  it("leaves rows without a divider, and a lone box, alone", () => {
+    const text = lines(`
+│ a │ b │
+│ c │ d │
+┌───┐
+│ x │
+└───┘`);
+    expect(repairTables(text)).toEqual(text);
   });
 });

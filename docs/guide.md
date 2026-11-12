@@ -232,7 +232,8 @@ their widest cell, and the table grows as you type:
   typed)** in the panel shows cells exactly as written. A drawn table read back in (pasted, or
   **open file…**) gets its lists back as Markdown. A drawn table whose rows don't quite line
   up (one cell a few characters short or long, as tables written by hand or by other tools
-  often are) is straightened out as it's read, so it still comes in as one table.
+  often are), or that's missing its top or bottom border, is straightened out as it's read,
+  so it still comes in as one table.
 - **Column widths:** with the table selected, drag a line between two columns (it has a small
   handle) to set the width of the column to its left; the table's right edge moves with it.
   Or type a width under **columns** in the properties panel (each shows its current width).
@@ -812,9 +813,10 @@ Right-click shows what applies to what's under the pointer and the selection.
 ![The right-click menu](images/context-menu.png)
 
 - **Align** (left, center, right; top, middle, bottom) with two or more boxes selected, and
-  **Distribute** (horizontally or vertically: even gaps) with three or more. The box selected
-  first stays put and the others are spaced around it (select an end box first to keep both
-  ends where they are).
+  **Distribute** (horizontally or vertically: even gaps) with three or more. For both, the box
+  selected first stays put: Align lines the others up with it, and Distribute spaces them
+  around it (select an end box first to keep both ends where they are). Click it, then
+  shift-click the rest.
 - **Auto Layout** arranges the selected boxes in layers that follow their connectors, top to
   bottom or left to right. On empty space, it lays out the whole diagram.
 - **Lock Together ▸ Horizontally / Vertically / Both:** the boxes then move together left–right,

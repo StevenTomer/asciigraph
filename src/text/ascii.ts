@@ -948,7 +948,8 @@ export function importAscii(input: string, probe = false): ImportResult {
 
 /** Whether some text looks like a drawing (it has at least one box). */
 export function looksLikeDrawing(text: string): boolean {
-  if (!/[┌╭╔┏+]/.test(text) || text.split("\n").length < 2) return false;
+  // A table missing its top border gets one when it's read.
+  if (!/[┌╭╔┏+]/.test(repairTables(text.split("\n").map(expandTabs)).join("\n")) || text.split("\n").length < 2) return false;
   return importAscii(text, true).boxes > 0;
 }
 

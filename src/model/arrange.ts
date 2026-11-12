@@ -1,4 +1,4 @@
-import { type Rect, bottom, intersects, right, union } from "../geometry/geom";
+import { type Rect, bottom, intersects, right } from "../geometry/geom";
 import { within, withContents } from "./containment";
 import { moveWithLocks } from "./locks";
 import type { Diagram, Id } from "./types";
@@ -50,11 +50,11 @@ function moveTo(d: Diagram, id: Id, x: number, y: number, settled: Set<Id>): Dia
 
 export type Alignment = "left" | "center" | "right" | "top" | "middle" | "bottom";
 
-/** Align nodes to the edge or center of their combined bounds (PowerPoint's "Align Selected Objects"). */
+/** Align nodes to the edge or center of the first selected one (the anchor, which stays put). */
 export function align(d: Diagram, ids: Id[], how: Alignment): Diagram {
   const nodes = topLevel(d, ids);
-  const bounds = union(nodes.map((id) => d.nodes[id].rect));
-  if (!bounds || nodes.length < 2) return d;
+  if (nodes.length < 2) return d;
+  const bounds = d.nodes[nodes[0]].rect;
   // Measure from the diagram as it was: moving one node can't change where the others go.
   const rects = new Map(nodes.map((id) => [id, d.nodes[id].rect]));
   const settled = new Set(nodes);

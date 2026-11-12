@@ -430,26 +430,27 @@ test("right-click menu: arrange, align, distribute", async ({ page }) => {
   expect((await state(page)).diagram.order[0]).toBe(ids.B);
   await expect(page.getByRole("menu")).toHaveCount(0);
 
-  // Select all three, then Align ▸ Align Top.
+  // Select all three, then Align ▸ Align Top: to the first selected, B (Select All goes in
+  // drawing order, and B was sent to the back).
   await page.keyboard.press("Control+a");
   await menu(20, 8);
   expect((await state(page)).selection).toHaveLength(3); // right-click inside the selection keeps it
   await page.getByRole("menuitem", { name: "Align", exact: true }).hover();
   await page.getByRole("menuitem", { name: "Align Top" }).click();
-  expect((await rect("A")).y).toBe(2);
-  expect((await rect("B")).y).toBe(2);
-  expect((await rect("C")).y).toBe(2);
+  expect((await rect("A")).y).toBe(6);
+  expect((await rect("B")).y).toBe(6);
+  expect((await rect("C")).y).toBe(6);
 
   // Distribute ▸ Distribute Horizontally: equal gaps; A, selected first (an end), and C stay put.
   await page.keyboard.press("Escape");
-  for (const [x, y, shift] of [[6, 3, false], [20, 4, true], [43, 3, true]]) {
+  for (const [x, y, shift] of [[6, 7, false], [20, 8, true], [43, 7, true]]) {
     const p = await at(page, x, y);
     if (shift) await page.keyboard.down("Shift");
     await page.mouse.click(p.x, p.y);
     if (shift) await page.keyboard.up("Shift");
   }
   expect((await state(page)).selection).toEqual([ids.A, ids.B, ids.C]);
-  await menu(20, 4);
+  await menu(20, 8);
   await page.getByRole("menuitem", { name: "Distribute", exact: true }).hover();
   await page.getByRole("menuitem", { name: "Distribute Horizontally" }).click();
   const [a, b, c] = [await rect("A"), await rect("B"), await rect("C")];
@@ -458,7 +459,7 @@ test("right-click menu: arrange, align, distribute", async ({ page }) => {
   expect(b.x - (a.x + a.w)).toBe(c.x - (b.x + b.w));
 
   // Esc closes the menu without clearing the selection; Ctrl+Z undoes the last arrangement.
-  await menu(20, 4);
+  await menu(20, 8);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
   expect((await state(page)).selection).toHaveLength(3);
