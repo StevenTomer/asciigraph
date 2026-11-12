@@ -440,7 +440,15 @@ test("right-click menu: arrange, align, distribute", async ({ page }) => {
   expect((await rect("B")).y).toBe(2);
   expect((await rect("C")).y).toBe(2);
 
-  // Distribute ▸ Distribute Horizontally: equal gaps, A and C stay put.
+  // Distribute ▸ Distribute Horizontally: equal gaps; A, selected first (an end), and C stay put.
+  await page.keyboard.press("Escape");
+  for (const [x, y, shift] of [[6, 3, false], [20, 4, true], [43, 3, true]]) {
+    const p = await at(page, x, y);
+    if (shift) await page.keyboard.down("Shift");
+    await page.mouse.click(p.x, p.y);
+    if (shift) await page.keyboard.up("Shift");
+  }
+  expect((await state(page)).selection).toEqual([ids.A, ids.B, ids.C]);
   await menu(20, 4);
   await page.getByRole("menuitem", { name: "Distribute", exact: true }).hover();
   await page.getByRole("menuitem", { name: "Distribute Horizontally" }).click();
