@@ -270,8 +270,9 @@ function hidingNodes(d: Diagram, r: ResolvedEdge): Rect[] {
     const n = anchor.node ? d.nodes[anchor.node] : undefined;
     return n ? within(n.rect, rect) : contains(rect, anchor.cell);
   };
+  // (An end's own box doesn't hide it either: one at a point inside the box runs in to it.)
   return d.order
-    .filter((id) => !holds(d.nodes[id].rect, r.from) && !holds(d.nodes[id].rect, r.to))
+    .filter((id) => id !== r.from.node && id !== r.to.node && !holds(d.nodes[id].rect, r.from) && !holds(d.nodes[id].rect, r.to))
     .flatMap((id) => footprint(d.nodes[id]));
 }
 

@@ -10,7 +10,7 @@ import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
 import { cellAt, columnLeft, newTable, parseTable, withColumnWidth } from "../shapes/table";
 import { timelineAxis, withPoint } from "../shapes/timeline";
-import { type Handle, endpointAt, endpointFor, hitTest, isLoop, nodeAt } from "./hitTest";
+import { type Handle, endpointAt, endpointFor, hitTest, insideAt, isLoop, nodeAt } from "./hitTest";
 import {
   type ToolId, apply, begin, cancel, commit, editCell, finishEditing, getState, select, set, setOverlay, setTableCell, setTool,
   startEditing,
@@ -215,7 +215,8 @@ const selectTool: Tool = {
     } else if (g.kind === "endpoint") {
       const edge = d.edges[g.edge];
       const other = g.which === "from" ? edge.to : edge.from;
-      const ep = endpointFor(d, p.cell, p.alt, other);
+      // Ctrl/⌘: to a point inside a box, not just its border.
+      const ep = endpointFor(d, p.cell, p.alt, other, p.mod);
       set(setEndpoint(d, g.edge, g.which, ep));
       setOverlay(ep.kind === "attached" ? { attach: { node: ep.node, side: ep.side === "auto" ? null : ep.side } } : {});
     } else {
@@ -461,7 +462,7 @@ function connectorTool(arrow: boolean): Tool {
       const over = objectAt(p);
       begin();
       const d = getState().diagram;
-      const from = endpointAt(d, p.cell, p.alt);
+      const from = (p.mod && !p.alt && insideAt(d, p.cell)) || endpointAt(d, p.cell, p.alt);
       const edge = makeEdge(from, { kind: "free", at: p.cell }, { arrows: { start: false, end: arrow } });
       set(addEdge(d, edge));
       drawing = { id: edge.id, start: p.cell, over };
@@ -478,7 +479,7 @@ function connectorTool(arrow: boolean): Tool {
         ? fromNode.rect.y + attachedFrom.offset : null;
       // Those may message themselves; other boxes loop back to themselves only from one point
       // on the border to another (see endpointFor).
-      let to = fromRow !== null ? endpointAt(d, p.cell, p.alt) : endpointFor(d, p.cell, p.alt, from);
+      let to = fromRow !== null ? endpointAt(d, p.cell, p.alt) : endpointFor(d, p.cell, p.alt, from, p.mod);
       let fromEnd = from;
       const toNode = to.kind === "attached" ? d.nodes[to.node] : undefined;
       if (fromRow !== null && attachedFrom && to.kind === "attached" && to.offset !== undefined && toNode && shapeOf(toNode).attachByRow) {

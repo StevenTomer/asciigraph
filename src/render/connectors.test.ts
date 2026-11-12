@@ -197,3 +197,35 @@ describe("loops back to the same box", () => {
 `);
   });
 });
+
+describe("an end at a point inside its box", () => {
+  const A = makeNode({ x: 0, y: 0, w: 7, h: 3 }, { id: "A", text: "A" });
+  const B = makeNode({ x: 20, y: 0, w: 16, h: 7 }, { id: "B", text: "" });
+  const inB = (inside: { x: number; y: number }) =>
+    show(build([A, B], [makeEdge(att("A"), { ...att("B"), inside }, { arrows: { start: false, end: true } })]));
+
+  it("comes in through the facing side, crossing the border, and runs on to the point", () => {
+    expect(inB({ x: 3, y: 1 })).toBe(`
+┌─────┐             ┌──────────────┐
+│  A  ├─────────────┼──►           │
+└─────┘             │              │
+                    │              │
+                    │              │
+                    │              │
+                    └──────────────┘
+`);
+    expect(inB({ x: 10, y: 5 })).toBe(`
+┌─────┐             ┌──────────────┐
+│  A  ├──────┐      │              │
+└─────┘      │      │              │
+             │      │              │
+             │      │              │
+             └──────┼─────────►    │
+                    └──────────────┘
+`);
+  });
+
+  it("is kept inside the box (a point past its border after a resize)", () => {
+    expect(inB({ x: 40, y: 1 })).toContain("┼─────────────►│");
+  });
+});

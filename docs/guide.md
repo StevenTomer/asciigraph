@@ -380,6 +380,10 @@ Draw a connector by dragging from one box to another. Start or end **inside** a 
 whichever side faces the other end; start or end **on a border** (or just outside it) to pin
 that exact spot. Hold <kbd>Alt</kbd> to leave an end free, not attached to anything.
 
+Hold <kbd>Ctrl</kbd> (<kbd>⌘</kbd> on a Mac) while dragging an end (or drawing a connector) to
+attach it to a **point inside** a box instead: the line comes in through the side facing the
+other end, crosses the border, and runs on to that point, which moves with the box.
+
 A connector can also go from one point on a box to another point on the **same box**: start
 on its border and end on its border somewhere else (the same side or another). It loops
 round the outside of the box, and follows the box like any other connector.

@@ -123,18 +123,31 @@ export function endpointAt(d: Diagram, cell: Point, free: boolean, exclude?: Id)
  * (a loop from one point on it to another) when both ends are on its border, or just outside
  * it, at different points; otherwise it skips that box, as it would anywhere inside it.
  */
-export function endpointFor(d: Diagram, cell: Point, free: boolean, other: Endpoint): Endpoint {
-  if (other.kind !== "attached") return endpointAt(d, cell, free);
-  const ep = endpointAt(d, cell, free);
+export function endpointFor(d: Diagram, cell: Point, free: boolean, other: Endpoint, inside = false): Endpoint {
+  const ep = (inside && !free && insideAt(d, cell)) || endpointAt(d, cell, free);
+  if (other.kind !== "attached") return ep;
   if (ep.kind !== "attached" || ep.node !== other.node) return ep;
   return isLoop(ep, other) ? ep : endpointAt(d, cell, free, other.node);
 }
 
-/** Two ends on the same box, each pinned to a point on its border, at different points. */
+/**
+ * Ctrl held: an end at the point inside a box (not on its border) the cell is on, which the
+ * line runs in to. Null on a border, or outside every box.
+ */
+export function insideAt(d: Diagram, cell: Point): Endpoint | null {
+  const id = nodeAt(d, cell);
+  if (!id) return null;
+  const n = d.nodes[id];
+  if (shapeOf(n).attachByRow) return null;
+  if (shapeOf(n).hasBorder(n) && (cell.x === n.rect.x || cell.x === right(n.rect) || cell.y === n.rect.y || cell.y === bottom(n.rect))) return null;
+  return { kind: "attached", node: id, side: "auto", inside: { x: cell.x - n.rect.x, y: cell.y - n.rect.y } };
+}
+
+/** Two ends on the same box, each pinned to a point on its border (or inside it), at different points. */
 export function isLoop(a: Endpoint, b: Endpoint): boolean {
-  return a.kind === "attached" && b.kind === "attached" && a.node === b.node
-    && a.side !== "auto" && b.side !== "auto" && a.offset !== undefined && b.offset !== undefined
-    && (a.side !== b.side || a.offset !== b.offset);
+  if (a.kind !== "attached" || b.kind !== "attached" || a.node !== b.node) return false;
+  const at = (e: typeof a) => (e.inside ? `in ${e.inside.x},${e.inside.y}` : e.side !== "auto" && e.offset !== undefined ? `${e.side} ${e.offset}` : null);
+  return at(a) !== null && at(b) !== null && at(a) !== at(b);
 }
 
 function pinned(node: Id, r: Rect, side: Side, cell: Point): Endpoint {

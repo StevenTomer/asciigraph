@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addNode, emptyDiagram, makeNode } from "../model/ops";
-import { endpointFor } from "./hitTest";
+import { endpointFor, insideAt } from "./hitTest";
 
 describe("endpointFor: a connector back to its own box", () => {
   // A at x 4..15, y 3..7.
@@ -18,5 +18,19 @@ describe("endpointFor: a connector back to its own box", () => {
     expect(endpointFor(d, { x: 15, y: 4 }, false, fromRight)).toEqual({ kind: "free", at: { x: 15, y: 4 } });
     const fromInside = { kind: "attached" as const, node: "A", side: "auto" as const };
     expect(endpointFor(d, { x: 10, y: 3 }, false, fromInside)).toEqual({ kind: "free", at: { x: 10, y: 3 } });
+  });
+});
+
+describe("Ctrl: an end at a point inside a box", () => {
+  const d = addNode(emptyDiagram(), makeNode({ x: 4, y: 3, w: 12, h: 5 }, { id: "A" }));
+  const free = { kind: "free" as const, at: { x: 0, y: 0 } };
+
+  it("inside the box: that point; on its border or outside: as without Ctrl", () => {
+    expect(insideAt(d, { x: 10, y: 5 })).toEqual({ kind: "attached", node: "A", side: "auto", inside: { x: 6, y: 2 } });
+    expect(insideAt(d, { x: 10, y: 3 })).toBeNull();
+    expect(insideAt(d, { x: 30, y: 5 })).toBeNull();
+    expect(endpointFor(d, { x: 10, y: 5 }, false, free, true)).toEqual({ kind: "attached", node: "A", side: "auto", inside: { x: 6, y: 2 } });
+    expect(endpointFor(d, { x: 10, y: 3 }, false, free, true)).toEqual({ kind: "attached", node: "A", side: "top", offset: 6 });
+    expect(endpointFor(d, { x: 10, y: 5 }, false, free, false)).toEqual({ kind: "attached", node: "A", side: "auto" });
   });
 });

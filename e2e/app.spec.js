@@ -63,6 +63,30 @@ test("an arrow from one point on a box to another on the same box loops round it
 `));
 });
 
+test("Ctrl+drag an arrow's end to a point inside a box: it runs in to that point", async ({ page }) => {
+  await box(page, [2, 2], [10, 4], "A");
+  await box(page, [20, 2], [36, 8]);
+  await page.keyboard.press("a");
+  await drag(page, [6, 3], [28, 5]);
+  expect(await text(page)).toContain("├────────►│");
+  // The new arrow is selected: drag its end (just outside B) in, with Ctrl held.
+  await drag(page, [19, 3], [28, 6], { ctrl: true });
+  const [e] = Object.values((await state(page)).diagram.edges);
+  expect(e.to).toMatchObject({ kind: "attached", side: "auto", inside: { x: 8, y: 4 } });
+  expect(await text(page)).toBe(block(`
+┌───────┐         ┌───────────────┐
+│   A   ├────┐    │               │
+└───────┘    │    │               │
+             │    │               │
+             └────┼───────►       │
+                  │               │
+                  └───────────────┘
+`));
+  // Without Ctrl, an end dropped inside goes back to the side.
+  await drag(page, [28, 6], [30, 5]);
+  expect((await state(page)).diagram.edges[e.id].to).toEqual({ kind: "attached", node: e.to.node, side: "auto" });
+});
+
 test("draw two boxes, connect them, and the connector follows a move", async ({ page }) => {
   await box(page, [2, 2], [12, 4], "A");
   await box(page, [24, 2], [34, 4], "B");

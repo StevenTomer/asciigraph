@@ -161,6 +161,10 @@ export type Endpoint =
   | { kind: "free"; at: Point }
   | {
       kind: "attached"; node: Id; side: Side | "auto"; offset?: number;
+      /** A point inside the box the end goes to (cells from its top-left corner; Ctrl+drag an
+       * end there): the line comes in through the side (`side`, or the one facing the other
+       * end) and runs on to it. Kept inside the box when it's resized. */
+      inside?: Point;
       /** For an auto side: use this one (a graph's flow direction: leave right, arrive left)
        * unless the other end is behind it, where it would have to loop round. */
       prefer?: Side;

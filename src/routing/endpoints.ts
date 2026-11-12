@@ -141,6 +141,26 @@ export function resolveEndpoint(d: Diagram, ep: Endpoint, other: Endpoint): Anch
  * other sides (used while dragging, for speed; the full routing runs when the drag ends).
  */
 export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick = false): ResolvedEdge {
+  // An end at a point inside its box: route to the box's side, then run on in to the point.
+  const fromIn = insidePoint(d, edge.from), toIn = insidePoint(d, edge.to);
+  if (fromIn || toIn) {
+    const viaFrom = edge.via?.length ? { kind: "free" as const, at: edge.via[0] } : edge.to;
+    const viaTo = edge.via?.length ? { kind: "free" as const, at: edge.via[edge.via.length - 1] } : edge.from;
+    const from = fromIn ? throughSide(d, edge.from, fromIn, viaFrom) : edge.from;
+    const to = toIn ? throughSide(d, edge.to, toIn, viaTo) : edge.to;
+    const r = resolveEdge(d, { ...edge, from, to }, occupancy, quick);
+    let { cells } = r;
+    let fromA = r.from, toA = r.to;
+    if (fromIn) {
+      cells = [...walkIn(r.from.cell, r.from.dir, fromIn).reverse(), ...cells];
+      fromA = { cell: fromIn, dir: null, border: null, node: r.from.node };
+    }
+    if (toIn) {
+      cells = [...cells, ...walkIn(r.to.cell, r.to.dir, toIn)];
+      toA = { cell: toIn, dir: null, border: null, node: r.to.node };
+    }
+    return { edge, from: fromA, to: toA, cells };
+  }
   // Boxes around either end (containers, frames) aren't in the way: the connector has to cross
   // their border anyway.
   const holds = (n: Node, ep: Endpoint) =>
@@ -249,6 +269,37 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
   occupancy?.markEnd(from.cell, "out");
   occupancy?.markEnd(to.cell, "in");
   return { edge, from, to, cells: best.cells };
+}
+
+/** An end's point inside its box (absolute, kept within the box's inside), if it has one. */
+export function insidePoint(d: Diagram, ep: Endpoint): Point | null {
+  if (ep.kind !== "attached" || !ep.inside) return null;
+  const n = d.nodes[ep.node];
+  if (!n) return null;
+  const r = n.rect;
+  const clamp = (v: number, size: number) => (size > 2 ? Math.min(size - 2, Math.max(1, v)) : Math.min(size - 1, Math.max(0, v)));
+  return { x: r.x + clamp(ep.inside.x, r.w), y: r.y + clamp(ep.inside.y, r.h) };
+}
+
+/** The end on the box's side (pinned in line with the point) a line to an inside point comes in by. */
+function throughSide(d: Diagram, ep: Endpoint, p: Point, other: Endpoint): Endpoint {
+  if (ep.kind !== "attached") return ep;
+  const n = d.nodes[ep.node];
+  const side = ep.side !== "auto" ? ep.side : allowedSide(n, facingSide(n.rect, refRect(d, other) ?? n.rect), refRect(d, other));
+  const offset = side === "top" || side === "bottom" ? p.x - n.rect.x : p.y - n.rect.y;
+  return { kind: "attached", node: ep.node, side, offset };
+}
+
+/** The cells after `from` (just outside the side it faces, `dir`) on the way in to `to`: straight
+ * in, then along if the side couldn't line up with it (a slanted shape's narrower side). */
+function walkIn(from: Point, dir: Side | null, to: Point): Point[] {
+  const out: Point[] = [];
+  let c = from;
+  const step = (dx: number, dy: number) => { c = { x: c.x + dx, y: c.y + dy }; out.push(c); };
+  const goX = () => { while (c.x !== to.x) step(Math.sign(to.x - c.x), 0); };
+  const goY = () => { while (c.y !== to.y) step(0, Math.sign(to.y - c.y)); };
+  if (dir === "left" || dir === "right") { goX(); goY(); } else { goY(); goX(); }
+  return out;
 }
 
 function bends(cells: Point[]): number {
