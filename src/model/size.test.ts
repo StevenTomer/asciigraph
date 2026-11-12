@@ -54,10 +54,12 @@ describe("same size", () => {
   const two = () =>
     [makeNode({ x: 0, y: 0, w: 8, h: 3 }, { id: "a" }), makeNode({ x: 20, y: 0, w: 12, h: 5 }, { id: "b" })].reduce(addNode, emptyDiagram());
 
-  it("takes the largest width, height or both, keeping each top-left corner", () => {
+  it("takes the first selected's width, height or both, keeping each top-left corner", () => {
     const r = (d: Diagram) => [d.nodes.a.rect, d.nodes.b.rect];
-    expect(r(sameSize(two(), ["a", "b"], { w: true, h: false }))).toEqual([{ x: 0, y: 0, w: 12, h: 3 }, { x: 20, y: 0, w: 12, h: 5 }]);
-    expect(r(sameSize(two(), ["a", "b"], { w: false, h: true }))).toEqual([{ x: 0, y: 0, w: 8, h: 5 }, { x: 20, y: 0, w: 12, h: 5 }]);
-    expect(r(sameSize(two(), ["a", "b"], { w: true, h: true }))).toEqual([{ x: 0, y: 0, w: 12, h: 5 }, { x: 20, y: 0, w: 12, h: 5 }]);
+    expect(r(sameSize(two(), ["b", "a"], { w: true, h: false }))).toEqual([{ x: 0, y: 0, w: 12, h: 3 }, { x: 20, y: 0, w: 12, h: 5 }]);
+    expect(r(sameSize(two(), ["b", "a"], { w: false, h: true }))).toEqual([{ x: 0, y: 0, w: 8, h: 5 }, { x: 20, y: 0, w: 12, h: 5 }]);
+    expect(r(sameSize(two(), ["b", "a"], { w: true, h: true }))).toEqual([{ x: 0, y: 0, w: 12, h: 5 }, { x: 20, y: 0, w: 12, h: 5 }]);
+    // The smaller one selected first: the larger shrinks to it.
+    expect(r(sameSize(two(), ["a", "b"], { w: true, h: true }))).toEqual([{ x: 0, y: 0, w: 8, h: 3 }, { x: 20, y: 0, w: 8, h: 3 }]);
   });
 });

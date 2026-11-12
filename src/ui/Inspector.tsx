@@ -196,8 +196,8 @@ export function Inspector() {
           </Row>
           {nodes.length > 1 && (
             <Row label="">
-              <Choice active={false} onClick={() => apply((d) => sameSize(d, nodes.map((n) => n.id), { w: true, h: false }))} title="Normalize: all as wide as the widest">same width</Choice>
-              <Choice active={false} onClick={() => apply((d) => sameSize(d, nodes.map((n) => n.id), { w: false, h: true }))} title="Normalize: all as tall as the tallest">same height</Choice>
+              <Choice active={false} onClick={() => apply((d) => sameSize(d, nodes.map((n) => n.id), { w: true, h: false }))} title="Normalize: all as wide as the one selected first">same width</Choice>
+              <Choice active={false} onClick={() => apply((d) => sameSize(d, nodes.map((n) => n.id), { w: false, h: true }))} title="Normalize: all as tall as the one selected first">same height</Choice>
             </Row>
           )}
           <Row label="order">

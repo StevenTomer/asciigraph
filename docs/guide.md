@@ -255,7 +255,7 @@ border is a free label.
 
 **Sizes:** right-click → **Shrink to Text** makes a box the smallest size that shows its text
 without wrapping. With several boxes selected, **Normalize Size** makes them all as wide and/or
-as tall as the largest. Both are in the properties panel too (**size**).
+as tall as the one selected first (shift-click to pick them in order). Both are in the properties panel too (**size**).
 
 **Stacking:** where boxes overlap, **to front / to back / forward / backward** in the panel or
 the right-click menu changes which is on top (<kbd>Ctrl</kbd>+<kbd>]</kbd> /

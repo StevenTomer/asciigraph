@@ -259,11 +259,17 @@ test("after a label or connector, clicking away goes to select", async ({ page }
   expect(Object.keys((await state(page)).diagram.edges)).toHaveLength(2);
 });
 
-test("normalize sizes and shrink to text, from the right-click menu", async ({ page }) => {
+test("normalize sizes (to the one selected first) and shrink to text, from the right-click menu", async ({ page }) => {
   await box(page, [2, 2], [10, 4], "a");
   await box(page, [14, 2], [34, 8], "longer text");
-  await page.keyboard.press("Control+a");
-  const r = await at(page, 20, 5);
+  // The larger one selected first, then the smaller: the size is the first one's.
+  await page.keyboard.press("Escape");
+  const r = await at(page, 20, 5), small = await at(page, 4, 2);
+  await page.mouse.click(r.x, r.y);
+  await page.keyboard.down("Shift");
+  await page.mouse.click(small.x, small.y);
+  await page.keyboard.up("Shift");
+  expect((await state(page)).selection).toHaveLength(2);
   await page.mouse.click(r.x, r.y, { button: "right" });
   await page.getByRole("menuitem", { name: /Normalize Size/ }).hover();
   await page.getByRole("menuitem", { name: /^Width/ }).click();

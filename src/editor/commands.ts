@@ -20,13 +20,13 @@ const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigat
 const mod = isMac ? "⌘" : "Ctrl+";
 const shift = isMac ? "⇧" : "Shift+";
 
-/** "Normalize Size": make the selected boxes as wide and/or tall as the largest of them. */
+/** "Normalize Size": make the selected boxes as wide and/or tall as the one selected first. */
 export const normalizeMenu = (ids: Id[]): MenuItem => ({
   label: "Normalize Size",
   submenu: [
-    { label: "Width", hint: "as the widest", run: () => apply((dd) => sameSize(dd, ids, { w: true, h: false })) },
-    { label: "Height", hint: "as the tallest", run: () => apply((dd) => sameSize(dd, ids, { w: false, h: true })) },
-    { label: "Both", hint: "as the largest", run: () => apply((dd) => sameSize(dd, ids, { w: true, h: true })) },
+    { label: "Width", hint: "as the first selected", run: () => apply((dd) => sameSize(dd, ids, { w: true, h: false })) },
+    { label: "Height", hint: "as the first selected", run: () => apply((dd) => sameSize(dd, ids, { w: false, h: true })) },
+    { label: "Both", hint: "as the first selected", run: () => apply((dd) => sameSize(dd, ids, { w: true, h: true })) },
   ],
 });
 

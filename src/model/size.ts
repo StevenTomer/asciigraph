@@ -6,7 +6,7 @@ import { resizeNode } from "./ops";
 import type { Diagram, Id, Node } from "./types";
 
 /**
- * Sizing several boxes at once: "Same Width / Height" (to the largest of them), and "Shrink to
+ * Sizing several boxes at once: "Normalize Size" (to the first of them selected), and "Shrink to
  * Text" (the smallest size that shows the text without wrapping). Both keep each box's top-left
  * corner where it is; connectors follow.
  */
@@ -14,12 +14,11 @@ import type { Diagram, Id, Node } from "./types";
 /** Kinds whose size isn't about their text: frames surround things, lifelines span messages. */
 const NOT_TEXT_SIZED = new Set<Node["kind"]>(["frame", "lifeline", "activation"]);
 
-/** Give every node in `ids` the width and/or height of the largest of them. */
+/** Give every node in `ids` the width and/or height of the first of them (the first selected). */
 export function sameSize(d: Diagram, ids: Id[], axes: { w: boolean; h: boolean }): Diagram {
   const nodes = ids.map((id) => d.nodes[id]).filter(Boolean);
   if (nodes.length < 2) return d;
-  const w = Math.max(...nodes.map((n) => n.rect.w));
-  const h = Math.max(...nodes.map((n) => n.rect.h));
+  const { w, h } = nodes[0].rect;
   return nodes.reduce(
     (out, n) => resizeNode(out, n.id, { ...n.rect, w: axes.w ? w : n.rect.w, h: axes.h ? h : n.rect.h }),
     d
