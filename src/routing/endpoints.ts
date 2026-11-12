@@ -197,10 +197,13 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
     const fs = settle(f0, edge.from, "out"), ts = settle(t0, edge.to, "in");
     const f = fs ?? f0, t = ts ?? t0;
     const crowded = !fs || !ts;
+    // A loop back to its own box leaves and arrives straight on at both ends (not along its
+    // border, which it would otherwise hug).
+    const loop = !!f.node && f.node === t.node;
     const stops: RouteEnd[] = [
-      { cell: f.cell, dir: f.dir, strict: edge.arrows.start },
+      { cell: f.cell, dir: f.dir, strict: edge.arrows.start || loop },
       ...via.map((p) => ({ cell: p, dir: null })),
-      { cell: t.cell, dir: t.dir, strict: edge.arrows.end },
+      { cell: t.cell, dir: t.dir, strict: edge.arrows.end || loop },
     ];
     const groups = [`${key(f.cell)}>`, `${key(t.cell)}<`];
     let cells: Point[] = [];

@@ -39,6 +39,30 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => window.__asciigraph__.state().diagramId);
 });
 
+test("an arrow from one point on a box to another on the same box loops round it", async ({ page }) => {
+  await box(page, [2, 2], [14, 8], "A");
+  // From the right side's border to the top's.
+  await page.keyboard.press("a");
+  await drag(page, [14, 4], [8, 2]);
+  const s = await state(page);
+  const [e] = Object.values(s.diagram.edges);
+  expect(e.from).toMatchObject({ kind: "attached", side: "right", offset: 2 });
+  expect(e.to).toMatchObject({ kind: "attached", side: "top", offset: 6 });
+  expect(e.from.node).toBe(e.to.node);
+  expect(s.selection).toEqual([e.id]);
+  expect(await text(page)).toBe(block(`
+      ┌───────┐
+      ▼       │
+┌───────────┐ │
+│           │ │
+│           ├─┘
+│     A     │
+│           │
+│           │
+└───────────┘
+`));
+});
+
 test("draw two boxes, connect them, and the connector follows a move", async ({ page }) => {
   await box(page, [2, 2], [12, 4], "A");
   await box(page, [24, 2], [34, 4], "B");

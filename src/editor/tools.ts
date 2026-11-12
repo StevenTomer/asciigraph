@@ -10,7 +10,7 @@ import { lifelineColumn } from "../shapes/lifeline";
 import { shapeOf } from "../shapes/registry";
 import { cellAt, columnLeft, newTable, parseTable, withColumnWidth } from "../shapes/table";
 import { timelineAxis, withPoint } from "../shapes/timeline";
-import { type Handle, endpointAt, hitTest, nodeAt } from "./hitTest";
+import { type Handle, endpointAt, endpointFor, hitTest, isLoop, nodeAt } from "./hitTest";
 import {
   type ToolId, apply, begin, cancel, commit, editCell, finishEditing, getState, select, set, setOverlay, setTableCell, setTool,
   startEditing,
@@ -215,7 +215,7 @@ const selectTool: Tool = {
     } else if (g.kind === "endpoint") {
       const edge = d.edges[g.edge];
       const other = g.which === "from" ? edge.to : edge.from;
-      const ep = endpointAt(d, p.cell, p.alt, other.kind === "attached" ? other.node : undefined);
+      const ep = endpointFor(d, p.cell, p.alt, other);
       set(setEndpoint(d, g.edge, g.which, ep));
       setOverlay(ep.kind === "attached" ? { attach: { node: ep.node, side: ep.side === "auto" ? null : ep.side } } : {});
     } else {
@@ -476,8 +476,9 @@ function connectorTool(arrow: boolean): Tool {
       // Sequence diagrams: a message starting on a lifeline or activation bar, at a row.
       const fromRow = fromNode && attachedFrom?.offset !== undefined && shapeOf(fromNode).attachByRow
         ? fromNode.rect.y + attachedFrom.offset : null;
-      // Those may message themselves; other nodes don't connect to themselves.
-      let to = endpointAt(d, p.cell, p.alt, fromRow !== null ? undefined : fromNode?.id);
+      // Those may message themselves; other boxes loop back to themselves only from one point
+      // on the border to another (see endpointFor).
+      let to = fromRow !== null ? endpointAt(d, p.cell, p.alt) : endpointFor(d, p.cell, p.alt, from);
       let fromEnd = from;
       const toNode = to.kind === "attached" ? d.nodes[to.node] : undefined;
       if (fromRow !== null && attachedFrom && to.kind === "attached" && to.offset !== undefined && toNode && shapeOf(toNode).attachByRow) {
@@ -502,7 +503,7 @@ function connectorTool(arrow: boolean): Tool {
       setOverlay({});
       const e = getState().diagram.edges[id];
       // A click that didn't go anywhere: nothing to draw (but select what was clicked).
-      const selfLoop = e.from.kind === "attached" && e.to.kind === "attached" && e.from.node === e.to.node;
+      const selfLoop = e.from.kind === "attached" && e.to.kind === "attached" && e.from.node === e.to.node && !isLoop(e.from, e.to);
       const fromNode = e.from.kind === "attached" ? getState().diagram.nodes[e.from.node] : undefined;
       const byRow = !!fromNode && !!shapeOf(fromNode).attachByRow;
       if (eq(start, p.cell) || (selfLoop && !byRow)) {

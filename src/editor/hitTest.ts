@@ -118,6 +118,25 @@ export function endpointAt(d: Diagram, cell: Point, free: boolean, exclude?: Id)
   return { kind: "free", at: cell };
 }
 
+/**
+ * Where a connector's end goes at `cell`, given its other end. It may go back to the same box
+ * (a loop from one point on it to another) when both ends are on its border, or just outside
+ * it, at different points; otherwise it skips that box, as it would anywhere inside it.
+ */
+export function endpointFor(d: Diagram, cell: Point, free: boolean, other: Endpoint): Endpoint {
+  if (other.kind !== "attached") return endpointAt(d, cell, free);
+  const ep = endpointAt(d, cell, free);
+  if (ep.kind !== "attached" || ep.node !== other.node) return ep;
+  return isLoop(ep, other) ? ep : endpointAt(d, cell, free, other.node);
+}
+
+/** Two ends on the same box, each pinned to a point on its border, at different points. */
+export function isLoop(a: Endpoint, b: Endpoint): boolean {
+  return a.kind === "attached" && b.kind === "attached" && a.node === b.node
+    && a.side !== "auto" && b.side !== "auto" && a.offset !== undefined && b.offset !== undefined
+    && (a.side !== b.side || a.offset !== b.offset);
+}
+
 function pinned(node: Id, r: Rect, side: Side, cell: Point): Endpoint {
   const offset = side === "top" || side === "bottom" ? cell.x - r.x : cell.y - r.y;
   return { kind: "attached", node, side, offset };

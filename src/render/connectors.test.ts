@@ -160,3 +160,40 @@ describe("end labels", () => {
     expect(diagramToText(r).split("\n")[0]).toBe("┌─────┐ 1               ┌─────┐");
   });
 });
+
+describe("loops back to the same box", () => {
+  const pin = (side: "top" | "bottom" | "left" | "right", offset: number) => ({ kind: "attached" as const, node: "A", side, offset });
+  const loop = (from: ReturnType<typeof pin>, to: ReturnType<typeof pin>) =>
+    show(build([makeNode({ x: 4, y: 3, w: 12, h: 5 }, { id: "A", text: "box" })], [makeEdge(from, to, { arrows: { start: false, end: true } })]));
+
+  it("goes round the corner from one side to another, clear of the border", () => {
+    expect(loop(pin("right", 1), pin("top", 6))).toBe(`
+      ┌──────┐
+      ▼      │
+┌──────────┐ │
+│          ├─┘
+│   box    │
+│          │
+└──────────┘
+`);
+  });
+
+  it("goes along a side, or round to the opposite side", () => {
+    expect(loop(pin("right", 1), pin("right", 3))).toBe(`
+┌──────────┐
+│          ├─┐
+│   box    │ │
+│          │◄┘
+└──────────┘
+`);
+    expect(loop(pin("left", 2), pin("right", 2))).toBe(`
+┌──────────────┐
+│              │
+│ ┌──────────┐ │
+│ │          │ │
+└─┤   box    │◄┘
+  │          │
+  └──────────┘
+`);
+  });
+});
