@@ -1805,6 +1805,11 @@ test("live diagrams: share one, a second person joins by link, and both edit it 
   await click(bob, 25, 3);
   const bId = Object.values((await state(bob)).diagram.nodes).find((n) => n.text === "B").id;
   await expect.poll(async () => (await state(page)).live.peers[0]?.selection).toEqual([bId]);
+
+  // copy link, where the page can't use the clipboard (plain http on a LAN): the link, to copy.
+  await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("no")) } }));
+  await page.getByRole("button", { name: "copy link" }).click();
+  await expect(page.getByRole("textbox", { name: "The link to send" })).toHaveValue(link);
   await bobContext.close();
 });
 

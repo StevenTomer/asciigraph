@@ -94,12 +94,15 @@ export function LivePanel() {
 
 function LiveBar({ live }: { live: LiveState }) {
   const [label, title] = STATUS[live.status];
+  // Where the page can't use the clipboard (plain http at an address other than localhost):
+  // the link, selected, to copy by hand.
+  const [showLink, setShowLink] = useState(false);
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(live.link);
       notify("Copied the link: anyone with it can edit this diagram.");
     } catch {
-      notify(live.link);
+      setShowLink(true);
     }
   };
   return (
@@ -120,6 +123,21 @@ function LiveBar({ live }: { live: LiveState }) {
       ))}
       <button className="tb" onClick={() => void copyLink()} title="Copy the link that lets people edit this diagram with you">copy link</button>
       <button className="tb" onClick={() => void saveCopy()} title="Keep a copy of your own (not live)">save a copy</button>
+      {showLink && (
+        <Dialog title="link" onClose={() => setShowLink(false)}>
+          <p>Send this link to the people you want to edit with. Anyone with it can edit this diagram.</p>
+          <input
+            className="field grow"
+            readOnly
+            autoFocus
+            value={live.link}
+            aria-label="The link to send"
+            onFocus={(e) => e.target.select()}
+            style={{ width: "100%" }}
+          />
+          <p className="note muted">Copy it with Ctrl+C (⌘C on a Mac).</p>
+        </Dialog>
+      )}
     </span>
   );
 }
