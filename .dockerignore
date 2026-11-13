@@ -5,3 +5,5 @@ playwright-report
 .git
 .env
 /cli/
+/server-dist/
+data

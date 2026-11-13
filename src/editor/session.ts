@@ -4,10 +4,12 @@ import { localRepository, readJson, writeJson } from "../storage/local";
 import type { DiagramRepository } from "../storage/repository";
 import { decodeShare } from "../storage/share";
 import { getState, load, setPrefs, useEditor } from "./store";
+import { joinLive, leaveLive, renameLive } from "../collab/live";
 
 /**
  * Which diagram is open, and keeping it saved. URLs: #/d/<id> for a saved diagram, #/share/<data>
- * for a shared one (opened as an unsaved copy until "save a copy").
+ * for a shared one (opened as an unsaved copy until "save a copy"), #/live/<id>/<key> for a live
+ * one (on the server, edited together: collab/live.ts).
  */
 export const repo: DiagramRepository = localRepository;
 
@@ -54,6 +56,12 @@ export function forgetHistory(id: string) {
 
 export async function openFromHash() {
   const hash = location.hash.replace(/^#\/?/, "");
+  const live = /^live\/([^/]+)\/([^/]+)$/.exec(hash);
+  if (live) {
+    joinLive(decodeURIComponent(live[1]), decodeURIComponent(live[2]));
+    return;
+  }
+  leaveLive();
   if (hash.startsWith("share/")) {
     const shared = decodeShare(hash.slice("share/".length));
     if (shared) {
@@ -96,7 +104,8 @@ export async function saveCopy() {
 export async function renameCurrent(name: string) {
   const { diagramId } = getState();
   useEditor.setState({ diagramName: name });
-  if (diagramId) await repo.rename(diagramId, name);
+  if (getState().live) renameLive(name);
+  else if (diagramId) await repo.rename(diagramId, name);
 }
 
 /** Save whenever the diagram changes (debounced); remember view preferences. */

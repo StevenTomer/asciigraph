@@ -14,6 +14,8 @@ import { FindBar } from "./FindBar";
 import { StampsDialog } from "./StampsDialog";
 import { TextSourceDialog } from "./TextSourceDialog";
 import { ZoomControls } from "./ZoomControls";
+import { LiveNameDialog, LivePanel } from "./LiveDialogs";
+import { probeLive } from "../collab/live";
 import { type DialogId, Toolbar } from "./Toolbar";
 
 export function App() {
@@ -34,6 +36,7 @@ export function App() {
     window.addEventListener("hashchange", onHash);
     // Once the first diagram is open (a file handed over by the system opens after it).
     void openFromHash().then(startOffline);
+    void probeLive();
     return () => {
       cleanups.forEach((c) => c());
       window.removeEventListener("hashchange", onHash);
@@ -48,11 +51,13 @@ export function App() {
       <Toolbar openDialog={setDialog} />
       <Inspector />
       <ZoomControls />
+      <LivePanel />
       <ContextMenu />
       <TextSourceDialog />
       <StampsDialog />
       <FindBar />
       <FileConflictDialog />
+      <LiveNameDialog />
       <Notice />
       {dialog === "export" && <ExportDialog onClose={close} />}
       {dialog === "diagrams" && <DiagramsDialog onClose={close} />}

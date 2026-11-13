@@ -12,19 +12,24 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:cli": "vite build -c vite.cli.config.ts",
+    "build:server": "vite build -c vite.server.config.ts",
+    "server": "node server-dist/server.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "npm run build && playwright test -c e2e/playwright.config.mjs",
+    "e2e": "npm run build && npm run build:server && playwright test -c e2e/playwright.config.mjs",
     "screenshots": "npm run build && playwright test -c docs/playwright.config.mjs"
   },
   "dependencies": {
+    "@hocuspocus/provider": "^4.8.0",
+    "@hocuspocus/server": "^4.8.0",
     "figlet": "^1.12.0",
     "js-base64": "^3.9.6",
     "pako": "^2.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "yjs": "^13.6.33",
     "zustand": "^5.0.16"
   },
   "devDependencies": {

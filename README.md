@@ -90,7 +90,10 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
 - **Files:** keep a diagram in a `.md` file (the drawing in a code block, and the diagram itself
   hidden after it, so it opens again exactly; the rest of the file is left alone, so it can be a
   README), a `.txt` file (just the drawing) or `.json`. Open, edit, <kbd>Ctrl</kbd>+<kbd>S</kbd>.
-- **No server, no account.** Diagrams are kept in your browser, and undo history survives a
+- **Live diagrams:** share a diagram live and send people its link. Everyone with the link edits
+  it at the same time, sees who else is there and what they have selected, and undoes only
+  their own changes. This needs the server that `docker compose` runs.
+- **No account.** Diagrams are kept in your browser, and undo history survives a
   reload. Once loaded it works offline, and it installs as an app with its own window (which can
   open `.md` and `.txt` files from the desktop).
 - **Phones too:** The properties panel becomes a bottom sheet, and you can pinch to zoom.
@@ -165,7 +168,17 @@ Inside the container the app is always on port 8080, served by nginx, so only th
 `-p` changes.
 
 Diagrams are saved in your browser (localStorage), not in the container. The container holds
-no data, so you can rebuild or replace it without losing anything. But a diagram saved at
+no data, so you can rebuild or replace it without losing anything.
+
+`docker compose` also runs a second container, `collab`, for live diagrams (several people
+editing one at once). Diagrams shared live are kept on the server, in the `live-diagrams`
+Docker volume, so they survive rebuilds too. To back them up, copy `/data` out of that container
+(`docker compose cp collab:/data ./backup`). Without that container (a plain `docker run`, as
+above), everything else works and **share live** just doesn't appear.
+
+On plain `http` (an office network, say), the links travel unencrypted, so anyone on the network
+who can watch traffic could read them. That's fine on a network you trust. Otherwise, put the
+server behind `https`. But a diagram saved at
 http://localhost:8080 isn't visible at another address (another host or port). To move one
 across, save it as a file (or export a share link) and open it there.
 
@@ -393,6 +406,8 @@ npm test             # unit tests (Vitest): rendering goldens, routing, ops, tex
 npm run e2e          # build, then Playwright (first time: npx playwright install chromium)
 npm run build        # typecheck (strict) + production build into dist/ (what the image serves)
 npm run build:cli    # the command line, into cli/asciigraph.mjs
+npm run build:server # the live-diagram server, into server-dist/server.mjs
+npm run server       # run it (port 1234; npm run dev passes api/ and ws to it)
 npm run screenshots  # retake the pictures in docs/images
 ```
 

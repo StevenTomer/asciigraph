@@ -31,6 +31,28 @@ export interface View {
   y: number;
 }
 
+/** Someone else in a live diagram: their name, color, and what they have selected. */
+export interface Peer {
+  clientId: number;
+  name: string;
+  color: string;
+  selection: Id[];
+}
+
+/** A live (shared) diagram that's open (collab/live.ts). */
+export interface LiveState {
+  id: string;
+  /** The link that lets people in. */
+  link: string;
+  /** connecting: until the diagram has arrived; offline: lost the connection (it reconnects,
+   * and edits made meanwhile are sent then); denied: the link's key was refused. */
+  status: "connecting" | "live" | "offline" | "denied";
+  me: { name: string; color: string };
+  peers: Peer[];
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
 export interface EditorState {
   diagram: Diagram;
   /** Undo/redo stacks of whole diagrams (they're immutable and share structure). */
@@ -79,6 +101,13 @@ export interface EditorState {
   canInstall: boolean;
   /** The right-click menu: where it opened (screen px) and the cell under it. */
   menu: { x: number; y: number; cell: { x: number; y: number } } | null;
+  /** The live diagram that's open, if any. */
+  live: LiveState | null;
+  /** A server for live diagrams is there (collab/live.ts probes for it). */
+  liveAvailable: boolean;
+  /** Asking for your name: to join a live diagram (its id and key), to share this one live, or
+   * to change it. */
+  liveAsk: { join: { id: string; key: string } } | { share: true } | { rename: true } | null;
 }
 
 const MAX_HISTORY = 200;
@@ -110,6 +139,9 @@ export const useEditor = create<EditorState>(() => ({
   fileConflict: null,
   notice: null,
   canInstall: false,
+  live: null,
+  liveAvailable: false,
+  liveAsk: null,
 }));
 
 export const getState = useEditor.getState;
@@ -151,9 +183,23 @@ export function apply(fn: (d: Diagram) => Diagram) {
   commit();
 }
 
+/** In a live diagram, undo and redo are of your own changes only (collab/live.ts sets these). */
+let liveHistory: { undo(): void; redo(): void } | null = null;
+export function onLiveHistory(h: typeof liveHistory) {
+  liveHistory = h;
+}
+
+/** Put in a diagram that changed elsewhere (someone else's edit in a live diagram): not an undo
+ * step of yours; what's selected that's gone is deselected. */
+export function replaceDiagram(diagram: Diagram) {
+  setState({ diagram });
+  pruneSelection();
+}
+
 export function undo() {
   finishEditing();
   commit();
+  if (liveHistory) return liveHistory.undo();
   const { past, future, diagram } = getState();
   if (!past.length) return;
   const prev = past[past.length - 1];
@@ -164,6 +210,7 @@ export function undo() {
 export function redo() {
   finishEditing();
   commit();
+  if (liveHistory) return liveHistory.redo();
   const { past, future, diagram } = getState();
   if (!future.length) return;
   setState({ diagram: future[0], future: future.slice(1), past: [...past, diagram] });

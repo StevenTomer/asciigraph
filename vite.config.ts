@@ -38,11 +38,21 @@ function serviceWorker(): Plugin {
   };
 }
 
+/** The live-editing server (server/), for `npm run dev` and `vite preview`: api/ and ws are
+ * passed to it, as nginx does in Docker. */
+const collab = process.env.ASCIIGRAPH_COLLAB ?? "http://127.0.0.1:1234";
+const proxy = {
+  "/api": { target: collab, changeOrigin: true },
+  "/ws": { target: collab.replace(/^http/, "ws"), ws: true },
+};
+
 export default defineConfig({
   // Relative asset URLs so the build works from any folder (e.g. example.com/graph/). Routing is
   // hash-based, so the server never sees app routes.
   base: "./",
   plugins: [react(), serviceWorker()],
   build: { outDir: "dist", sourcemap: true },
-  test: { include: ["src/**/*.test.ts"], environment: "node" },
+  server: { proxy },
+  preview: { proxy },
+  test: { include: ["src/**/*.test.ts", "server/**/*.test.ts"], environment: "node" },
 });

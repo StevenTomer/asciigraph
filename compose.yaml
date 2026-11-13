@@ -7,4 +7,15 @@ services:
     ports:
       - "${ASCIIGRAPH_PORT:-8080}:8080"
     restart: unless-stopped
+  # Live diagrams (several people editing one at once): kept in the "live-diagrams" volume.
+  collab:
+    build:
+      context: .
+      target: collab
+    image: asciigraph-collab
+    volumes:
+      - live-diagrams:/data
+    restart: unless-stopped
 
+volumes:
+  live-diagrams:

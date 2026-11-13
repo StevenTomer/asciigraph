@@ -937,6 +937,35 @@ can't write files from a web page: opening works the same, and saving downloads 
 With something selected, all of these can be just the selection (**selection only**, ticked by
 default).
 
+### Live diagrams: editing together
+
+When asciigraph runs with its server (`docker compose up`, as in the README), you can share a
+diagram **live**. Everyone with its link edits the same diagram at the same time.
+
+1. In **diagrams**, choose **share live…**, type your name, and **share it**. A copy of the
+   diagram goes to the server; your own copy stays as it was.
+2. In the panel at the bottom left, **copy link**, and send it to the people you want to edit
+   with.
+3. When they open it, they're asked for their name (once; it's remembered), then they're in.
+
+In a live diagram:
+
+- **Who's here:** the panel shows your initials (click to change your name) and everyone
+  else's, in their colors. Hover over them for the names. What someone has selected is outlined
+  in their color, with their name.
+- **Changes** show up for everyone as soon as they're made (when a drag or typing is finished).
+  Two people changing different things both keep their changes. If two people change the same
+  box at once, the last change wins.
+- **Undo** (<kbd>Ctrl</kbd>+<kbd>Z</kbd>) takes back your own changes, not other people's.
+- **Offline:** if the connection drops, the panel says **offline**, and you can keep working.
+  Your changes are sent when it reconnects.
+- **save a copy** (in the panel) keeps a copy of your own, which isn't live.
+- Anyone with the link can edit, so only send it to people you want editing. The name each
+  person gives is how the others tell them apart; it isn't checked.
+
+Live diagrams are kept on the server, not in your browser: open the link again to get back to
+one.
+
 ## The command line
 
 `asciigraph` draws text into text without the app, for scripts, build steps and editors. To set it

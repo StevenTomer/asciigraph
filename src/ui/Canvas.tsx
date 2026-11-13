@@ -184,6 +184,39 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
     }
   }
 
+  // In a live diagram: what the others have selected, outlined in their color with their name.
+  for (const peer of s.live?.peers ?? []) {
+    ctx.save();
+    ctx.strokeStyle = peer.color;
+    ctx.fillStyle = peer.color;
+    ctx.setLineDash([6, 3]);
+    ctx.font = `11px ${FONT_FAMILY}`;
+    let named = false;
+    for (const id of peer.selection) {
+      const n = s.diagram.nodes[id];
+      const e = r.edges.get(id);
+      if (n) {
+        const box = borderToScreen(n.rect);
+        ctx.strokeRect(box.x - 7, box.y - 7, box.w + 14, box.h + 14);
+        if (!named) ctx.fillText(peer.name, box.x - 7, box.y - 10);
+        named = true;
+      } else if (e) {
+        for (const cell of [e.cells[0], e.cells[e.cells.length - 1]]) {
+          const p = cellCenter(cell);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if (!named) {
+          const p = cellCenter(e.cells[0]);
+          ctx.fillText(peer.name, p.x + 9, p.y - 9);
+        }
+        named = true;
+      }
+    }
+    ctx.restore();
+  }
+
   // What the selection is locked to: dotted outlines.
   const mates = lockMates(s.diagram, selectedNodes);
   if (mates.size) {

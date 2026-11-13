@@ -183,6 +183,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 export function DiagramsDialog({ onClose }: { onClose: () => void }) {
   const currentId = useEditor((s) => s.diagramId);
   const currentName = useEditor((s) => s.diagramName);
+  const live = useEditor((s) => !!s.live);
+  const liveAvailable = useEditor((s) => s.liveAvailable);
   const [list, setList] = useState<DiagramMeta[]>([]);
   const [name, setName] = useState(currentName);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -218,7 +220,7 @@ export function DiagramsDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog title="diagrams" onClose={onClose}>
-      {currentId && (
+      {(currentId || live) && (
         <div className="row">
           <span className="row-label">name</span>
           <input
@@ -253,8 +255,20 @@ export function DiagramsDialog({ onClose }: { onClose: () => void }) {
         <button className="tb" onClick={() => void openFile().then(onClose)} title="A .md, .txt or .json file: opened as a diagram kept in that file (Ctrl+O)">open file…</button>
         <button className="tb" onClick={() => fileRef.current?.click()} title="A copy of a downloaded .json diagram, not kept in the file">import .json</button>
         <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && void importFile(e.target.files[0])} />
+        {liveAvailable && !live && (
+          <button
+            className="tb"
+            onClick={() => {
+              useEditor.setState({ liveAsk: { share: true } });
+              onClose();
+            }}
+            title="Put a copy on the server and edit it with others at the same time, from a link"
+          >
+            share live…
+          </button>
+        )}
       </div>
-      <FileRows onDone={onClose} />
+      {!live && <FileRows onDone={onClose} />}
       {error && <p className="note error" role="alert">{error}</p>}
       <p className="note muted">
         Diagrams are saved in this browser as you work. To keep one in a file too, save it as a file: a <b>.md</b> file
@@ -351,6 +365,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <dt>lists</dt><dd>in a box, lines starting <code>- </code>, <code>* </code> or <code>1. </code> become bullet and numbered lists, and <code>- [ ] to do</code> / <code>- [x] done</code> a checklist; indent to nest. To keep a line as typed, put a backslash before the marker (<code>\- not a list</code>); to keep all of a box's text as typed, set "lists: off" in the properties panel</dd>
         <dt>offline</dt><dd>once it has loaded, asciigraph works without a connection (everything happens in the browser). Install it as an app for its own window: <b>install</b> in the toolbar, or the install icon in Chrome or Edge's address bar; Safari: File → Add to Dock, or on a phone Share → Add to Home Screen. Installed in Chrome or Edge, it can open .md and .txt files from your desktop (Open With)</dd>
         <dt>files</dt><dd>keep a diagram in a file too: <b>open file…</b> (<Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>) a .md, .txt or .json file, or save as one from the diagrams dialog (the diagram's name); then <Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> saves to it (its name in the toolbar shows • when there are unsaved changes). A .md file keeps the drawing in a <code>```text</code> block and the diagram itself hidden after it, so it opens again exactly; the rest of the file is left as it is. Chrome and Edge write to the file; other browsers download it</dd>
+        <dt>live</dt><dd>when asciigraph runs with its server: <b>diagrams</b> → <b>share live…</b>, then <b>copy link</b> (bottom left) and send it. Everyone with the link edits the diagram at the same time; each gives a name, shown with their initials and around what they have selected. Undo takes back only your own changes. <b>save a copy</b> keeps one of your own</dd>
         <dt>export</dt><dd>copy or download the drawing as text: plain, a Markdown code block, or a comment block for source code (C/C++ <code>//</code> or <code>/* */</code>, Python or Bash <code>#</code>, or your own first line, line prefix and last line), optionally ASCII only. Or as a picture: PNG (download or copy) or SVG (font included), light or dark, optionally transparent. Also as JSON (to import later) or a share link. With something selected, all of these can be just the selection</dd>
         <dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align and Distribute (the box selected first stays put; the others line up with it, or are evenly spaced around it) and Auto Layout (arranges boxes in layers following their connectors; on empty space it lays out the whole diagram)</dd>
         <dt>sizes</dt><dd>right-click (or the properties panel): Shrink to Text makes boxes the smallest size that shows their text unwrapped (boxes with boxes inside are left alone); with several selected, Normalize Size makes them all as wide and/or tall as the one selected first</dd>

@@ -1766,3 +1766,50 @@ test("folder trees from text: without the tree's lines, and folders without thei
   await page.getByRole("button", { name: "draw", exact: true }).click();
   expect(await text(page)).toBe("src\n  main.ts\n  ui\n    App.tsx");
 });
+
+test("live diagrams: share one, a second person joins by link, and both edit it together", async ({ page, browser }) => {
+  await box(page, [2, 2], [12, 4], "A");
+  // Share it live, as Alice.
+  await page.getByTestId("diagrams").click();
+  await page.getByRole("button", { name: "share live…" }).click();
+  await page.getByLabel("Your name").fill("Alice");
+  await page.getByRole("button", { name: "share it" }).click();
+  await expect(page.getByTestId("live")).toContainText("live");
+  const link = (await state(page)).live.link;
+  expect(link).toMatch(/#\/live\/[\w-]+\/[\w-]+$/);
+
+  // Bob opens the link in another browser: asked for his name, then sees the diagram.
+  const bobContext = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+  const bob = await bobContext.newPage();
+  await bob.goto(link.replace(/^https?:\/\/[^/]+/, ""));
+  await bob.getByLabel("Your name").fill("Bob");
+  await bob.getByRole("button", { name: "join" }).click();
+  await expect(bob.getByTestId("live")).toContainText("live");
+  await expect.poll(() => text(bob)).toContain("│    A    │");
+  // Each sees the other.
+  await expect(page.getByTestId("peer")).toHaveAttribute("title", "Bob");
+  await expect(bob.getByTestId("peer")).toHaveAttribute("title", "Alice");
+
+  // Bob draws a box; Alice sees it. Alice moves hers; Bob sees that.
+  await box(bob, [20, 2], [30, 4], "B");
+  await expect.poll(() => text(page)).toContain("│    B    │");
+  await drag(page, [7, 3], [7, 9]);
+  await expect.poll(async () => Object.values((await state(bob)).diagram.nodes).find((n) => n.text === "A").rect.y).toBe(8);
+
+  // Alice's undo takes back her move, not Bob's box.
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => Object.values((await state(bob)).diagram.nodes).find((n) => n.text === "A").rect.y).toBe(2);
+  expect(await text(page)).toContain("│    B    │");
+
+  // Bob selects his box: Alice sees what he has selected.
+  await click(bob, 25, 3);
+  const bId = Object.values((await state(bob)).diagram.nodes).find((n) => n.text === "B").id;
+  await expect.poll(async () => (await state(page)).live.peers[0]?.selection).toEqual([bId]);
+  await bobContext.close();
+});
+
+test("live diagrams: a link with the wrong key is refused", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("asciigraph/live-name", JSON.stringify("Eve")));
+  await page.goto("/#/live/nosuchdiagram/wrongkey");
+  await expect(page.getByTestId("live")).toContainText("link refused");
+});

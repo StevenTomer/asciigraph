@@ -9,8 +9,9 @@ export type DialogId = "diagrams" | "export" | "help" | null;
 
 export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
   const tool = useEditor((s) => s.tool);
-  const canUndo = useEditor((s) => s.past.length > 0 || s.pending !== null);
-  const canRedo = useEditor((s) => s.future.length > 0);
+  const canUndo = useEditor((s) => (s.live ? s.live.canUndo : s.past.length > 0) || s.pending !== null);
+  const canRedo = useEditor((s) => (s.live ? s.live.canRedo : s.future.length > 0));
+  const live = useEditor((s) => s.live);
   const dark = useEditor((s) => s.dark);
   const grid = useEditor((s) => s.grid);
   const snap = useEditor((s) => s.snap);
@@ -43,7 +44,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
             {file.name}{unsaved ? " •" : ""}
           </button>
         )}
-        {shared && (
+        {shared && !live && (
           <button className="tb accent" onClick={() => void saveCopy()} title="This is a shared diagram; keep a copy">
             save a copy
           </button>
@@ -127,3 +128,4 @@ function Stepper({ label, value, max, onChange }: { label: string; value: number
 const Sep = () => <span className="sep">│</span>;
 
 export const Kbd = ({ children }: { children: React.ReactNode }) => <kbd className="kbd">{children}</kbd>;
+
