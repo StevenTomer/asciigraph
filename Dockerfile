@@ -34,7 +34,8 @@ RUN mkdir /data && chown node:node /data
 VOLUME /data
 WORKDIR /data
 USER node
-ENV PORT=1234 ASCIIGRAPH_DB=/data/asciigraph.db NODE_NO_WARNINGS=1
+# Behind the web container's proxy: who's connecting comes from X-Forwarded-For.
+ENV PORT=1234 ASCIIGRAPH_DB=/data/asciigraph.db ASCIIGRAPH_TRUST_PROXY=1 NODE_NO_WARNINGS=1
 EXPOSE 1234
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -q -O /dev/null http://127.0.0.1:1234/api/health || exit 1
 CMD ["node", "/usr/local/lib/asciigraph-server.mjs"]

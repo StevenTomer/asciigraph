@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, readdirSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { type Connection, type Document, Server } from "@hocuspocus/server";
 import { type Transaction, encodeStateAsUpdate } from "yjs";
@@ -10,8 +10,9 @@ import { seedUpdate } from "../src/collab/bridge";
 import { type HistoryEntry, type MapChange, summarize } from "../src/collab/history";
 import {
   type ClientMessage, type LiveKeys, type LiveSettings, type Role, type ServerMessage, type Stamp,
-  DELETED, DENIED, PASSWORD, REPLACED, WRONG_PASSWORD,
+  DELETED, DENIED, FULL, PASSWORD, REPLACED, TOO_MANY, WRONG_PASSWORD,
 } from "../src/collab/protocol";
+import { Backoff, RateLimit, addressOf } from "./limits";
 
 /**
  * The live-editing server: shared diagrams, kept in SQLite, edited together over WebSockets
@@ -31,13 +32,51 @@ import {
  * The owner's controls come as stateless messages over the owner's connection. The server also
  * keeps the history (who changed what, collab/history.ts) and stamps who last changed each box
  * and connector (the document's "by" map).
+ *
+ * Open to anyone, so it has limits (`Limits`): sharing and connecting per address, guesses at a
+ * password (slowed down), people per diagram, sizes. Diagrams nobody has opened for
+ * `retentionDays` are deleted. `backup()` copies the database (`node server.mjs backup`).
  */
+export interface Limits {
+  /** Diagrams one address may share in an hour. */
+  sharesPerHour: number;
+  /** Live diagrams one address may have shared (that still exist). */
+  diagramsPerAddress: number;
+  /** WebSocket connections, and attempts to open a diagram, per address per minute. */
+  connectsPerMinute: number;
+  /** People in one diagram at once (the owner always gets in). */
+  peoplePerDiagram: number;
+  /** Wrong passwords in a row before each try must wait (5 s, doubling, up to 15 min). */
+  freeTries: number;
+  /** Largest diagram accepted when sharing (bytes of JSON), and largest message. */
+  maxShareBytes: number;
+  /** A diagram stored larger than this can't be changed further (but by deleting things, by the
+   * owner). */
+  maxDiagramBytes: number;
+  /** Diagrams nobody has opened for this many days are deleted (0: kept for good). */
+  retentionDays: number;
+}
+
+export const DEFAULT_LIMITS: Limits = {
+  sharesPerHour: 30,
+  diagramsPerAddress: 200,
+  connectsPerMinute: 120,
+  peoplePerDiagram: 50,
+  freeTries: 5,
+  maxShareBytes: 5_000_000,
+  maxDiagramBytes: 10_000_000,
+  retentionDays: 180,
+};
+
 export interface CollabOptions {
   /** SQLite file (":memory:" for tests). */
   db: string;
   port: number;
-  /** Largest diagram accepted when sharing, in bytes of JSON. */
-  maxBytes?: number;
+  /** Where to listen (default all addresses). */
+  host?: string;
+  /** Behind a proxy (nginx, Apache) that adds X-Forwarded-For: who's connecting comes from it. */
+  trustProxy?: boolean;
+  limits?: Partial<Limits>;
 }
 
 export interface Session {
@@ -117,15 +156,30 @@ export function openDb(path: string): DatabaseSync {
   add("view_gen", "INTEGER NOT NULL DEFAULT 0");
   add("password", "TEXT");
   add("readonly", "INTEGER NOT NULL DEFAULT 0");
+  if (!cols.has("opened")) {
+    add("opened", "INTEGER NOT NULL DEFAULT 0");
+    db.exec("UPDATE diagrams SET opened = updated");
+  }
+  add("creator", "TEXT");
+  db.exec("CREATE INDEX IF NOT EXISTS diagrams_creator ON diagrams (creator)");
+  db.exec("CREATE INDEX IF NOT EXISTS diagrams_opened ON diagrams (opened)");
   return db;
 }
 
-export function createCollabServer(opts: CollabOptions): { server: Server<Session>; db: DatabaseSync } {
+export function createCollabServer(opts: CollabOptions): { server: Server<Session>; db: DatabaseSync; sweep: (now?: number) => number } {
   const db = openDb(opts.db);
-  const maxBytes = opts.maxBytes ?? 5_000_000;
+  const limits = { ...DEFAULT_LIMITS, ...opts.limits };
+  const maxBytes = limits.maxShareBytes;
+  const trustProxy = !!opts.trustProxy;
+  const shares = new RateLimit(limits.sharesPerHour, 3600_000);
+  const connects = new RateLimit(limits.connectsPerMinute, 60_000);
+  const opens = new RateLimit(limits.connectsPerMinute, 60_000);
+  const guesses = new Backoff(limits.freeTries);
+  /** Diagrams told they're too big to change (once each). */
+  const tooBig = new Set<string>();
   const q = {
     insert: db.prepare(
-      "INSERT INTO diagrams (id, name, edit_hash, view_hash, owner_hash, state, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO diagrams (id, name, edit_hash, view_hash, owner_hash, state, created, updated, opened, creator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     ),
     row: db.prepare("SELECT id, edit_hash, view_hash, owner_hash, edit_gen, view_gen, password, readonly FROM diagrams WHERE id = ?"),
     state: db.prepare("SELECT state FROM diagrams WHERE id = ?"),
@@ -141,6 +195,11 @@ export function createCollabServer(opts: CollabOptions): { server: Server<Sessio
     bumpChange: db.prepare("UPDATE changes SET at = ?, count = count + 1 WHERE id = ?"),
     trimChanges: db.prepare("DELETE FROM changes WHERE diagram = ? AND id <= (SELECT id FROM changes WHERE diagram = ? ORDER BY id DESC LIMIT 1 OFFSET ?)"),
     history: db.prepare("SELECT id, at, name, summary, count FROM changes WHERE diagram = ? ORDER BY id DESC LIMIT ?"),
+    opened: db.prepare("UPDATE diagrams SET opened = ? WHERE id = ?"),
+    byCreator: db.prepare("SELECT count(*) AS n FROM diagrams WHERE creator = ?"),
+    size: db.prepare("SELECT length(state) AS n FROM diagrams WHERE id = ?"),
+    stale: db.prepare("SELECT id FROM diagrams WHERE opened < ?"),
+    orphans: db.prepare("DELETE FROM changes WHERE diagram NOT IN (SELECT id FROM diagrams)"),
   };
   const rowOf = (id: string) => q.row.get(id) as Row | undefined;
 
@@ -164,7 +223,15 @@ export function createCollabServer(opts: CollabOptions): { server: Server<Sessio
       req.on("error", reject);
     });
 
+  /** Who shared it, kept only as a hash (to count diagrams per address). */
+  const creatorOf = (address: string) => createHash("sha256").update(`asciigraph:${address}`).digest("hex").slice(0, 32);
+
   async function share(req: IncomingMessage, res: ServerResponse) {
+    const address = addressOf(req.headers["x-forwarded-for"], req.socket.remoteAddress, trustProxy);
+    if (!shares.hit(address)) return json(res, 429, { error: "Too many diagrams shared from here in the last hour. Try again later." });
+    const creator = creatorOf(address);
+    if (limits.diagramsPerAddress > 0 && (q.byCreator.get(creator) as { n: number }).n >= limits.diagramsPerAddress)
+      return json(res, 429, { error: "Too many live diagrams shared from here. Delete some first (owner… → delete)." });
     let body: { name?: unknown; diagram?: unknown };
     try {
       body = JSON.parse(await readBody(req));
@@ -176,7 +243,7 @@ export function createCollabServer(opts: CollabOptions): { server: Server<Sessio
     const id = token(12), ownerSecret = token(24);
     const editKey = linkKey(ownerSecret, "edit", 0);
     const now = Date.now();
-    q.insert.run(id, name, hash(editKey), hash(linkKey(ownerSecret, "view", 0)), hash(ownerSecret), seedUpdate(body.diagram, name), now, now);
+    q.insert.run(id, name, hash(editKey), hash(linkKey(ownerSecret, "view", 0)), hash(ownerSecret), seedUpdate(body.diagram, name), now, now, now, creator);
     json(res, 201, { id, editKey, ownerSecret });
   }
 
@@ -312,7 +379,19 @@ export function createCollabServer(opts: CollabOptions): { server: Server<Sessio
       throw null;
     },
 
-    async onAuthenticate({ documentName, token: t, connectionConfig }) {
+    async onUpgrade({ request, socket }) {
+      // Who it is, for the limits (any such header the client sent is replaced).
+      const address = addressOf(request.headers["x-forwarded-for"], request.socket.remoteAddress, trustProxy);
+      request.headers["x-asciigraph-address"] = address;
+      if (!connects.hit(address)) {
+        socket.end("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
+        throw null;
+      }
+    },
+
+    async onAuthenticate({ documentName, token: t, connectionConfig, requestHeaders, instance }) {
+      const address = requestHeaders.get("x-asciigraph-address") ?? "unknown";
+      if (!opens.hit(address)) throw refuse(TOO_MANY);
       let creds: { key?: unknown; name?: unknown; owner?: unknown; password?: unknown };
       try {
         creds = JSON.parse(t);
@@ -328,9 +407,18 @@ export function createCollabServer(opts: CollabOptions): { server: Server<Sessio
       if (!role) throw refuse(DENIED);
       if (row.password) {
         if (typeof creds.password !== "string" || !creds.password) throw refuse(PASSWORD);
-        if (!checkPassword(row.password, creds.password)) throw refuse(WRONG_PASSWORD);
+        const guesser = `${documentName} ${address}`;
+        if (guesses.waiting(guesser)) throw refuse(TOO_MANY);
+        if (!checkPassword(row.password, creds.password)) {
+          guesses.fail(guesser);
+          throw refuse(WRONG_PASSWORD);
+        }
+        guesses.succeed(guesser);
       }
-      connectionConfig.readOnly = role === "view" || !!row.readonly;
+      const here = instance.documents.get(documentName)?.getConnectionsCount() ?? 0;
+      if (limits.peoplePerDiagram > 0 && here >= limits.peoplePerDiagram) throw refuse(FULL);
+      const big = (q.size.get(documentName) as { n: number }).n > limits.maxDiagramBytes;
+      connectionConfig.readOnly = role === "view" || !!row.readonly || big;
       return { name, role } satisfies Session;
     },
 
@@ -339,6 +427,7 @@ export function createCollabServer(opts: CollabOptions): { server: Server<Sessio
       const row = rowOf(c.document.name);
       if (!row) return;
       const { role, secret } = c.context;
+      q.opened.run(Date.now(), row.id);
       send(c, {
         type: "hello",
         role,
@@ -369,8 +458,51 @@ export function createCollabServer(opts: CollabOptions): { server: Server<Sessio
     },
 
     async onStoreDocument({ documentName, document }) {
-      q.save.run(encodeStateAsUpdate(document), Date.now(), documentName);
+      const state = encodeStateAsUpdate(document);
+      q.save.run(state, Date.now(), documentName);
+      if (state.length > limits.maxDiagramBytes && !tooBig.has(documentName)) {
+        tooBig.add(documentName);
+        const mb = Math.round(limits.maxDiagramBytes / 1e6);
+        for (const c of connections(document)) {
+          if (c.context.role !== "owner") c.readOnly = true;
+          send(c, { type: "error", message: `This diagram has reached the size limit (${mb} MB), so it can't be changed any more (but by its owner, to make it smaller).` });
+        }
+      } else if (state.length <= limits.maxDiagramBytes) tooBig.delete(documentName);
     },
+
+    websocketOptions: { maxPayload: limits.maxShareBytes },
+    ...(opts.host && { address: opts.host }),
   });
-  return { server, db };
+
+  /** Delete the diagrams nobody has opened for `retentionDays` (not ones open now). */
+  function sweep(now = Date.now()) {
+    if (limits.retentionDays <= 0) return 0;
+    const cutoff = now - limits.retentionDays * 86_400_000;
+    let n = 0;
+    for (const { id } of q.stale.all(cutoff) as { id: string }[]) {
+      if (server.hocuspocus.documents.has(id)) continue;
+      q.remove.run(id);
+      n++;
+    }
+    if (n) q.orphans.run();
+    return n;
+  }
+  return { server, db, sweep };
+}
+
+/** Copy the database to `dir` (named by the date), keeping the newest `keep` copies. Safe while
+ * the server is running. Returns the new copy's path. */
+export function backup(dbPath: string, dir: string, keep = 14, now = new Date()): string {
+  mkdirSync(dir, { recursive: true });
+  const stamp = now.toISOString().slice(0, 19).replace(/[-:]/g, "").replace("T", "-");
+  const file = join(dir, `asciigraph-${stamp}.db`);
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    db.prepare("VACUUM INTO ?").run(file);
+  } finally {
+    db.close();
+  }
+  const copies = readdirSync(dir).filter((f) => /^asciigraph-\d{8}-\d{6}\.db$/.test(f)).sort();
+  for (const old of copies.slice(0, Math.max(0, copies.length - keep))) rmSync(join(dir, old));
+  return file;
 }

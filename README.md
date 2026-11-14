@@ -170,19 +170,48 @@ Inside the container the app is always on port 8080, served by nginx, so only th
 `-p` changes.
 
 Diagrams are saved in your browser (localStorage), not in the container. The container holds
-no data, so you can rebuild or replace it without losing anything.
+no data, so you can rebuild or replace it without losing anything. But a diagram saved at
+http://localhost:8080 isn't visible at another address (another host or port). To move one
+across, save it as a file (or export a share link) and open it there.
+
+### Live diagrams
 
 `docker compose` also runs a second container, `collab`, for live diagrams (several people
 editing one at once). Diagrams shared live are kept on the server, in the `live-diagrams`
-Docker volume, so they survive rebuilds too. To back them up, copy `/data` out of that container
-(`docker compose cp collab:/data ./backup`). Without that container (a plain `docker run`, as
+Docker volume, so they survive rebuilds too. Without that container (a plain `docker run`, as
 above), everything else works and **share live** just doesn't appear.
 
-On plain `http` (an office network, say), the links and passwords travel unencrypted, so anyone
-on the network who can watch traffic could read them. That's fine on a network you trust. Otherwise, put the
-server behind `https`. But a diagram saved at
-http://localhost:8080 isn't visible at another address (another host or port). To move one
-across, save it as a file (or export a share link) and open it there.
+- **Backups:** `docker compose exec collab node /usr/local/lib/asciigraph-server.mjs backup`
+  writes a copy of the database to `/data/backups` (the newest 14 are kept), and
+  `docker compose cp collab:/data ./backup` copies it all out.
+- **Cleanup:** a live diagram nobody has opened for 180 days is deleted. Its owner can download
+  it as `.json` before then.
+- **Plain `http`** (an office network, say): the links and passwords travel unencrypted, so
+  anyone on the network who can watch traffic could read them. That's fine on a network you
+  trust. Otherwise, or on the internet, put it behind `https` (a proxy in front of port 8080).
+
+The server is meant to be safe to open to anyone, so it has limits. Each can be changed with an
+environment variable on the `collab` service (0 turns a limit off):
+
+| Variable | Default | Limit |
+|---|---|---|
+| `ASCIIGRAPH_RETENTION_DAYS` | 180 | days a diagram is kept after anyone last opened it |
+| `ASCIIGRAPH_SHARES_PER_HOUR` | 30 | diagrams one address can share in an hour |
+| `ASCIIGRAPH_DIAGRAMS_PER_ADDRESS` | 200 | live diagrams one address can have shared |
+| `ASCIIGRAPH_CONNECTS_PER_MINUTE` | 120 | connections (and diagrams opened) per address per minute |
+| `ASCIIGRAPH_PEOPLE_PER_DIAGRAM` | 50 | people in one diagram at once (the owner always gets in) |
+| `ASCIIGRAPH_FREE_TRIES` | 5 | wrong passwords before each further try waits (5 s, doubling up to 15 min) |
+| `ASCIIGRAPH_MAX_SHARE_BYTES` | 5000000 | the largest diagram that can be shared, and the largest single change |
+| `ASCIIGRAPH_MAX_DIAGRAM_BYTES` | 10000000 | past this size, only the owner can change a diagram |
+
+The server never stores link keys or passwords, only hashes of them, and it doesn't log them.
+The keys are after the `#` in links, which browsers don't send to servers.
+
+To run the server without Docker (Node.js 22.5 or later): `npm run build:server`, then
+`PORT=1234 ASCIIGRAPH_DB=/var/lib/asciigraph/live.db node server-dist/server.mjs`, with your
+web server serving `dist/` and passing `api/` and `ws` (a WebSocket) next to it to that port.
+Behind a proxy that adds `X-Forwarded-For`, set `ASCIIGRAPH_TRUST_PROXY=1` so the limits go by
+each visitor's address. `node server-dist/server.mjs backup` makes a backup.
 
 ## Command line
 

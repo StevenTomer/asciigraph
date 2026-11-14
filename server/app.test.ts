@@ -3,7 +3,11 @@ import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { addNode, emptyDiagram, makeNode, moveObjects } from "../src/model/ops";
 import { applyDiff, diagramName, toDiagram } from "../src/collab/bridge";
-import { createCollabServer } from "./app";
+import { mkdtempSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { backup, createCollabServer } from "./app";
 import type { OwnerAction, ServerMessage } from "../src/collab/protocol";
 
 const PORT = 41000 + Math.floor(Math.random() * 1000);
@@ -26,7 +30,7 @@ const until = async (ok: () => boolean, ms = 3000) => {
   }
 };
 
-function connect(id: string, key: string, name: string, extra: { owner?: string; password?: string } = {}) {
+function connect(id: string, key: string, name: string, extra: { owner?: string; password?: string } = {}, url = ws) {
   const doc = new Y.Doc();
   const state = {
     synced: false, denied: false, reason: "", closed: "",
@@ -34,7 +38,7 @@ function connect(id: string, key: string, name: string, extra: { owner?: string;
     hello: null as Extract<ServerMessage, { type: "hello" }> | null,
   };
   const provider = new HocuspocusProvider({
-    url: ws, name: id, document: doc, token: JSON.stringify({ key, name, ...extra }),
+    url, name: id, document: doc, token: JSON.stringify({ key, name, ...extra }),
     onSynced: () => (state.synced = true),
     onAuthenticationFailed: ({ reason }) => {
       state.denied = true;
@@ -51,9 +55,9 @@ function connect(id: string, key: string, name: string, extra: { owner?: string;
   return { doc, provider, state, owner };
 }
 
-async function share() {
+async function share(base = http) {
   const diagram = addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 6, h: 3 }, { id: "a", text: "A" }));
-  const res = await fetch(`${http}/graph/api/diagrams`, { method: "POST", body: JSON.stringify({ name: "Plan", diagram }) });
+  const res = await fetch(`${base}/graph/api/diagrams`, { method: "POST", body: JSON.stringify({ name: "Plan", diagram }) });
   expect(res.status).toBe(201);
   return { diagram, ...(await res.json()) as { id: string; editKey: string; ownerSecret: string } };
 }
@@ -220,5 +224,102 @@ describe("live editing server", () => {
     await until(() => !!bob.state.hello);
     expect(bob.state.hello!.history).toMatchObject([{ name: "Alice", summary: "moved 'A'", count: 2 }]);
     bob.provider.destroy();
+  });
+});
+
+describe("limits, for a server open to anyone", () => {
+  const port = PORT + 1;
+  const base = `http://127.0.0.1:${port}`, url = `ws://127.0.0.1:${port}`;
+  const { server: limited, db, sweep } = createCollabServer({
+    db: ":memory:", port, limits: { sharesPerHour: 4, freeTries: 2, peoplePerDiagram: 2, retentionDays: 180 },
+  });
+  beforeAll(async () => {
+    await limited.listen(port);
+  });
+  afterAll(async () => {
+    await limited.destroy();
+  });
+
+  it("only so many diagrams shared from one address an hour", async () => {
+    // (Two were shared by the other tests in this block already, or will be: use the rest.)
+    const post = () => fetch(`${base}/api/diagrams`, { method: "POST", body: JSON.stringify({ name: "x", diagram: emptyDiagram() }) });
+    const statuses = [];
+    for (let i = 0; i < 5; i++) statuses.push((await post()).status);
+    expect(statuses.filter((s) => s === 201).length).toBeLessThanOrEqual(4);
+    expect(statuses.at(-1)).toBe(429);
+  });
+
+  it("guessing a password is slowed down, and a diagram holds only so many people", async () => {
+    db.exec("DELETE FROM diagrams");
+    // A fresh window for sharing: the limiter counts by the hour, so share straight into the db.
+    const { id, editKey, ownerSecret } = await shareDirect();
+    const owner = connect(id, ownerSecret, "Olive", {}, url);
+    await until(() => !!owner.state.hello);
+    owner.owner({ action: "password", value: "sesame" });
+    await until(() => owner.state.messages.some((m) => m.type === "settings" && m.settings.password));
+    for (const pw of ["a", "b"]) {
+      const g = connect(id, editKey, "Mallory", { password: pw }, url);
+      await until(() => g.state.denied);
+      expect(g.state.reason).toBe("wrong-password");
+      g.provider.destroy();
+    }
+    // Now even the right one has to wait.
+    const right = connect(id, editKey, "Ed", { password: "sesame" }, url);
+    await until(() => right.state.denied);
+    expect(right.state.reason).toBe("too-many");
+    right.provider.destroy();
+
+    // Full: the owner and one other; a third is turned away, but another owner gets in.
+    owner.owner({ action: "password", value: null });
+    await until(() => owner.state.messages.some((m) => m.type === "settings" && !m.settings.password));
+    const ed = connect(id, editKey, "Ed", {}, url);
+    await until(() => ed.state.synced);
+    const third = connect(id, editKey, "Tess", {}, url);
+    await until(() => third.state.denied);
+    expect(third.state.reason).toBe("full");
+    const owner2 = connect(id, ownerSecret, "Olive", {}, url);
+    await until(() => owner2.state.synced);
+    for (const p of [owner, ed, third, owner2]) p.provider.destroy();
+  });
+
+  it("deletes diagrams nobody has opened for six months, but not one that's open", async () => {
+    db.exec("DELETE FROM diagrams");
+    const a = await shareDirect(), b = await shareDirect();
+    const open = connect(b.id, b.editKey, "Ed", {}, url);
+    await until(() => open.state.synced);
+    const later = Date.now() + 181 * 86_400_000;
+    expect(sweep(later)).toBe(1);
+    const left = (db.prepare("SELECT id FROM diagrams").all() as { id: string }[]).map((r) => r.id);
+    expect(left).toEqual([b.id]);
+    expect(left).not.toContain(a.id);
+    open.provider.destroy();
+  });
+
+  /** Share without going through the hourly limit (a fresh server per share). */
+  async function shareDirect() {
+    const p = port + 10 + Math.floor(Math.random() * 500);
+    const { server: s, db: other } = createCollabServer({ db: ":memory:", port: p });
+    await s.listen(p);
+    const shared = await share(`http://127.0.0.1:${p}`);
+    const row = other.prepare("SELECT * FROM diagrams WHERE id = ?").get(shared.id) as Record<string, never>;
+    const cols = Object.keys(row);
+    db.prepare(`INSERT INTO diagrams (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).run(...cols.map((c) => row[c]));
+    await s.destroy();
+    return shared;
+  }
+});
+
+describe("backups", () => {
+  it("copies the database, keeping the newest few", () => {
+    const dir = mkdtempSync(join(tmpdir(), "asciigraph-test-"));
+    const file = join(dir, "live.db");
+    const db = new DatabaseSync(file);
+    db.exec("CREATE TABLE t (x); INSERT INTO t VALUES (42);");
+    db.close();
+    for (let i = 0; i < 4; i++) backup(file, join(dir, "backups"), 2, new Date(Date.UTC(2026, 0, 1 + i)));
+    const kept = readdirSync(join(dir, "backups")).sort();
+    expect(kept).toEqual(["asciigraph-20260103-000000.db", "asciigraph-20260104-000000.db"]);
+    const copy = new DatabaseSync(join(dir, "backups", kept[1]));
+    expect(copy.prepare("SELECT x FROM t").get()).toEqual({ x: 42 });
   });
 });

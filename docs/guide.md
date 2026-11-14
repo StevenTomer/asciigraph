@@ -983,7 +983,11 @@ Whoever shared the diagram is its owner, and has **owner…** in the panel:
   untouched.
 
 Live diagrams are kept on the server, not in your browser: open the link again to get back to
-one.
+one. A live diagram nobody has opened for six months is deleted; to keep one for good,
+**save a copy** or download it as `.json`.
+
+If you get "too many tries", wait a few minutes: the server slows down repeated wrong passwords
+and lots of connections from one place.
 
 ## The command line
 

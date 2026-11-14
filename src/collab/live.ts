@@ -7,7 +7,7 @@ import { notify } from "../editor/file";
 import { applyDiff, diagramName, maps, toDiagram, tracked } from "./bridge";
 import {
   type OwnerAction, type Role, type ServerMessage, type Stamp,
-  DELETED, PASSWORD, REPLACED, WRONG_PASSWORD,
+  DELETED, FULL, PASSWORD, REPLACED, TOO_MANY, WRONG_PASSWORD,
 } from "./protocol";
 
 /**
@@ -87,7 +87,10 @@ export async function shareLive() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: name || "Untitled", diagram }),
   });
-  if (!res.ok) throw new Error(`Couldn't share it (${res.status}).`);
+  if (!res.ok) {
+    const why = await res.json().catch(() => null);
+    throw new Error(typeof why?.error === "string" && res.status === 429 ? why.error : `Couldn't share it (${res.status}).`);
+  }
   const { id, editKey, ownerSecret } = (await res.json()) as { id: string; editKey: string; ownerSecret: string };
   // Kept for the owner's controls (to come); only this browser has it.
   writeJson(`live-owner/${id}`, ownerSecret);
@@ -215,7 +218,13 @@ function connect(id: string, key: string, name: string) {
         return;
       }
       setLive({ status: "denied" });
-      notify("This live diagram's link doesn't work: it may have been replaced, or the diagram deleted.");
+      notify(
+        reason === TOO_MANY
+          ? "Too many tries from here: wait a few minutes, then reload the page."
+          : reason === FULL
+            ? "This live diagram has as many people in it as it can take. Try again later."
+            : "This live diagram's link doesn't work: it may have been replaced, or the diagram deleted.",
+      );
     },
     onClose: ({ event }) => {
       if (session?.id !== id) return;

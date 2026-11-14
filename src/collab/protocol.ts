@@ -43,6 +43,8 @@ export type ClientMessage = { type: "owner" } & OwnerAction;
 /** Why the server turned you away (authentication) or closed the diagram on you. */
 export const DENIED = "denied", PASSWORD = "password", WRONG_PASSWORD = "wrong-password";
 export const REPLACED = "replaced", DELETED = "deleted";
+/** Too many tries from your address (or wrong passwords): wait a bit. The diagram is full. */
+export const TOO_MANY = "too-many", FULL = "full";
 
 /** Who last changed each box and connector (a map in the document, kept by the server). */
 export interface Stamp {
