@@ -49,8 +49,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
 - **Objects, not characters.** Boxes, labels and connectors are things you move, resize and
   restyle. Connectors route around other boxes and follow the boxes to which they're attached.
 - **Shapes:** Boxes with eight border styles, named boxes, flowchart shapes (decision,
-  input/output, start/end, circle, hexagon, database, queue, document, stacked documents and
-  boxes, subroutine), actors, notes, frames, class boxes in
+  input/output, trapezoid, start/end, delay, circle, hexagon, database, queue, document, stacked
+  documents and boxes, subroutine), folders, actors, notes, frames, class boxes in
   compartments, tables (made with the table tool and typed into cell by cell, rows and columns
   added, moved and deleted, or written as Markdown tables; with a title, set or automatic column
   widths, wrapping, cells over several lines, and lists and checklists in cells), timelines (across

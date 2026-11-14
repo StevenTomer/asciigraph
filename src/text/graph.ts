@@ -22,6 +22,8 @@ export interface GraphNode {
   rounded: boolean;
   /** Mermaid's `text` shape: no outline. */
   plain?: boolean;
+  /** A trapezoid wider at the bottom. */
+  flip?: boolean;
   /** An outline other than single (or rounded). */
   border?: BorderStyle;
   /** A fixed size, instead of fitting the text. */
@@ -31,12 +33,15 @@ export interface GraphNode {
 }
 
 /** Mermaid's expanded shape names (`A@{ shape: doc }`), and their aliases, to our shapes. */
-const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolean }?]> = {
+const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolean; flip?: boolean }?]> = {
   rect: ["box"], process: ["box"], proc: ["box"], rectangle: ["box"],
   rounded: ["box", { rounded: true }], event: ["box", { rounded: true }],
   stadium: ["terminal"], terminal: ["terminal"], pill: ["terminal"], circle: ["ellipse"], circ: ["ellipse"], "dbl-circ": ["ellipse"], "double-circle": ["ellipse"], "sm-circ": ["ellipse"], "small-circle": ["ellipse"],
   diam: ["decision"], decision: ["decision"], diamond: ["decision"], question: ["decision"],
   hex: ["hexagon"], hexagon: ["hexagon"], prepare: ["hexagon"],
+  "trap-t": ["trapezoid"], "inv-trapezoid": ["trapezoid"], manual: ["trapezoid"], "trapezoid-top": ["trapezoid"],
+  "trap-b": ["trapezoid", { flip: true }], priority: ["trapezoid", { flip: true }], trapezoid: ["trapezoid", { flip: true }], "trapezoid-bottom": ["trapezoid", { flip: true }],
+  delay: ["delay"], "half-rounded-rectangle": ["delay"],
   "h-cyl": ["queue"], das: ["queue"], "horizontal-cylinder": ["queue"], queue: ["queue"],
   procs: ["stack"], processes: ["stack"], "st-rect": ["stack"], "stacked-rectangle": ["stack"],
   docs: ["docs"], documents: ["docs"], "st-doc": ["docs"], "stacked-document": ["docs"],
@@ -47,7 +52,7 @@ const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolea
   brace: ["note"], comment: ["note"], "brace-r": ["note"], braces: ["note"], note: ["note"],
   text: ["box", { plain: true }],
   // asciigraph's own (written for hand-drawn class boxes by fromDiagram.ts).
-  class: ["class"], actor: ["actor"],
+  class: ["class"], actor: ["actor"], folder: ["folder"],
 };
 
 export interface GraphEdge {
@@ -80,8 +85,8 @@ export interface ParsedGraph {
 /** Node ids: letters, digits and underscores (a "-" would be ambiguous next to arrows). */
 const ID = /^[\p{L}\p{N}_]+/u;
 
-// Shapes, most specific first: [opening, closing, kind, rounded].
-const SHAPES: [string, string, NodeKind, boolean][] = [
+// Shapes, most specific first: [opening, closing, kind, rounded, flip (a trapezoid wider at the bottom)].
+const SHAPES: [string, string, NodeKind, boolean, boolean?][] = [
   ["([", "])", "terminal", false],
   ["[(", ")]", "database", false],
   ["[[", "]]", "subroutine", false],
@@ -89,7 +94,8 @@ const SHAPES: [string, string, NodeKind, boolean][] = [
   ["((", "))", "ellipse", false],
   ["[/", "/]", "io", false],
   ["[\\", "\\]", "io", false],
-  ["[/", "\\]", "io", false],
+  ["[/", "\\]", "trapezoid", false, true],
+  ["[\\", "/]", "trapezoid", false],
   ["[", "]", "box", false],
   ["(", ")", "box", true],
   ["{{", "}}", "hexagon", false],
@@ -132,7 +138,7 @@ function parseFlowchart(text: string): ParsedGraph {
   const byId = new Map<string, GraphNode>();
   const stack: Subgraph[] = [];
 
-  const node = (id: string, label?: string, kind?: NodeKind, rounded = false, plain = false) => {
+  const node = (id: string, label?: string, kind?: NodeKind, rounded = false, plain = false, flip = false) => {
     let n = byId.get(id);
     if (!n) {
       n = { id, text: id, kind: "box", rounded: false };
@@ -150,6 +156,7 @@ function parseFlowchart(text: string): ParsedGraph {
       n.kind = kind ?? "box";
       n.rounded = rounded;
       n.plain = plain || undefined;
+      n.flip = flip || undefined;
     }
     return n;
   };
@@ -204,11 +211,14 @@ function parseFlowchart(text: string): ParsedGraph {
           for (const m of expanded[1].matchAll(/(\w+)\s*:\s*("(?:[^"\\]|\\.)*"|[^,]+)/g)) props[m[1]] = m[2].trim();
           const [kind, extra] = SHAPE_NAMES[(props.shape ?? "rect").toLowerCase()] ?? ["box"];
           if (!SHAPE_NAMES[(props.shape ?? "rect").toLowerCase()]) g.warnings.push(`line ${lineNo}: unknown shape "${props.shape}", drawn as a box`);
-          node(id, props.label !== undefined ? unquote(props.label) : byId.get(id)?.text ?? id, kind, !!extra?.rounded, !!extra?.plain);
+          node(id, props.label !== undefined ? unquote(props.label) : byId.get(id)?.text ?? id, kind, !!extra?.rounded, !!extra?.plain, !!extra?.flip);
           rest = rest.slice(expanded[0].length);
           shaped = true;
         }
-        for (const [open, close, kind, rounded] of shaped ? [] : SHAPES) {
+        // The shape whose closing bracket comes first ([\a/] is a trapezoid even with a [\b\]
+        // later on the line); on a tie, the more specific one (listed first).
+        let best: { end: number; close: string; open: string; kind: NodeKind; rounded: boolean; flip?: boolean } | null = null;
+        for (const [open, close, kind, rounded, flip] of shaped ? [] : SHAPES) {
           if (!rest.startsWith(open)) continue;
           // A quoted label may contain the closing bracket: look past the quotes.
           let from = open.length;
@@ -217,11 +227,12 @@ function parseFlowchart(text: string): ParsedGraph {
             if (q > 0) from = q;
           }
           const end = rest.indexOf(close, from);
-          if (end < 0) continue;
-          node(id, unquote(rest.slice(open.length, end)), kind, rounded);
-          rest = rest.slice(end + close.length);
+          if (end >= 0 && (!best || end < best.end)) best = { end, close, open, kind, rounded, flip };
+        }
+        if (best) {
+          node(id, unquote(rest.slice(best.open.length, best.end)), best.kind, best.rounded, false, !!best.flip);
+          rest = rest.slice(best.end + best.close.length);
           shaped = true;
-          break;
         }
         if (!shaped) node(id);
         ids.push(id);

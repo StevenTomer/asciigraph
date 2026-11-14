@@ -60,6 +60,9 @@ function shapeText(n: Node, id: string, indent: string): string {
     case "terminal": return `${id}([${q}])`;
     case "ellipse": return `${id}((${q}))`;
     case "hexagon": return `${id}{{${q}}}`;
+    case "trapezoid": return n.flip ? `${id}[/${q}\\]` : `${id}[\\${q}/]`;
+    case "delay": return `${id}@{ shape: delay, label: ${attr(n.text)} }`;
+    case "folder": return `${id}@{ shape: folder, label: ${attr(n.text)} }`;
     case "queue": return `${id}@{ shape: h-cyl, label: ${attr(n.text)} }`;
     case "stack": return `${id}@{ shape: procs, label: ${attr(n.text)} }`;
     case "docs": return `${id}@{ shape: docs, label: ${attr(n.text)} }`;

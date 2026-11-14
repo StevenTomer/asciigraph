@@ -223,3 +223,137 @@ export const actor: ShapeDef = {
     if (r.h > 3) drawText({ ...n, align: { h: "center", v: "top" } }, this.contentRect(n), grid);
   },
 };
+
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Trapezoid, delay, folder:
+ *
+ *    ╲────────────╱        ┌────────╮        ┌─────┐
+ *     ╲ by hand  ╱         │  wait  )        │     └──────┐
+ *      ╲────────╱          └────────╯        │  billing   │
+ *                                            └────────────┘
+ *
+ * A trapezoid is wider at the top (a manual operation), or with `flip` at the bottom.
+ */
+
+/** How far in a trapezoid's row is. */
+const trapInset = (n: Node, i: number) => (n.flip ? n.rect.h - 1 - i : i);
+
+export const trapezoid: ShapeDef = {
+  label: "trapezoid",
+  defaultSize: { w: 18, h: 3 },
+  minSize: () => ({ w: 9, h: 3 }),
+  normalize: (r) => ({ ...r, w: Math.max(r.w, 2 * r.h + 3) }),
+  hasBorder: (n) => n.border !== "none",
+  contentRect(n) {
+    const r = n.rect;
+    return { x: r.x + r.h, y: r.y + 1, w: Math.max(1, r.w - 2 * r.h), h: Math.max(1, r.h - 2) };
+  },
+  sideRange(n, side) {
+    const r = n.rect;
+    if (side === "left" || side === "right") return [r.y + 1, Math.max(r.y + 1, bottom(r) - 1)];
+    const i = side === "top" ? 0 : r.h - 1, d = trapInset(n, i);
+    return [r.x + d + 1, right(r) - d - 1];
+  },
+  anchor(n, side, along) {
+    const r = n.rect, i = along - r.y;
+    if (side === "left") return { x: r.x + trapInset(n, i), y: along };
+    if (side === "right") return { x: right(r) - trapInset(n, i), y: along };
+    return undefined;
+  },
+  fitSize: keepSize,
+  footprint(n) {
+    const r = n.rect;
+    return Array.from({ length: r.h }, (_, i) => {
+      const d = trapInset(n, i);
+      return { x: r.x + d, y: r.y + i, w: r.w - 2 * d, h: 1 };
+    });
+  },
+  hitTest(n, p) {
+    const r = n.rect, i = p.y - r.y;
+    if (i < 0 || i >= r.h) return false;
+    const d = trapInset(n, i);
+    return p.x >= r.x + d && p.x <= right(r) - d;
+  },
+  rasterize(n, grid) {
+    const r = n.rect, style = lineStyle(n.border);
+    if (style) {
+      const [up, down] = slashes(style);
+      for (let i = 0; i < r.h; i++) {
+        const d = trapInset(n, i), y = r.y + i;
+        grid.setChar({ x: r.x + d, y }, n.flip ? up : down);
+        grid.setChar({ x: right(r) - d, y }, n.flip ? down : up);
+        if (i === 0 || i === r.h - 1) for (let x = r.x + d + 1; x < right(r) - d; x++) grid.stroke({ x, y }, ["left", "right"], style);
+      }
+    }
+    drawText(n, this.contentRect(n), grid);
+  },
+};
+
+export const delay: ShapeDef = {
+  label: "delay",
+  defaultSize: { w: 14, h: 3 },
+  minSize: () => ({ w: 5, h: 3 }),
+  hasBorder: (n) => n.border !== "none",
+  contentRect: (n) => ({ x: n.rect.x + 2, y: n.rect.y + 1, w: Math.max(1, n.rect.w - 4), h: Math.max(1, n.rect.h - 2) }),
+  sideRange: (n, side) => (side === "top" || side === "bottom" ? [n.rect.x + 1, right(n.rect) - 1] : [n.rect.y + 1, bottom(n.rect) - 1]),
+  fitSize: keepSize,
+  rasterize(n, grid) {
+    const r = n.rect, style = lineStyle(n.border);
+    if (style) {
+      const x1 = right(r), y1 = bottom(r), round = style === "single";
+      // Square on the left, rounded on the right: ┌──╮ │ ) └──╯.
+      strokePath(grid, through([{ x: x1, y: r.y }, { x: r.x, y: r.y }, { x: r.x, y: y1 }, { x: x1, y: y1 }]), style, (p) => n.border === "rounded" && p.x === r.x);
+      grid.stroke({ x: x1, y: r.y }, ["left", "bottom"], style, round);
+      grid.stroke({ x: x1, y: y1 }, ["left", "top"], style, round);
+      for (let y = r.y + 1; y < y1; y++) grid.setChar({ x: x1, y }, ")");
+    }
+    drawText(n, this.contentRect(n), grid);
+  },
+};
+
+/** Where a folder's tab ends (its ┐), from the left. */
+export const folderTab = (w: number) => Math.min(10, Math.max(3, Math.floor((w - 1) / 2)));
+
+/** A folder's outline, clockwise from its top-left corner. */
+export function folderOutline(r: Rect): Point[] {
+  const tx = r.x + folderTab(r.w);
+  const cells = through([
+    { x: r.x, y: r.y }, { x: tx, y: r.y }, { x: tx, y: r.y + 1 }, { x: right(r), y: r.y + 1 }, { x: right(r), y: bottom(r) }, { x: r.x, y: bottom(r) }, { x: r.x, y: r.y },
+  ]);
+  return cells.slice(0, -1);
+}
+
+export const folder: ShapeDef = {
+  label: "folder",
+  defaultSize: { w: 16, h: 4 },
+  minSize: () => ({ w: 7, h: 4 }),
+  hasBorder: (n) => n.border !== "none",
+  contentRect: (n) => ({ x: n.rect.x + 2, y: n.rect.y + 2, w: Math.max(1, n.rect.w - 4), h: Math.max(1, n.rect.h - 3) }),
+  sideRange(n, side) {
+    const r = n.rect;
+    if (side === "top") return [r.x + 1, r.x + folderTab(r.w) - 1];
+    if (side === "bottom") return [r.x + 1, right(r) - 1];
+    return side === "left" ? [r.y + 1, bottom(r) - 1] : [r.y + 2, Math.max(r.y + 2, bottom(r) - 1)];
+  },
+  fitSize(n, text) {
+    // Grows (never shrinks) to fit its wrapped text, like a box.
+    return { w: n.rect.w, h: Math.max(n.rect.h, textLines(text, this.contentRect(n).w, n.lists === false).length + 3) };
+  },
+  footprint: (n) => [{ x: n.rect.x, y: n.rect.y, w: folderTab(n.rect.w) + 1, h: 1 }, { x: n.rect.x, y: n.rect.y + 1, w: n.rect.w, h: n.rect.h - 1 }],
+  hitTest(n, p) {
+    const r = n.rect;
+    if (p.x < r.x || p.x > right(r) || p.y < r.y || p.y > bottom(r)) return false;
+    return p.y > r.y || p.x <= r.x + folderTab(r.w);
+  },
+  rasterize(n, grid) {
+    const r = n.rect, style = lineStyle(n.border);
+    if (style) {
+      const cells = folderOutline(r);
+      const corner = (p: Point) => (p.x === r.x || p.x === right(r)) && (p.y === r.y || p.y === bottom(r));
+      strokePath(grid, [...cells, cells[0]], style, (p) => n.border === "rounded" && (corner(p) || p.y <= r.y + 1));
+    }
+    drawText(n, this.contentRect(n), grid);
+  },
+};

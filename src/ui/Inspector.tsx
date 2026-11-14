@@ -170,6 +170,12 @@ export function Inspector() {
             </>
           )}
           {nodes.length === 1 && n0.kind === "table" && <TableRows node={n0} />}
+          {n0.kind === "trapezoid" && nodes.every((n) => n.kind === "trapezoid") && (
+            <Row label="wider at">
+              <Choice active={!n0.flip} onClick={() => eachNode(() => ({ flip: undefined }))} title="Wider at the top: a manual operation">top</Choice>
+              <Choice active={!!n0.flip} onClick={() => eachNode(() => ({ flip: true }))} title="Wider at the bottom">bottom</Choice>
+            </Row>
+          )}
           {nodes.length === 1 && n0.kind === "timeline" && (
             <>
               <Row label="timeline">

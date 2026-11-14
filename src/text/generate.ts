@@ -295,6 +295,9 @@ function nodeSize(kind: Node["kind"], text: string, plain?: boolean): { w: numbe
       return { w: tw + h + 2, h };
     }
     case "queue": return { w: tw + 6, h: lines + 2 };
+    case "trapezoid": return { w: tw + 2 * (lines + 2), h: lines + 2 };
+    case "delay": return { w: tw + 4, h: lines + 2 };
+    case "folder": return { w: Math.max(7, tw + 4), h: lines + 3 };
     // (A row more than the text needs, so connectors leave the front one's right side below
     // where the one behind joins it.)
     case "stack": return { w: tw + 5, h: lines + 4 };
@@ -382,6 +385,7 @@ function graph(g: ParsedGraph, direction?: "down" | "right"): Omit<Desired, "kin
             kind: n.kind, text: n.text, border: n.border ?? (n.rounded ? "rounded" : "single"),
             // A class's name heads it; its members are code, not Markdown lists.
             ...(n.kind === "class" && { align: { h: "center", v: "top" }, lists: false }),
+            ...(n.flip && { flip: true }),
           }),
     })),
   ];

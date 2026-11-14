@@ -88,14 +88,17 @@ afterwards in the properties panel.
 | box | `┌───┐` | anything |
 | decision | `<  ok?  >` | flowchart branches |
 | input/output | `╱ data ╱` | flowchart input and output |
+| trapezoid | `╲ by hand ╱`, wider at the top (or at the bottom: **wider at** in the panel) | manual operations |
 | start/end | `( Start )` | flowchart terminals |
+| delay | `│ wait )`: square on the left, rounded on the right | waiting |
 | circle | a round outline in steps, `╭─╯ ╰─╮` (`.-' '-.` in ASCII) | states, events, connectors between pages |
 | hexagon | `╱ prepare ╲` over `╲ ╱`: points between its middle rows | preparation steps |
 | database | `├──────┤` under a rounded top | data stores |
 | queue | `│ orders │ │`: a cylinder on its side | message queues, streams |
 | document | a box with a wavy bottom | files, reports |
-| documents | a document with the edge of another behind it, `┌┴───┐│` | several files |
-| stacked | a box with the edge of another behind it | several of something: workers, servers |
+| documents | a document with another behind it, `┌┴───┐│` | several files |
+| stacked | a box with another behind it | several of something: workers, servers |
+| folder | a box with a tab, `┌──┐` over `│  └───┐` | folders, packages, modules |
 | subroutine | `│ │ Ship it │ │` | a predefined step |
 | note | a box with a folded corner | comments |
 | actor | a stick figure, `○ ╱│╲ ╱ ╲`, its name under it | people, users, outside systems |
@@ -575,10 +578,11 @@ flowchart TD
 | `id{{text}}` | hexagon |
 | `id{text}` | decision |
 | `id[/text/]` | input/output |
+| `id[\text/]`, `id[/text\]` | trapezoid, wider at the top or at the bottom |
 | `id[(text)]` | database |
 | `id[[text]]` | subroutine |
-| `id@{ shape: doc }`, `docs`, `procs`, `h-cyl` | document, stacked documents, stacked boxes, queue |
-| `id@{ shape: actor }` | actor (asciigraph's own; Mermaid's flowcharts don't have it) |
+| `id@{ shape: doc }`, `docs`, `procs`, `h-cyl`, `delay` | document, stacked documents, stacked boxes, queue, delay |
+| `id@{ shape: actor }`, `folder` | actor, folder (asciigraph's own; Mermaid's flowcharts don't have them) |
 
 | Syntax | Connector |
 |---|---|
@@ -720,7 +724,7 @@ digraph {
 - Subgraphs named `cluster…` are frames, named by their `label`.
 - Shapes: `box` and the like → box; no shape (DOT's default ellipse) → rounded box, so plain
   graphs stay compact; `ellipse`, `oval`, `circle`, `doublecircle` given → circle; `diamond` →
-  decision; `hexagon`; `cylinder` → database; `note`; `parallelogram` → input/output; `record` / `Mrecord` → class box (fields as compartments); `plaintext`, `none` →
+  decision; `hexagon`; `trapezium`, `invtrapezium` → trapezoid; `folder`, `tab` → folder; `cylinder` → database; `note`; `parallelogram` → input/output; `record` / `Mrecord` → class box (fields as compartments); `plaintext`, `none` →
   text.
 - Edges: `label`; `taillabel` / `headlabel` as end labels; `style=dashed / dotted / bold`;
   `dir`, `arrowhead`, `arrowtail` (`normal`, `empty`, `diamond`, `odiamond`, `dot`, `odot`,
@@ -807,8 +811,8 @@ What it recognizes:
   top border (`┌─ API ──┐`). A named box with nothing in it, or one holding only other boxes,
   becomes a frame.
 - **Shapes** as asciigraph draws them: decisions (`< >`), input/output (`╱ ╱`), start/end
-  (`( )`), circles (`╭─╯ ╰─╮`, or `.-' '-.` in ASCII), hexagons, queues, stacked boxes and
-  documents, actors (stick figures, with their names), databases (a rim under the top), documents (a wavy bottom), subroutines
+  (`( )`), circles (`╭─╯ ╰─╮`, or `.-' '-.` in ASCII), hexagons, trapezoids, delays, folders,
+  queues, stacked boxes and documents, actors (stick figures, with their names), databases (a rim under the top), documents (a wavy bottom), subroutines
   (`│ │ … │ │`), notes (a folded corner), class boxes (full-width `├──┤` rows divide them), and
   tables (`┬ ┼ ┴` column lines all the way down, in box characters or `+---+` ASCII), whose text
   is written as a Markdown table. A row across the top with no column lines is its title, and so

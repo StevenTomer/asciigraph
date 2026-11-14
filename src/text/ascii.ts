@@ -6,7 +6,7 @@ import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
 import { table, tableNode, tableText } from "../shapes/table";
 import { ellipseOutline, ellipseSide } from "../shapes/ellipse";
-import { stackBehind, stackJoin } from "../shapes/extra";
+import { folderOutline, folderTab, stackBehind, stackJoin } from "../shapes/extra";
 import { repairTables } from "./repairTables";
 
 /**
@@ -110,6 +110,8 @@ interface Box {
   kind: NodeKind;
   dividers: number[];
   id: Id;
+  /** A trapezoid wider at the bottom. */
+  flip?: boolean;
   /** Slanted shapes (decision, input/output): their outline cells and the side each is on. */
   cells?: Map<number, Side | null>;
   /** A table's column lines (x), and the line under its title row (y), if it has one. */
@@ -229,7 +231,7 @@ export function importAscii(input: string, probe = false): ImportResult {
     for (let x = 0; x < W; x++) {
       // A corner: right and down only (├ ┬ ┼ start dividers and branches, not boxes).
       if (!(has(x, y, "right") && has(x, y, "bottom")) || has(x, y, "top") || has(x, y, "left")) continue;
-      const b = traceBox(x, y) ?? traceDocument(x, y) ?? traceEllipse(x, y);
+      const b = traceBox(x, y) ?? traceDocument(x, y) ?? traceEllipse(x, y) ?? traceFolder(x, y);
       if (!b) continue;
       boxes.push(b);
     }
@@ -247,7 +249,9 @@ export function importAscii(input: string, probe = false): ImportResult {
       if (UP_SLASH.has(ch(x, y)) && has(x + 1, y, "left") && has(x + 1, y, "right")) {
         traceIo(x, y);
         traceHexagon(x, y);
+        traceTrapezoid(x, y, true);
       }
+      if (DOWN_SLASH.has(ch(x, y)) && has(x + 1, y, "left") && has(x + 1, y, "right")) traceTrapezoid(x, y, false);
     }
   }
   function slanted(kind: NodeKind, x0: number, y0: number, x1: number, y1: number, cells: [number, number, Side | null][]) {
@@ -269,6 +273,32 @@ export function importAscii(input: string, probe = false): ImportResult {
     for (let i = 1; i <= m; i++) cells.push([lx + i, ym - i, null], [lx + i, ym + i, null], [rx - i, ym - i, null], [rx - i, ym + i, null]);
     for (let x = lx + m + 1; x < e; x++) cells.push([x, ym - m, "top"], [x, ym + m, "bottom"]);
     slanted("decision", lx, ym - m, rx, ym + m, cells);
+  }
+  /** A trapezoid: ╲────╱ on top, each row a column further in, to a flat bottom (or upside down,
+   * `flip`: ╱────╲, each row further out). */
+  function traceTrapezoid(a: number, y0: number, flip: boolean) {
+    const e = flatRun(a + 1, y0);
+    const [inL, inR] = flip ? [UP_SLASH, DOWN_SLASH] : [DOWN_SLASH, UP_SLASH];
+    if (e === a + 1 || !inR.has(ch(e, y0))) return;
+    const step = flip ? -1 : 1;
+    let h = 1;
+    for (; h < 20; h++) {
+      const l = a + step * h, r = e - step * h, y = y0 + h;
+      if (!inL.has(ch(l, y)) || !inR.has(ch(r, y))) return;
+      if (r - l > 1 && flatRun(l + 1, y) === r) break;
+    }
+    h++;
+    if (h < 3 || h >= 20) return;
+    const x0 = flip ? a - (h - 1) : a, x1 = flip ? e + (h - 1) : e, y1 = y0 + h - 1;
+    const cells: [number, number, Side | null][] = [];
+    for (let i = 0; i < h; i++) {
+      const d = flip ? h - 1 - i : i, end = i === 0 || i === h - 1;
+      cells.push([x0 + d, y0 + i, end ? null : "left"], [x1 - d, y0 + i, end ? null : "right"]);
+    }
+    for (let x = a + 1; x < e; x++) cells.push([x, y0, "top"]);
+    for (let x = x0 + (flip ? 0 : h - 1) + 1; x < x1 - (flip ? 0 : h - 1); x++) cells.push([x, y1, "bottom"]);
+    slanted("trapezoid", x0, y0, x1, y1, cells);
+    if (flip) boxes[boxes.length - 1].flip = true;
   }
   function traceHexagon(a: number, y0: number) {
     // ╱────╲ on top; ╱ … ╲ each row further out, then ╲ … ╱ back in, to a flat bottom.
@@ -357,6 +387,30 @@ export function importAscii(input: string, probe = false): ImportResult {
     };
   }
 
+  /** A folder (shapes/extra.ts): exactly the outline the renderer draws for its bounds. */
+  function traceFolder(x0: number, y0: number): Box | null {
+    const cells = walk(x0, y0);
+    if (!cells || cells.length < 14) return null;
+    const xs = cells.map((c) => c.x), ys = cells.map((c) => c.y);
+    const rect = { x: x0, y: y0, w: Math.max(...xs) - x0 + 1, h: Math.max(...ys) - y0 + 1 };
+    if (Math.min(...xs) !== x0 || Math.min(...ys) !== y0 || rect.w < 7 || rect.h < 4) return null;
+    const want = folderOutline(rect);
+    if (want.length !== cells.length) return null;
+    const got = new Set(cells.map((c) => k(c.x, c.y)));
+    if (!want.every((c) => got.has(k(c.x, c.y)))) return null;
+    const x1 = x0 + rect.w - 1, y1 = y0 + rect.h - 1, tx = x0 + folderTab(rect.w);
+    const edge = cells.filter((c) => mask.get(k(c.x, c.y)) === (LEFT | RIGHT)).map((c) => style.get(k(c.x, c.y))!);
+    const st = majority(edge) ?? "single";
+    const border: BorderStyle = st === "single" && rounded.has(k(x0, y0)) ? "rounded" : st;
+    const side = (c: Point): Side | null =>
+      c.y === y0 && c.x > x0 && c.x < tx ? "top"
+      : c.y === y1 && c.x > x0 && c.x < x1 ? "bottom"
+      : c.x === x0 && c.y > y0 && c.y < y1 ? "left"
+      : c.x === x1 && c.y > y0 + 1 && c.y < y1 ? "right"
+      : null;
+    return { x0, y0, x1, y1, border, kind: "folder", dividers: [], id: "", cells: new Map(cells.map((c) => [k(c.x, c.y), side(c)])) };
+  }
+
   function traceDocument(x0: number, y0: number): Box | null {
     const cells = walk(x0, y0);
     if (!cells) return null;
@@ -410,11 +464,16 @@ export function importAscii(input: string, probe = false): ImportResult {
     }
     const x1 = x;
     let y = y0 + 1;
-    // A start/end shape has ( ) for sides.
-    let stadium = false;
+    // A start/end shape has ( ) for sides; a delay, a straight left side and ) on the right.
+    let stadium = false, delayed = false;
     for (;;) {
       if (y < H && ch(x1, y) === ")" && ch(x0, y) === "(") {
         stadium = true;
+        y++;
+        continue;
+      }
+      if (y < H && ch(x1, y) === ")" && has(x0, y, "top") && has(x0, y, "bottom")) {
+        delayed = true;
         y++;
         continue;
       }
@@ -437,9 +496,10 @@ export function importAscii(input: string, probe = false): ImportResult {
     for (let xx = x0 + 1; xx < x1; xx++) if (mask.get(k(xx, y0)) === (LEFT | RIGHT)) edgeStyles.push(style.get(k(xx, y0))!);
     for (let yy = y0 + 1; yy < y1; yy++) if (mask.get(k(x0, yy)) === (UP | DOWN)) edgeStyles.push(style.get(k(x0, yy))!);
     const st = majority(edgeStyles) ?? "single";
-    const isRounded = rounded.has(k(x0, y0)) || rounded.has(k(x1, y1));
+    // (A delay's right corners are always round: its left ones say.)
+    const isRounded = delayed ? rounded.has(k(x0, y0)) || rounded.has(k(x0, y1)) : rounded.has(k(x0, y0)) || rounded.has(k(x1, y1));
     const border: BorderStyle = isRounded && st === "single" ? "rounded" : st;
-    const b: Box = { x0, y0, x1, y1, name, border, kind: stadium ? "terminal" : "box", dividers: [], id: "" };
+    const b: Box = { x0, y0, x1, y1, name, border, kind: stadium ? "terminal" : delayed && !stadium ? "delay" : "box", dividers: [], id: "" };
     if (nameStart >= 0) {
       b.nameSpan = [nameStart, nameEnd];
       b.nameAlign = nameStart === x0 + 2 ? "left" : nameEnd === x1 - 2 ? "right" : "center";
@@ -994,9 +1054,10 @@ export function importAscii(input: string, probe = false): ImportResult {
       continue;
     }
     const parts: { y0: number; y1: number }[] = [];
-    // (A stack's text is in the front one, below the edge of the one behind.)
+    // (A stack's text is in the front one, below the edge of the one behind; a folder's, below
+    // its tab.)
     const stacked = b.kind === "stack" || b.kind === "docs";
-    let top = stacked ? b.y0 + 2 : b.y0 + 1;
+    let top = stacked || b.kind === "folder" ? b.y0 + 2 : b.y0 + 1;
     for (const dy of [...b.dividers, b.y1]) {
       parts.push({ y0: top, y1: dy - 1 });
       top = dy + 1;
@@ -1018,6 +1079,7 @@ export function importAscii(input: string, probe = false): ImportResult {
         ...(b.name && { name: b.name }),
         ...(b.name && b.nameAlign && b.nameAlign !== "left" && { nameAlign: b.nameAlign }),
         ...(b.kind === "class" && { lists: false }),
+        ...(b.flip && { flip: true }),
       }
     );
     // Room for the text with the renderer's padding (one column inside the border).

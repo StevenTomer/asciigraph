@@ -106,3 +106,79 @@ describe("hexagon, stacks, queue, actor", () => {
     expect(back.text).toContain("shape: actor");
   });
 });
+
+describe("trapezoid, delay, folder", () => {
+  it("draws each", () => {
+    expect(one("trapezoid", 14, 3, "by hand")).toBe([
+      "╲────────────╱",
+      " ╲ by hand  ╱",
+      "  ╲────────╱",
+    ].join("\n"));
+    expect(diagramToText(addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 14, h: 3 }, { kind: "trapezoid", text: "priority", flip: true })))).toBe([
+      "  ╱────────╲",
+      " ╱ priority ╲",
+      "╱────────────╲",
+    ].join("\n"));
+    expect(one("delay", 12, 3, "wait")).toBe([
+      "┌──────────╮",
+      "│   wait   )",
+      "└──────────╯",
+    ].join("\n"));
+    expect(one("folder", 16, 4, "billing")).toBe([
+      "┌──────┐",
+      "│      └───────┐",
+      "│   billing    │",
+      "└──────────────┘",
+    ].join("\n"));
+  });
+
+  it("read back as themselves, in Unicode and ASCII", () => {
+    const att = (node: string) => ({ kind: "attached" as const, node, side: "auto" as const });
+    let d: Diagram = [
+      makeNode({ x: 0, y: 0, w: 14, h: 3 }, { id: "t", kind: "trapezoid", text: "by hand" }),
+      makeNode({ x: 20, y: 0, w: 14, h: 3 }, { id: "f", kind: "trapezoid", text: "priority", flip: true }),
+      makeNode({ x: 40, y: 0, w: 12, h: 3 }, { id: "d", kind: "delay", text: "wait" }),
+      makeNode({ x: 0, y: 8, w: 16, h: 4 }, { id: "fo", kind: "folder", text: "billing" }),
+      makeNode({ x: 24, y: 8, w: 18, h: 5 }, { id: "t2", kind: "trapezoid", text: "taller\none" }),
+      makeNode({ x: 46, y: 8, w: 14, h: 5 }, { id: "d2", kind: "delay", text: "longer\nwait", border: "rounded" }),
+      makeNode({ x: 0, y: 16, w: 30, h: 6 }, { id: "fo2", kind: "folder", text: "a wide folder" }),
+    ].reduce(addNode, emptyDiagram());
+    d = addEdge(d, makeEdge(att("t"), att("f")));
+    d = addEdge(d, makeEdge(att("f"), att("d")));
+    d = addEdge(d, makeEdge(att("t"), att("fo")));
+    d = addEdge(d, makeEdge(att("fo"), att("t2")));
+    d = addEdge(d, makeEdge(att("d"), att("d2")));
+    for (const ascii of [false, true]) {
+      const text = diagramToText(d, ascii);
+      const r = importAscii(text);
+      expect(r.warnings).toEqual([]);
+      const kinds = Object.values(r.diagram.nodes).map((n) => n.kind + (n.flip ? " flipped" : "")).sort();
+      expect(kinds).toEqual(["delay", "delay", "folder", "folder", "trapezoid", "trapezoid", "trapezoid flipped"]);
+      expect(Object.keys(r.diagram.edges)).toHaveLength(5);
+      expect(diagramToText(r.diagram, ascii)).toBe(text);
+    }
+  });
+
+  it("come from Mermaid and DOT, and are written back as Mermaid", () => {
+    const text = `flowchart LR
+      A[\\by hand/] --> B[/priority\\]
+      B --> C@{ shape: delay, label: "wait" }
+      C --> D@{ shape: folder, label: "billing" }
+      D --> E@{ shape: trap-t, label: "manual" }`;
+    const g = parseGraph(text);
+    expect(g.warnings).toEqual([]);
+    expect(g.nodes.map((n) => [n.id, n.kind, !!n.flip])).toEqual([
+      ["A", "trapezoid", false], ["B", "trapezoid", true], ["C", "delay", false], ["D", "folder", false], ["E", "trapezoid", false],
+    ]);
+    const dot = parseGraph(`digraph { a [shape=trapezium]; b [shape=invtrapezium]; c [shape=folder]; a -> b -> c }`);
+    expect(dot.nodes.map((n) => [n.id, n.kind, !!n.flip])).toEqual([["a", "trapezoid", true], ["b", "trapezoid", false], ["c", "folder", false]]);
+    const d = drawSource(emptyDiagram(), { kind: "graph", text, options: {} }, { x: 0, y: 0 }).diagram;
+    const drawn = diagramToText(d);
+    expect(diagramToText(importAscii(drawn).diagram)).toBe(drawn);
+    const back = describeAsText(d, [...Object.keys(d.nodes), ...Object.keys(d.edges)])!.text;
+    expect(back).toContain("[\\by hand/]");
+    expect(back).toContain("[/priority\\]");
+    expect(back).toContain("shape: delay");
+    expect(back).toContain("shape: folder");
+  });
+});

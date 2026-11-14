@@ -74,7 +74,7 @@ export type HAlign = "left" | "center" | "right";
  * sequence-diagram lifelines and activation bars. */
 export type NodeKind =
   | "box" | "decision" | "io" | "terminal" | "ellipse" | "hexagon" | "database" | "queue" | "document" | "docs"
-  | "subroutine" | "stack" | "note" | "actor"
+  | "subroutine" | "stack" | "note" | "actor" | "trapezoid" | "delay" | "folder"
   | "class" | "table" | "timeline" | "frame" | "lifeline" | "activation";
 export type VAlign = "top" | "middle" | "bottom";
 
@@ -87,6 +87,8 @@ export interface Node {
   id: Id;
   kind: NodeKind;
   rect: Rect;
+  /** A trapezoid wider at the bottom (else at the top). */
+  flip?: boolean;
   border: BorderStyle;
   text: string;
   align: { h: HAlign; v: VAlign };
