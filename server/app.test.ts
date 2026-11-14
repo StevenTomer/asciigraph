@@ -4,6 +4,7 @@ import { HocuspocusProvider } from "@hocuspocus/provider";
 import { addNode, emptyDiagram, makeNode, moveObjects } from "../src/model/ops";
 import { applyDiff, diagramName, toDiagram } from "../src/collab/bridge";
 import { createCollabServer } from "./app";
+import type { OwnerAction, ServerMessage } from "../src/collab/protocol";
 
 const PORT = 41000 + Math.floor(Math.random() * 1000);
 const http = `http://127.0.0.1:${PORT}`;
@@ -25,15 +26,29 @@ const until = async (ok: () => boolean, ms = 3000) => {
   }
 };
 
-function connect(id: string, key: string, name: string) {
+function connect(id: string, key: string, name: string, extra: { owner?: string; password?: string } = {}) {
   const doc = new Y.Doc();
-  const state = { synced: false, denied: false };
+  const state = {
+    synced: false, denied: false, reason: "", closed: "",
+    messages: [] as ServerMessage[],
+    hello: null as Extract<ServerMessage, { type: "hello" }> | null,
+  };
   const provider = new HocuspocusProvider({
-    url: ws, name: id, document: doc, token: JSON.stringify({ key, name }),
+    url: ws, name: id, document: doc, token: JSON.stringify({ key, name, ...extra }),
     onSynced: () => (state.synced = true),
-    onAuthenticationFailed: () => (state.denied = true),
+    onAuthenticationFailed: ({ reason }) => {
+      state.denied = true;
+      state.reason = reason;
+    },
+    onClose: ({ event }) => (state.closed = event.reason),
+    onStateless: ({ payload }) => {
+      const m = JSON.parse(payload) as ServerMessage;
+      state.messages.push(m);
+      if (m.type === "hello") state.hello = m;
+    },
   });
-  return { doc, provider, state };
+  const owner = (m: OwnerAction) => provider.sendStateless(JSON.stringify({ type: "owner", ...m }));
+  return { doc, provider, state, owner };
 }
 
 async function share() {
@@ -90,5 +105,120 @@ describe("live editing server", () => {
     expect(wrong.state.synced || unknown.state.synced).toBe(false);
     wrong.provider.destroy();
     unknown.provider.destroy();
+  });
+
+  it("the owner link: the owner's controls, and the links' keys", async () => {
+    const { id, editKey, ownerSecret } = await share();
+    const owner = connect(id, ownerSecret, "Olive");
+    const editor = connect(id, editKey, "Ed");
+    await until(() => !!owner.state.hello && !!editor.state.hello);
+    expect(owner.state.hello!.role).toBe("owner");
+    expect(owner.state.hello!.keys!.edit).toBe(editKey);
+    expect(editor.state.hello!.role).toBe("edit");
+    expect(editor.state.hello!.keys).toBeUndefined();
+    // The owner's secret alongside an edit key (the owner's own browser) works too.
+    const again = connect(id, editKey, "Olive", { owner: ownerSecret });
+    await until(() => !!again.state.hello);
+    expect(again.state.hello!.role).toBe("owner");
+    // Not the owner: owner actions are ignored.
+    editor.owner({ action: "readOnly", value: true });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(editor.state.messages.some((m) => m.type === "settings")).toBe(false);
+    for (const p of [owner, editor, again]) p.provider.destroy();
+  });
+
+  it("a view link sees changes but can't make them", async () => {
+    const { id, ownerSecret, diagram } = await share();
+    const owner = connect(id, ownerSecret, "Olive");
+    await until(() => !!owner.state.hello);
+    const viewer = connect(id, owner.state.hello!.keys!.view!, "Vic");
+    await until(() => !!viewer.state.hello && viewer.state.synced);
+    expect(viewer.state.hello!.role).toBe("view");
+    // (Not the same box: a change of the viewer's own would win in the viewer's copy.)
+    applyDiff(viewer.doc, diagram, addNode(diagram, makeNode({ x: 9, y: 0, w: 6, h: 3 }, { id: "v", text: "V" })));
+    applyDiff(owner.doc, diagram, moveObjects(diagram, ["a"], { x: 0, y: 3 }));
+    await until(() => toDiagram(viewer.doc).nodes.a.rect.y === 3);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(toDiagram(owner.doc).nodes.v).toBeUndefined();
+    owner.provider.destroy();
+    viewer.provider.destroy();
+  });
+
+  it("read-only: editors can't change it, the owner still can", async () => {
+    const { id, editKey, ownerSecret, diagram } = await share();
+    const owner = connect(id, ownerSecret, "Olive"), editor = connect(id, editKey, "Ed");
+    await until(() => owner.state.synced && editor.state.synced && !!editor.state.hello);
+    owner.owner({ action: "readOnly", value: true });
+    await until(() => editor.state.messages.some((m) => m.type === "settings" && m.settings.readOnly));
+    // (Not the same box: a change of the editor's own would win in the editor's copy.)
+    applyDiff(editor.doc, diagram, addNode(diagram, makeNode({ x: 9, y: 0, w: 6, h: 3 }, { id: "v", text: "V" })));
+    applyDiff(owner.doc, diagram, moveObjects(diagram, ["a"], { x: 0, y: 3 }));
+    await until(() => toDiagram(editor.doc).nodes.a.rect.y === 3);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(toDiagram(owner.doc).nodes.v).toBeUndefined();
+    owner.provider.destroy();
+    editor.provider.destroy();
+  });
+
+  it("a password: asked for, checked, and everyone else is sent out to give it", async () => {
+    const { id, editKey, ownerSecret } = await share();
+    const owner = connect(id, ownerSecret, "Olive"), editor = connect(id, editKey, "Ed");
+    await until(() => !!owner.state.hello && !!editor.state.hello);
+    owner.owner({ action: "password", value: "sesame" });
+    await until(() => editor.state.closed === "password");
+    const none = connect(id, editKey, "Ed"), wrong = connect(id, editKey, "Ed", { password: "nope" });
+    const right = connect(id, editKey, "Ed", { password: "sesame" });
+    await until(() => none.state.denied && wrong.state.denied && right.state.synced);
+    expect([none.state.reason, wrong.state.reason]).toEqual(["password", "wrong-password"]);
+    // The owner doesn't need it.
+    const owner2 = connect(id, ownerSecret, "Olive");
+    await until(() => owner2.state.synced);
+    for (const p of [owner, editor, none, wrong, right, owner2]) p.provider.destroy();
+  });
+
+  it("replacing a link sends out the people using it, and turns the old one away", async () => {
+    const { id, editKey, ownerSecret } = await share();
+    const owner = connect(id, ownerSecret, "Olive"), editor = connect(id, editKey, "Ed");
+    await until(() => !!owner.state.hello && !!editor.state.hello);
+    owner.owner({ action: "replace", value: "edit" });
+    await until(() => editor.state.closed === "replaced");
+    const settings = owner.state.messages.find((m) => m.type === "settings") as Extract<ServerMessage, { type: "settings" }>;
+    expect(settings.keys!.edit).not.toBe(editKey);
+    const old = connect(id, editKey, "Ed"), fresh = connect(id, settings.keys!.edit!, "Ed");
+    await until(() => old.state.denied && fresh.state.synced);
+    for (const p of [owner, editor, old, fresh]) p.provider.destroy();
+  });
+
+  it("deleting it: everyone is sent out, and it's gone", async () => {
+    const { id, editKey, ownerSecret } = await share();
+    const owner = connect(id, ownerSecret, "Olive"), editor = connect(id, editKey, "Ed");
+    await until(() => !!owner.state.hello && !!editor.state.hello);
+    owner.owner({ action: "delete" });
+    await until(() => editor.state.closed === "deleted" && owner.state.closed === "deleted");
+    const late = connect(id, editKey, "Ed");
+    await until(() => late.state.denied);
+    for (const p of [owner, editor, late]) p.provider.destroy();
+  });
+
+  it("keeps a history with names, and who last changed each box", async () => {
+    const { id, editKey, diagram } = await share();
+    const alice = connect(id, editKey, "Alice");
+    await until(() => alice.state.synced && !!alice.state.hello);
+    applyDiff(alice.doc, diagram, moveObjects(diagram, ["a"], { x: 2, y: 0 }));
+    await until(() => alice.state.messages.some((m) => m.type === "history"));
+    const entry = (alice.state.messages.find((m) => m.type === "history") as Extract<ServerMessage, { type: "history" }>).entry;
+    expect(entry).toMatchObject({ name: "Alice", summary: "moved 'A'", count: 1 });
+    await until(() => !!alice.doc.getMap<{ name: string }>("by").get("a"));
+    expect(alice.doc.getMap<{ name: string }>("by").get("a")!.name).toBe("Alice");
+    // Moved again soon after: counted.
+    const moved = toDiagram(alice.doc);
+    applyDiff(alice.doc, moved, moveObjects(moved, ["a"], { x: 2, y: 0 }));
+    await until(() => alice.state.messages.filter((m) => m.type === "history").length === 2);
+    expect(alice.state.messages.filter((m) => m.type === "history").map((m) => (m as { entry: { count: number } }).entry.count)).toEqual([1, 2]);
+    alice.provider.destroy();
+    const bob = connect(id, editKey, "Bob");
+    await until(() => !!bob.state.hello);
+    expect(bob.state.hello!.history).toMatchObject([{ name: "Alice", summary: "moved 'A'", count: 2 }]);
+    bob.provider.destroy();
   });
 });

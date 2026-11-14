@@ -1787,8 +1787,8 @@ test("live diagrams: share one, a second person joins by link, and both edit it 
   await expect(bob.getByTestId("live")).toContainText("live");
   await expect.poll(() => text(bob)).toContain("│    A    │");
   // Each sees the other.
-  await expect(page.getByTestId("peer")).toHaveAttribute("title", "Bob");
-  await expect(bob.getByTestId("peer")).toHaveAttribute("title", "Alice");
+  await expect(page.getByTestId("peer")).toHaveAttribute("title", "Bob (can edit)");
+  await expect(bob.getByTestId("peer")).toHaveAttribute("title", "Alice (owner)");
 
   // Bob draws a box; Alice sees it. Alice moves hers; Bob sees that.
   await box(bob, [20, 2], [30, 4], "B");
@@ -1817,4 +1817,86 @@ test("live diagrams: a link with the wrong key is refused", async ({ page }) => 
   await page.evaluate(() => localStorage.setItem("asciigraph/live-name", JSON.stringify("Eve")));
   await page.goto("/#/live/nosuchdiagram/wrongkey");
   await expect(page.getByTestId("live")).toContainText("link refused");
+});
+
+test("live diagrams: the owner's controls — view link, read-only, password, history, replacing, owner link, deleting", async ({ page, browser }) => {
+  test.setTimeout(60_000);
+  await box(page, [2, 2], [12, 4], "A");
+  await page.getByTestId("diagrams").click();
+  await page.getByRole("button", { name: "share live…" }).click();
+  await page.getByLabel("Your name").fill("Alice");
+  await page.getByRole("button", { name: "share it" }).click();
+  await expect(page.getByTestId("live")).toContainText("live");
+  await expect(page.getByRole("button", { name: "owner…" })).toBeVisible();
+  const keys = (await state(page)).live.keys;
+  const id = (await state(page)).live.id;
+  const local = (key) => `/#/live/${id}/${key}`;
+  const join = async (key, name) => {
+    const ctx = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+    const p = await ctx.newPage();
+    await p.goto("/");
+    await p.evaluate((n) => localStorage.setItem("asciigraph/live-name", JSON.stringify(n)), name);
+    await p.goto(local(key));
+    return { ctx, p };
+  };
+
+  // Vic, with the view link: sees it, can't change it.
+  const vic = await join(keys.view, "Vic");
+  await expect(vic.p.getByTestId("view-only")).toBeVisible();
+  await expect.poll(() => text(vic.p)).toContain("│    A    │");
+  await drag(vic.p, [7, 3], [7, 9]);
+  await vic.p.keyboard.press("Delete");
+  await expect(vic.p.getByRole("status")).toContainText("View only");
+  expect(Object.values((await state(vic.p)).diagram.nodes).find((n) => n.text === "A").rect.y).toBe(2);
+
+  // Bob, with the edit link, edits; the history and the panel say so.
+  const bob = await join(keys.edit, "Bob");
+  await expect(bob.p.getByTestId("live")).toContainText("live");
+  await drag(bob.p, [7, 3], [7, 9]);
+  await expect.poll(async () => Object.values((await state(page)).diagram.nodes).find((n) => n.text === "A").rect.y).toBe(8);
+  await page.getByRole("button", { name: "history" }).click();
+  await expect(page.getByTestId("history")).toContainText("Bob moved 'A'");
+  await page.getByRole("button", { name: "Close" }).click();
+  await click(page, 7, 9);
+  await expect(page.getByTestId("changed-by")).toContainText("changed by Bob");
+
+  // Read-only: Bob can't change it now; Alice still can.
+  await page.getByRole("button", { name: "owner…" }).click();
+  const owner = page.getByRole("dialog", { name: "owner" });
+  await owner.getByRole("checkbox").click();
+  await expect(bob.p.getByTestId("view-only")).toBeVisible();
+  await owner.getByRole("checkbox").click();
+  await expect(bob.p.getByTestId("view-only")).toBeHidden();
+
+  // A password: Bob is sent out, asked for it, and back in once it's right.
+  await owner.getByLabel("New password").fill("sesame");
+  await owner.getByRole("button", { name: "set", exact: true }).click();
+  await bob.p.getByLabel("Password", { exact: true }).fill("wrong");
+  await bob.p.getByRole("button", { name: "join" }).click();
+  await expect(bob.p.getByRole("dialog", { name: "password" })).toContainText("isn't right");
+  await bob.p.getByLabel("Password", { exact: true }).fill("sesame");
+  await bob.p.getByRole("button", { name: "join" }).click();
+  await expect(bob.p.getByTestId("live")).toContainText("live");
+  // Vic too (setting it sent out everyone but the owner).
+  await vic.p.getByLabel("Password", { exact: true }).fill("sesame");
+  await vic.p.getByRole("button", { name: "join" }).click();
+  await expect(vic.p.getByTestId("live")).toContainText("live");
+  await expect(vic.p.getByTestId("view-only")).toBeVisible();
+
+  // The owner link, in another browser: the owner's controls there, with the edit link shown.
+  const olive = await join(keys.owner, "Alice");
+  await expect(olive.p.getByRole("button", { name: "owner…" })).toBeVisible();
+  await expect.poll(() => olive.p.evaluate(() => location.hash)).toBe(`#/live/${id}/${keys.edit}`);
+
+  // A new edit link: Bob's stops working.
+  await owner.getByRole("button", { name: "replace" }).first().click();
+  await expect(bob.p.getByTestId("live")).toContainText("link refused");
+  await expect.poll(async () => (await state(page)).live.keys.edit).not.toBe(keys.edit);
+
+  // Deleted: gone for everyone.
+  await owner.getByRole("button", { name: "delete live diagram…" }).click();
+  await owner.getByRole("button", { name: "delete it" }).click();
+  await expect(page.getByTestId("live")).toContainText("deleted");
+  await expect(vic.p.getByTestId("live")).toContainText("deleted");
+  for (const x of [vic, bob, olive]) await x.ctx.close();
 });

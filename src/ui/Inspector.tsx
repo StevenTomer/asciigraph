@@ -5,6 +5,7 @@ import { HEAD_NAMES, arrowGlyph } from "../render/charsets";
 import { arrange } from "../editor/commands";
 import { locksOf, unlock } from "../model/locks";
 import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
+import { ago } from "../collab/history";
 import { type BorderStyle, type Edge, type HAlign, type LineStyle, type Node, type VAlign, HEADS } from "../model/types";
 import { apply, begin, commit, getState, openBannerDialog, openTextDialog, select, set, setPrefs, startEditing, useEditor } from "../editor/store";
 import { TABLE_OPS, canTableOp, columnAlign, tableOp } from "../editor/tableCommands";
@@ -38,6 +39,8 @@ export function Inspector() {
   const nodes = selection.map((id) => diagram.nodes[id]).filter(Boolean) as Node[];
   const edges = selection.map((id) => diagram.edges[id]).filter(Boolean) as Edge[];
   const shown = nodes.length > 0 || edges.length > 0;
+  // In a live diagram: who last changed the one thing selected.
+  const stamp = useEditor((s) => (s.live && selection.length === 1 ? s.live.by[selection[0]] : undefined));
   const ref = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
@@ -349,6 +352,11 @@ export function Inspector() {
         </section>
       )}
       <section className="actions">
+        {stamp && (
+          <span className="muted changed-by" data-testid="changed-by" title={new Date(stamp.at).toLocaleString()}>
+            changed by {stamp.name}, {ago(stamp.at)}
+          </span>
+        )}
 
         <button className="tb danger" onClick={() => { apply((d) => deleteObjects(d, selection)); select([]); }}>delete</button>
       </section>

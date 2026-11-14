@@ -184,7 +184,8 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
     }
   }
 
-  // In a live diagram: what the others have selected, outlined in their color with their name.
+  // In a live diagram: what the others have selected, outlined in their color with their name
+  // ("… is editing" on what they're typing in).
   for (const peer of s.live?.peers ?? []) {
     ctx.save();
     ctx.strokeStyle = peer.color;
@@ -192,13 +193,16 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
     ctx.setLineDash([6, 3]);
     ctx.font = `11px ${FONT_FAMILY}`;
     let named = false;
-    for (const id of peer.selection) {
+    const editing = peer.editing && (s.diagram.nodes[peer.editing] || r.edges.get(peer.editing)) ? peer.editing : null;
+    const label = editing ? `${peer.name} is editing` : peer.name;
+    const ids = editing ? [editing, ...peer.selection.filter((id) => id !== editing)] : peer.selection;
+    for (const id of ids) {
       const n = s.diagram.nodes[id];
       const e = r.edges.get(id);
       if (n) {
         const box = borderToScreen(n.rect);
         ctx.strokeRect(box.x - 7, box.y - 7, box.w + 14, box.h + 14);
-        if (!named) ctx.fillText(peer.name, box.x - 7, box.y - 10);
+        if (!named) ctx.fillText(label, box.x - 7, box.y - 10);
         named = true;
       } else if (e) {
         for (const cell of [e.cells[0], e.cells[e.cells.length - 1]]) {
@@ -209,7 +213,7 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
         }
         if (!named) {
           const p = cellCenter(e.cells[0]);
-          ctx.fillText(peer.name, p.x + 9, p.y - 9);
+          ctx.fillText(label, p.x + 9, p.y - 9);
         }
         named = true;
       }

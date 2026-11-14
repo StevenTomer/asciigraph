@@ -3,6 +3,8 @@ import type { Rect, Side } from "../geometry/geom";
 import { emptyDiagram } from "../model/ops";
 import type { Diagram, Id, NodeKind } from "../model/types";
 import type { Guide } from "./snap";
+import type { HistoryEntry } from "../collab/history";
+import type { LiveKeys, LiveSettings, Role, Stamp } from "../collab/protocol";
 
 export type ToolId = "select" | "box" | "table" | "arrow" | "line" | "text";
 
@@ -31,26 +33,41 @@ export interface View {
   y: number;
 }
 
-/** Someone else in a live diagram: their name, color, and what they have selected. */
+/** Someone else in a live diagram: their name, color, what they have selected, and what they're
+ * typing in. */
 export interface Peer {
   clientId: number;
   name: string;
   color: string;
+  role: Role | null;
   selection: Id[];
+  editing: Id | null;
 }
 
 /** A live (shared) diagram that's open (collab/live.ts). */
 export interface LiveState {
   id: string;
-  /** The link that lets people in. */
+  /** The link you can pass on: the one you came in with (the edit link, for the owner). */
   link: string;
   /** connecting: until the diagram has arrived; offline: lost the connection (it reconnects,
-   * and edits made meanwhile are sent then); denied: the link's key was refused. */
-  status: "connecting" | "live" | "offline" | "denied";
+   * and edits made meanwhile are sent then); denied: the link's key was refused (or replaced);
+   * deleted: the owner deleted it. */
+  status: "connecting" | "live" | "offline" | "denied" | "deleted";
   me: { name: string; color: string };
+  /** Who you are here (null until the server has said). */
+  role: Role | null;
+  /** You can't change it (a view link, or the owner made it read-only). */
+  readOnly: boolean;
+  settings: LiveSettings;
+  /** The owner's: the links' keys, and the owner's own. */
+  keys?: LiveKeys & { owner: string };
   peers: Peer[];
   canUndo: boolean;
   canRedo: boolean;
+  /** Who changed what, oldest first. */
+  history: HistoryEntry[];
+  /** Who last changed each box and connector. */
+  by: Record<Id, Stamp>;
 }
 
 export interface EditorState {
@@ -107,7 +124,12 @@ export interface EditorState {
   liveAvailable: boolean;
   /** Asking for your name: to join a live diagram (its id and key), to share this one live, or
    * to change it. */
-  liveAsk: { join: { id: string; key: string } } | { share: true } | { rename: true } | null;
+  liveAsk:
+    | { join: { id: string; key: string } }
+    | { password: { id: string; key: string; wrong: boolean } }
+    | { share: true }
+    | { rename: true }
+    | null;
 }
 
 const MAX_HISTORY = 200;
@@ -152,12 +174,32 @@ const setState = useEditor.setState;
 // one undo step. One-shot edits use apply().
 // ---------------------------------------------------------------------------------------------
 
+/** A live diagram you can only look at (collab/live.ts): edits are refused, with a word why. */
+let viewOnly = false;
+let viewOnlyTimer: ReturnType<typeof setTimeout> | undefined;
+export function setViewOnly(on: boolean) {
+  viewOnly = on;
+  if (on) {
+    cancel();
+    setState({ editing: null });
+  }
+}
+function refused() {
+  if (!viewOnly) return false;
+  clearTimeout(viewOnlyTimer);
+  setState({ notice: "View only: you can look at this diagram, but not change it." });
+  viewOnlyTimer = setTimeout(() => setState({ notice: null }), 4000);
+  return true;
+}
+
 export function begin() {
+  if (refused()) return;
   const s = getState();
   if (!s.pending) setState({ pending: s.diagram });
 }
 
 export function set(diagram: Diagram) {
+  if (refused()) return;
   setState({ diagram });
 }
 
@@ -178,6 +220,7 @@ export function cancel() {
 }
 
 export function apply(fn: (d: Diagram) => Diagram) {
+  if (refused()) return;
   begin();
   set(fn(getState().diagram));
   commit();
@@ -261,6 +304,7 @@ export function onFinishEditing(hook: (() => void) | null) {
 export function startEditing(id: Id, field: "text" | "name" | "label" = "text") {
   // Banner text is changed in its dialog (its text is the lettering).
   if (field === "text" && getState().diagram.nodes[id]?.banner) return openBannerDialog(id);
+  if (refused()) return;
   finishEditing();
   begin();
   setState({ editing: { id, field }, selection: [id] });
@@ -269,6 +313,7 @@ export function startEditing(id: Id, field: "text" | "name" | "label" = "text") 
 /** Edit one cell of a table (row -1: its title). Already editing that table: just moves to the
  * cell, in the same undo step. */
 export function editCell(id: Id, cell: { row: number; col: number }) {
+  if (refused()) return;
   const e = getState().editing;
   if (!(e?.field === "cell" && e.id === id)) {
     finishEditing();

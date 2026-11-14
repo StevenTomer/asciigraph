@@ -960,8 +960,27 @@ In a live diagram:
 - **Offline:** if the connection drops, the panel says **offline**, and you can keep working.
   Your changes are sent when it reconnects.
 - **save a copy** (in the panel) keeps a copy of your own, which isn't live.
-- Anyone with the link can edit, so only send it to people you want editing. The name each
-  person gives is how the others tell them apart; it isn't checked.
+- **history** (in the panel) lists who changed what, newest first: "Dana moved 'API'". Select
+  one box or connector and the properties panel says who changed it last, and when. A box
+  someone else is typing in shows "Dana is editing" (it isn't locked: the last change wins).
+- The name each person gives is how the others tell them apart; it isn't checked.
+
+#### The owner's controls
+
+Whoever shared the diagram is its owner, and has **owner…** in the panel:
+
+- **Links.** The **edit link** lets people edit. The **view link** lets them watch, changes and
+  all, without changing anything (the panel says **view only**). **replace** makes a new link:
+  the old one stops working, and anyone using it is sent out.
+- **Owner link.** Opens these controls on another computer or browser. Keep it to yourself.
+  When you open it, the address bar shows the edit link instead, so copying the address is safe.
+- **Password.** Needed besides either link (not by you). Setting one sends out everyone else
+  until they give it; they're asked for it, and each browser remembers it.
+- **Read-only.** Only you can change the diagram; everyone else can still watch.
+- **Here now.** Who's connected, and whether each can edit or only view.
+- **Delete.** Takes it off the server for everyone. Each person keeps seeing it until they
+  leave, and can **save a copy**. Your own copies, and anything downloaded as `.json`, are
+  untouched.
 
 Live diagrams are kept on the server, not in your browser: open the link again to get back to
 one.

@@ -92,7 +92,9 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   README), a `.txt` file (just the drawing) or `.json`. Open, edit, <kbd>Ctrl</kbd>+<kbd>S</kbd>.
 - **Live diagrams:** share a diagram live and send people its link. Everyone with the link edits
   it at the same time, sees who else is there and what they have selected, and undoes only
-  their own changes. This needs the server that `docker compose` runs.
+  their own changes. Whoever shared it controls it: a view-only link, an optional password,
+  read-only, new links that shut out the old ones, and deleting it. A history shows who changed
+  what. This needs the server that `docker compose` runs.
 - **No account.** Diagrams are kept in your browser, and undo history survives a
   reload. Once loaded it works offline, and it installs as an app with its own window (which can
   open `.md` and `.txt` files from the desktop).
@@ -176,8 +178,8 @@ Docker volume, so they survive rebuilds too. To back them up, copy `/data` out o
 (`docker compose cp collab:/data ./backup`). Without that container (a plain `docker run`, as
 above), everything else works and **share live** just doesn't appear.
 
-On plain `http` (an office network, say), the links travel unencrypted, so anyone on the network
-who can watch traffic could read them. That's fine on a network you trust. Otherwise, put the
+On plain `http` (an office network, say), the links and passwords travel unencrypted, so anyone
+on the network who can watch traffic could read them. That's fine on a network you trust. Otherwise, put the
 server behind `https`. But a diagram saved at
 http://localhost:8080 isn't visible at another address (another host or port). To move one
 across, save it as a file (or export a share link) and open it there.

@@ -2,9 +2,13 @@ import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import type { Diagram, Id } from "../model/types";
 import { readJson, writeJson } from "../storage/local";
-import { type Peer, getState, load, onLiveHistory, replaceDiagram, useEditor } from "../editor/store";
+import { type LiveState, type Peer, getState, load, onLiveHistory, replaceDiagram, setViewOnly, useEditor } from "../editor/store";
 import { notify } from "../editor/file";
 import { applyDiff, diagramName, maps, toDiagram, tracked } from "./bridge";
+import {
+  type OwnerAction, type Role, type ServerMessage, type Stamp,
+  DELETED, PASSWORD, REPLACED, WRONG_PASSWORD,
+} from "./protocol";
 
 /**
  * Live diagrams: shared on the server (server/), edited by several people at once.
@@ -18,7 +22,10 @@ import { applyDiff, diagramName, maps, toDiagram, tracked } from "./bridge";
  * Undo and redo are of your own changes only. Who's there (and what they have selected) goes
  * by Yjs awareness.
  *
- * Links: #/live/<id>/<key>. Your name is asked for once and remembered in this browser.
+ * Links: #/live/<id>/<key>, the key being the edit or view key or the owner's secret
+ * (collab/protocol.ts). Your name is asked for once and remembered in this browser, and so are
+ * a diagram's password and, in the owner's browser, the owner's secret: the owner's tab shows the
+ * edit link in the address bar, not the owner link.
  */
 
 /** Marks our own changes in the document (the undo manager tracks only these). */
@@ -43,6 +50,8 @@ const wsUrl = () => {
 export const liveLink = (id: string, key: string) => `${location.origin}${location.pathname}#/live/${id}/${key}`;
 
 export const myName = () => readJson<string>("live-name", "");
+const ownerSecret = (id: string) => readJson<string>(`live-owner/${id}`, "");
+const password = (id: string) => readJson<string>(`live-pass/${id}`, "");
 
 interface Session {
   id: string;
@@ -54,6 +63,8 @@ interface Session {
   /** Someone else's changes came in during an edit: put them in once it's finished. */
   waiting: boolean;
   unsubscribe: () => void;
+  /** The key in the link opened (it may be the owner's secret). */
+  key: string;
 }
 let session: Session | null = null;
 
@@ -102,14 +113,27 @@ export function setMyName(name: string) {
   if (!live || !session) return;
   const me = { name, color: colorFor(name) };
   useEditor.setState({ live: { ...live, me } });
-  session.provider.setAwarenessField("user", me);
+  session.provider.setAwarenessField("user", { ...me, role: live.role });
+}
+
+/** The password for a live diagram, then try again. */
+export function givePassword(id: string, key: string, pw: string) {
+  writeJson(`live-pass/${id}`, pw);
+  leaveLive();
+  joinLive(id, key);
 }
 
 export function renameLive(name: string) {
-  if (session) session.doc.transact(() => maps(session!.doc).meta.set("name", name), LOCAL);
+  if (session && !getState().live?.readOnly) session.doc.transact(() => maps(session!.doc).meta.set("name", name), LOCAL);
 }
 
-export function leaveLive() {
+/** The owner's controls (the server ignores them from anyone else). */
+export function ownerAction(a: OwnerAction) {
+  session?.provider.sendStateless(JSON.stringify({ type: "owner", ...a }));
+}
+
+/** Stop editing together: the diagram stays shown, with why (a replaced link, deleted). */
+function disconnect() {
   if (!session) return;
   session.unsubscribe();
   session.history.destroy();
@@ -117,29 +141,108 @@ export function leaveLive() {
   session.doc.destroy();
   session = null;
   onLiveHistory(null);
-  useEditor.setState({ live: null });
+}
+
+export function leaveLive() {
+  disconnect();
+  setViewOnly(false);
+  if (getState().live) useEditor.setState({ live: null });
 }
 
 function connect(id: string, key: string, name: string) {
   const doc = new Y.Doc();
   const me = { name, color: colorFor(name) };
-  const setLive = (patch: Partial<NonNullable<ReturnType<typeof getState>["live"]>>) => {
+  const by = doc.getMap<Stamp>("by");
+  const byType = by as unknown as Y.AbstractType<any>;
+  const setLive = (patch: Partial<LiveState>) => {
     const live = getState().live;
-    if (live && session?.id === id) useEditor.setState({ live: { ...live, ...patch } });
+    if (live && session?.id === id) {
+      const next = { ...live, ...patch };
+      useEditor.setState({ live: next });
+      if (next.readOnly !== live.readOnly) setViewOnly(next.readOnly);
+    }
+  };
+  const readOnlyFor = (role: Role | null, diagramReadOnly: boolean) => role === "view" || (role === "edit" && diagramReadOnly);
+
+  /** What the server says: who you are, the settings and links, the history. */
+  const told = (m: ServerMessage) => {
+    const live = getState().live;
+    if (!live) return;
+    if (m.type === "hello" || m.type === "settings") {
+      const role = m.type === "hello" ? m.role : live.role;
+      let keys = live.keys;
+      if (role === "owner" && m.keys) {
+        // Opened from the owner link: remember the secret here, and show the edit link instead.
+        if (!ownerSecret(id) && key !== m.keys.edit && key !== m.keys.view) writeJson(`live-owner/${id}`, key);
+        keys = { ...m.keys, owner: ownerSecret(id) };
+        if (m.keys.edit && location.hash !== `#/live/${id}/${m.keys.edit}`) {
+          window.history.replaceState(null, "", `#/live/${id}/${m.keys.edit}`);
+          if (session) session.key = m.keys.edit;
+        }
+      }
+      setLive({
+        role,
+        settings: m.settings,
+        keys,
+        readOnly: readOnlyFor(role, m.settings.readOnly),
+        ...(role === "owner" && keys?.edit && { link: liveLink(id, keys.edit) }),
+        ...(m.type === "hello" && { history: m.history }),
+      });
+      if (m.type === "hello") provider.setAwarenessField("user", { ...getState().live!.me, role });
+    } else if (m.type === "history") {
+      const rest = live.history.filter((e) => e.id !== m.entry.id);
+      setLive({ history: [...rest, m.entry].slice(-300) });
+    } else if (m.type === "error") notify(m.message);
   };
 
   const provider = new HocuspocusProvider({
     url: wsUrl(),
     name: id,
     document: doc,
-    token: JSON.stringify({ key, name }),
+    // Asked again on every reconnect (your name or the password may have changed).
+    token: () =>
+      JSON.stringify({ key: session?.id === id ? session.key : key, name: myName() || name, owner: ownerSecret(id) || undefined, password: password(id) || undefined }),
     onSynced: () => arrived(),
     onStatus: ({ status }) => {
       if (session?.synced) setLive({ status: status === "connected" ? "live" : "offline" });
     },
-    onAuthenticationFailed: () => {
+    onAuthenticated: ({ scope }) => {
+      if (scope === "readonly") setLive({ readOnly: true });
+    },
+    onAuthenticationFailed: ({ reason }) => {
+      if (reason === PASSWORD || reason === WRONG_PASSWORD) {
+        useEditor.setState({ liveAsk: { password: { id, key, wrong: reason === WRONG_PASSWORD } } });
+        return;
+      }
       setLive({ status: "denied" });
-      notify("This live diagram's link isn't valid (it may have been replaced).");
+      notify("This live diagram's link doesn't work: it may have been replaced, or the diagram deleted.");
+    },
+    onClose: ({ event }) => {
+      if (session?.id !== id) return;
+      if (event.reason === PASSWORD) {
+        // The owner set a password: give it to come back in.
+        leaveLive();
+        joinLive(id, key);
+      } else if (event.reason === REPLACED || event.reason === DELETED) {
+        const deleted = event.reason === DELETED;
+        disconnect();
+        if (deleted) writeJson(`live-owner/${id}`, null);
+        const live = getState().live;
+        if (live) useEditor.setState({ live: { ...live, status: deleted ? "deleted" : "denied", peers: [], readOnly: true } });
+        setViewOnly(true);
+        notify(
+          deleted
+            ? "The owner deleted this live diagram. To keep it, save a copy."
+            : "The owner replaced this diagram's link: ask them for the new one. To keep what's here, save a copy.",
+        );
+      }
+    },
+    onStateless: ({ payload }) => {
+      try {
+        told(JSON.parse(payload) as ServerMessage);
+      } catch {
+        // not for us
+      }
     },
     onAwarenessChange: ({ states }) => {
       const peers: Peer[] = states
@@ -148,12 +251,14 @@ function connect(id: string, key: string, name: string) {
           clientId: s.clientId,
           name: String(s.user.name),
           color: String(s.user.color ?? colorFor(String(s.user.name))),
+          role: s.user.role === "owner" || s.user.role === "edit" || s.user.role === "view" ? s.user.role : null,
           selection: Array.isArray(s.selection) ? (s.selection as Id[]) : [],
+          editing: typeof s.editing === "string" ? s.editing : null,
         }));
       setLive({ peers });
     },
   });
-  provider.setAwarenessField("user", me);
+  provider.setAwarenessField("user", { ...me, role: null });
 
   const history = new Y.UndoManager(tracked(doc), { trackedOrigins: new Set([LOCAL]), captureTimeout: 0 });
   const stacks = () => setLive({ canUndo: history.canUndo(), canRedo: history.canRedo() });
@@ -161,11 +266,14 @@ function connect(id: string, key: string, name: string) {
   history.on("stack-item-popped", stacks);
   history.on("stack-cleared", stacks);
 
-  session = { id, doc, provider, history, synced: null, waiting: false, unsubscribe: () => {} };
+  session = { id, doc, provider, history, synced: null, waiting: false, unsubscribe: () => {}, key };
   // Nothing to edit until it has arrived.
   load({ version: 1, nodes: {}, edges: {}, order: [] }, null, "…");
   useEditor.setState({
-    live: { id, link: liveLink(id, key), status: "connecting", me, peers: [], canUndo: false, canRedo: false },
+    live: {
+      id, link: liveLink(id, key), status: "connecting", me, role: null, readOnly: false,
+      settings: { readOnly: false, password: false }, peers: [], canUndo: false, canRedo: false, history: [], by: {},
+    },
   });
 
   /** Send what changed since the diagram was last in step. */
@@ -200,9 +308,12 @@ function connect(id: string, key: string, name: string) {
     const d = toDiagram(doc);
     s.synced = d;
     load(d, null, diagramName(doc));
-    setLive({ status: "live" });
+    setLive({ status: "live", by: by.toJSON() });
     doc.on("afterTransaction", (tr) => {
-      if (tr.origin !== LOCAL) receive();
+      if (tr.changed.has(byType)) setLive({ by: by.toJSON() });
+      // Only who changed what (the server's stamps): nothing to put in.
+      if (tr.origin === LOCAL || [...tr.changed.keys()].every((t) => t === byType)) return;
+      receive();
     });
     onLiveHistory({
       undo: () => history.undo(),
@@ -214,6 +325,7 @@ function connect(id: string, key: string, name: string) {
         else send();
       }
       if (st.selection !== prev.selection) provider.setAwarenessField("selection", st.selection);
+      if (st.editing?.id !== prev.editing?.id) provider.setAwarenessField("editing", st.editing?.id ?? null);
     });
   }
 }
