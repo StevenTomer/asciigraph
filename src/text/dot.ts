@@ -85,7 +85,7 @@ const SHAPES: Record<string, [NodeKind, Partial<GraphNode>?]> = {
   box: ["box"], rect: ["box"], rectangle: ["box"], square: ["box"], component: ["box"], folder: ["box"], tab: ["box"], box3d: ["box"],
   ellipse: ["ellipse"], oval: ["ellipse"], circle: ["ellipse"], point: ["box", { rounded: true }],
   egg: ["ellipse"], doublecircle: ["ellipse"], Mcircle: ["ellipse"],
-  diamond: ["decision"], Mdiamond: ["decision"], hexagon: ["decision"],
+  diamond: ["decision"], Mdiamond: ["decision"], hexagon: ["hexagon"],
   cylinder: ["database"], note: ["note"], parallelogram: ["io"], trapezium: ["io"],
   record: ["class"], Mrecord: ["class"],
   plaintext: ["box", { plain: true }], plain: ["box", { plain: true }], none: ["box", { plain: true }], underline: ["box", { plain: true }],

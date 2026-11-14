@@ -68,11 +68,13 @@ export type Id = string;
 export type BorderStyle = "single" | "double" | "rounded" | "heavy" | "dashed" | "dotted" | "ascii" | "none";
 export type LineStyle = "single" | "double" | "heavy" | "dashed" | "dotted" | "ascii";
 export type HAlign = "left" | "center" | "right";
-/** Node shapes: plain box; flowchart decision, input/output, start/end, circle (ellipse), database, document,
+/** Node shapes: plain box; flowchart decision, input/output, start/end, circle (ellipse), hexagon,
+ * database, queue, document, stacked documents (docs), stacked boxes (stack), an actor (stick figure);
  * subroutine; notes; a class (or ER entity) in compartments; a table (its text a Markdown table);
  * sequence-diagram lifelines and activation bars. */
 export type NodeKind =
-  | "box" | "decision" | "io" | "terminal" | "ellipse" | "database" | "document" | "subroutine" | "note"
+  | "box" | "decision" | "io" | "terminal" | "ellipse" | "hexagon" | "database" | "queue" | "document" | "docs"
+  | "subroutine" | "stack" | "note" | "actor"
   | "class" | "table" | "timeline" | "frame" | "lifeline" | "activation";
 export type VAlign = "top" | "middle" | "bottom";
 

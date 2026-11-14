@@ -290,6 +290,16 @@ function nodeSize(kind: Node["kind"], text: string, plain?: boolean): { w: numbe
     case "note": return { w: tw + 5, h: lines + 2 };
     case "subroutine": return { w: tw + 8, h: lines + 2 };
     case "ellipse": return ellipseFit(tw, lines);
+    case "hexagon": {
+      const h = Math.max(4, lines + 2 + ((lines + 2) % 2));
+      return { w: tw + h + 2, h };
+    }
+    case "queue": return { w: tw + 6, h: lines + 2 };
+    // (A row more than the text needs, so connectors leave the front one's right side below
+    // where the one behind joins it.)
+    case "stack": return { w: tw + 5, h: lines + 4 };
+    case "docs": return { w: tw + 5, h: lines + 5 };
+    case "actor": return { w: Math.max(3, tw), h: 3 + (text.trim() ? lines : 0) };
     default: return { w: tw + 4, h: lines + 2 };
   }
 }

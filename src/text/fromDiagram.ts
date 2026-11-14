@@ -59,6 +59,12 @@ function shapeText(n: Node, id: string, indent: string): string {
     case "io": return `${id}[/${q}/]`;
     case "terminal": return `${id}([${q}])`;
     case "ellipse": return `${id}((${q}))`;
+    case "hexagon": return `${id}{{${q}}}`;
+    case "queue": return `${id}@{ shape: h-cyl, label: ${attr(n.text)} }`;
+    case "stack": return `${id}@{ shape: procs, label: ${attr(n.text)} }`;
+    case "docs": return `${id}@{ shape: docs, label: ${attr(n.text)} }`;
+    // Not a Mermaid flowchart shape either: asciigraph's own.
+    case "actor": return `${id}@{ shape: actor, label: ${attr(n.text)} }`;
     case "database": return `${id}[(${q})]`;
     case "subroutine": return `${id}[[${q}]]`;
     case "document": return `${id}@{ shape: doc, label: ${attr(n.text)} }`;

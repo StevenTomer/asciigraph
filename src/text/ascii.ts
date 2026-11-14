@@ -6,6 +6,7 @@ import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
 import { table, tableNode, tableText } from "../shapes/table";
 import { ellipseOutline, ellipseSide } from "../shapes/ellipse";
+import { stackBehind } from "../shapes/extra";
 import { repairTables } from "./repairTables";
 
 /**
@@ -243,7 +244,10 @@ export function importAscii(input: string, probe = false): ImportResult {
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       if (ch(x, y) === "<") traceDecision(x, y);
-      if (UP_SLASH.has(ch(x, y)) && has(x + 1, y, "left") && has(x + 1, y, "right")) traceIo(x, y);
+      if (UP_SLASH.has(ch(x, y)) && has(x + 1, y, "left") && has(x + 1, y, "right")) {
+        traceIo(x, y);
+        traceHexagon(x, y);
+      }
     }
   }
   function slanted(kind: NodeKind, x0: number, y0: number, x1: number, y1: number, cells: [number, number, Side | null][]) {
@@ -265,6 +269,26 @@ export function importAscii(input: string, probe = false): ImportResult {
     for (let i = 1; i <= m; i++) cells.push([lx + i, ym - i, null], [lx + i, ym + i, null], [rx - i, ym - i, null], [rx - i, ym + i, null]);
     for (let x = lx + m + 1; x < e; x++) cells.push([x, ym - m, "top"], [x, ym + m, "bottom"]);
     slanted("decision", lx, ym - m, rx, ym + m, cells);
+  }
+  function traceHexagon(a: number, y0: number) {
+    // ╱────╲ on top; ╱ … ╲ each row further out, then ╲ … ╱ back in, to a flat bottom.
+    const e = flatRun(a + 1, y0);
+    if (e === a + 1 || !DOWN_SLASH.has(ch(e, y0))) return;
+    let k = 1;
+    while (k < 20 && UP_SLASH.has(ch(a - k, y0 + k)) && DOWN_SLASH.has(ch(e + k, y0 + k))) k++;
+    if (k < 2) return;
+    const x0 = a - (k - 1), x1 = e + (k - 1), y1 = y0 + 2 * k - 1;
+    for (let j = 0; j < k; j++) {
+      if (!DOWN_SLASH.has(ch(x0 + j, y0 + k + j)) || !UP_SLASH.has(ch(x1 - j, y0 + k + j))) return;
+    }
+    if (flatRun(a + 1, y1) !== e) return;
+    const cells: [number, number, Side | null][] = [];
+    for (let i = 0; i < 2 * k; i++) {
+      const d = i < k ? k - 1 - i : i - k, middle = i === k - 1 || i === k;
+      cells.push([x0 + d, y0 + i, middle ? "left" : null], [x1 - d, y0 + i, middle ? "right" : null]);
+    }
+    for (let x = a + 1; x < e; x++) cells.push([x, y0, "top"], [x, y1, "bottom"]);
+    slanted("hexagon", x0, y0, x1, y1, cells);
   }
   function traceIo(a: number, y0: number) {
     // ╱────╱ on top, each row below one column further left, to a flat bottom.
@@ -423,6 +447,65 @@ export function importAscii(input: string, probe = false): ImportResult {
     if (nameStart >= 0) for (let xx = nameStart; xx <= nameEnd; xx++) nameCells.add(k(xx, y0));
     return b;
   }
+  // Stacks: a box or document with the edge of another behind it, up and to the right
+  // (┌┴───┐│ over ├┘, as shapes/extra.ts draws it).
+  for (const b of boxes) {
+    if ((b.kind !== "box" && b.kind !== "document") || (b.kind === "box" && b.cells)) continue;
+    const behind = stackBehind({ x: b.x0, y: b.y0 - 1, w: b.x1 - b.x0 + 2, h: b.y1 - b.y0 + 2 });
+    const joined = behind.every((p, i) => {
+      if (i === 0) return true;
+      const s = stepSide(behind[i - 1], p);
+      return has(behind[i - 1].x, behind[i - 1].y, s) && has(p.x, p.y, OPPOSITE[s]);
+    });
+    if (!joined || b.y1 - b.y0 < 2) continue;
+    const fx1 = b.x1, fy0 = b.y0;
+    const sides = new Map<number, Side | null>();
+    if (b.cells) {
+      for (const [key, side] of b.cells) sides.set(key, side);
+    } else {
+      for (let x = b.x0; x <= b.x1; x++) sides.set(k(x, b.y0), null).set(k(x, b.y1), x > b.x0 && x < b.x1 ? "bottom" : null);
+      for (let y = b.y0 + 1; y < b.y1; y++) sides.set(k(b.x0, y), "left").set(k(b.x1, y), "right");
+    }
+    // The front's top is behind the one at the back now, and so is its right side above the join.
+    for (let x = b.x0; x <= fx1; x++) sides.set(k(x, fy0), null);
+    sides.set(k(fx1, fy0 + 1), null);
+    for (const p of behind) sides.set(k(p.x, p.y), p.y === fy0 - 1 && p.x > b.x0 + 1 && p.x < fx1 + 1 ? "top" : p.x === fx1 + 1 && p.y === fy0 ? "right" : sides.get(k(p.x, p.y)) ?? null);
+    b.kind = b.kind === "document" ? "docs" : "stack";
+    b.cells = sides;
+    b.y0 = fy0 - 1;
+    b.x1 = fx1 + 1;
+  }
+  // Actors: a stick figure (○ ╱│╲ ╱ ╲, or o /|\ / \), its name under it.
+  for (let y = 0; y + 2 < H; y++) {
+    for (let x = 1; x < W; x++) {
+      if (!["○", "o", "O"].includes(ch(x, y)) || ch(x - 1, y) !== " " || ch(x + 1, y) !== " ") continue;
+      if (!UP_SLASH.has(ch(x - 1, y + 1)) || !["│", "|"].includes(ch(x, y + 1)) || !DOWN_SLASH.has(ch(x + 1, y + 1))) continue;
+      if (!UP_SLASH.has(ch(x - 1, y + 2)) || ch(x, y + 2) !== " " || !DOWN_SLASH.has(ch(x + 1, y + 2))) continue;
+      // The name: words (single spaces between) across the figure's column, row by row.
+      const lines: { x: number; text: string }[] = [];
+      for (let r = y + 3; r < H; r++) {
+        let s0 = ch(x, r) !== " " ? x : ch(x - 1, r) !== " " ? x - 1 : -1;
+        if (s0 < 0) break;
+        let s1 = s0;
+        while (s0 > 0 && (ch(s0 - 1, r) !== " " || (ch(s0 - 2, r) !== " " && s0 - 2 >= 0))) s0--;
+        while (s1 + 1 < W && (ch(s1 + 1, r) !== " " || ch(s1 + 2, r) !== " ")) s1++;
+        while (ch(s1, r) === " ") s1--;
+        while (ch(s0, r) === " ") s0++;
+        if (Array.from({ length: s1 - s0 + 1 }, (_, i) => s0 + i).some((xx) => mask.has(k(xx, r)) && ch(xx, r) !== "-")) break;
+        lines.push({ x: s0, text: rows[r].slice(s0, s1 + 1).join("") });
+      }
+      const w = Math.max(3, ...lines.map((l) => chars(l.text).length));
+      const x0 = x - Math.floor((w - 1) / 2), x1 = x0 + w - 1, y1 = y + 2 + lines.length;
+      const cells = new Map<number, Side | null>([
+        [k(x, y), "top"], [k(x - 1, y + 1), "left"], [k(x, y + 1), null], [k(x + 1, y + 1), "right"],
+        [k(x - 1, y + 2), lines.length ? null : "bottom"], [k(x + 1, y + 2), lines.length ? null : "bottom"],
+      ]);
+      if (!lines.length) cells.set(k(x, y + 2), "bottom");
+      for (let r = y + 3; r <= y1; r++) for (let xx = x0; xx <= x1; xx++) cells.set(k(xx, r), r === y1 ? "bottom" : null);
+      for (const key of cells.keys()) mask.delete(key);
+      boxes.push({ x0, y0: y, x1, y1, border: "single", kind: "actor", dividers: [], id: "", cells, name: lines.map((l) => l.text).join("\n") });
+    }
+  }
   if (probe) return { diagram: emptyDiagram(), warnings, boxes: boxes.length };
   // Outline cells, and what's inside each box (its structure: rims, bars, dividers).
   const structure = new Set<number>();
@@ -459,6 +542,12 @@ export function importAscii(input: string, probe = false): ImportResult {
       b.kind = "database";
       markRow(b.y0 + 1);
       rows.shift();
+    } else if (b.x1 - b.x0 >= 7 && fullColumn(b.x1 - 2) && !rows.length
+      && !Array.from({ length: b.x1 - b.x0 - 3 }, (_, i) => b.x0 + 1 + i).some(fullColumn)
+      && Array.from({ length: b.y1 - b.y0 - 1 }, (_, i) => b.y0 + 1 + i).every((y) => ch(b.x1 - 1, y) === " ")) {
+      // A queue: a cylinder on its side, its rim (the near end) two columns in from the right.
+      b.kind = "queue";
+      markColumn(b.x1 - 2);
     } else if (b.x1 - b.x0 >= 6 && fullColumn(b.x0 + 2) && fullColumn(b.x1 - 2) && !rows.length
       && !Array.from({ length: b.x1 - b.x0 - 5 }, (_, i) => b.x0 + 3 + i).some(fullColumn)) {
       b.kind = "subroutine";
@@ -893,13 +982,22 @@ export function importAscii(input: string, probe = false): ImportResult {
       d = addNode(d, node);
       continue;
     }
+    if (b.kind === "actor") {
+      const node = makeNode({ x: b.x0, y: b.y0, w: b.x1 - b.x0 + 1, h: b.y1 - b.y0 + 1 }, { kind: "actor", text: b.name ?? "", align: { h: "center", v: "top" } });
+      b.id = node.id;
+      d = addNode(d, node);
+      continue;
+    }
     const parts: { y0: number; y1: number }[] = [];
-    let top = b.y0 + 1;
+    // (A stack's text is in the front one, below the edge of the one behind.)
+    const stacked = b.kind === "stack" || b.kind === "docs";
+    let top = stacked ? b.y0 + 2 : b.y0 + 1;
     for (const dy of [...b.dividers, b.y1]) {
       parts.push({ y0: top, y1: dy - 1 });
       top = dy + 1;
     }
-    const left = b.x0 + 1, right = b.x1 - 1;
+    // (A queue's text is left of its rim; a stack's, inside the front one.)
+    const left = b.x0 + 1, right = b.kind === "queue" ? b.x1 - 3 : stacked ? b.x1 - 2 : b.x1 - 1;
     const read = (p: { y0: number; y1: number }) => readText(rows, left, right, p.y0, p.y1, free);
     const texts = parts.map(read);
     const first = texts[0];
