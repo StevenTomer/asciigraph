@@ -50,7 +50,8 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   restyle. Connectors route around other boxes and follow the boxes to which they're attached.
 - **Shapes:** Boxes with eight border styles, named boxes, flowchart shapes (decision,
   input/output, trapezoid, start/end, delay, circle, hexagon, database, queue, document, stacked
-  documents and boxes, subroutine), folders, actors, notes, frames, class boxes in
+  documents and boxes, subroutine, and the rest of Mermaid's flowchart shapes), folders, UML
+  components, clouds, actors, state diagram dots, notes, frames, class boxes in
   compartments, tables (made with the table tool and typed into cell by cell, rows and columns
   added, moved and deleted, or written as Markdown tables; with a title, set or automatic column
   widths, wrapping, cells over several lines, and lists and checklists in cells), timelines (across

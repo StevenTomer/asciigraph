@@ -8,6 +8,10 @@ import { timeline } from "./timeline";
 import { decision, io, terminal } from "./flowchart";
 import { ellipse } from "./ellipse";
 import { actor, delay, docs, folder, hexagon, queue, stack, trapezoid } from "./extra";
+import {
+  card, cloud, collate, component, disk, display, divided, dot, extract, flag, lined, lineddoc, loop, manual, merge, ring,
+  storage, stored, summary, tape,
+} from "./symbols";
 import { activation, lifeline } from "./lifeline";
 import { database, document, note, subroutine } from "./more";
 
@@ -53,10 +57,20 @@ export interface ShapeDef {
 
 /** In picker order. */
 const SHAPES: Record<NodeKind, ShapeDef> = {
-  box, stack, folder, decision, io, trapezoid, terminal, delay, ellipse, hexagon, database, queue, document, docs, subroutine, note, actor, class: classBox, table, timeline, frame, lifeline, activation,
+  box, stack, folder, component, divided, lined, storage, card, decision, io, trapezoid, manual, terminal, delay, display, loop, flag, ellipse, hexagon,
+  database, disk, queue, stored, document, docs, lineddoc, tape, subroutine, note, cloud, actor, dot, ring, summary, extract, merge, collate, class: classBox, table, timeline, frame, lifeline, activation,
 };
 
 export const SHAPE_KINDS = Object.keys(SHAPES) as NodeKind[];
+
+/** The shapes shown first in the pickers; the rest are behind "more". */
+export const COMMON_KINDS: NodeKind[] = [
+  "box", "stack", "folder", "decision", "io", "terminal", "ellipse", "hexagon", "database", "document", "note", "actor", "cloud",
+  "class", "table", "timeline", "frame", "lifeline", "activation",
+];
+/** The shapes a picker shows: the common ones, or all of them, in order (always the current one). */
+export const pickerKinds = (all: boolean, current?: NodeKind) =>
+  SHAPE_KINDS.filter((k) => all || COMMON_KINDS.includes(k) || k === current);
 
 export const shapeOf = (node: Node): ShapeDef => SHAPES[node.kind] ?? box;
 export const shapeFor = (kind: NodeKind): ShapeDef => SHAPES[kind];

@@ -51,6 +51,13 @@ export function describe(d: Diagram, ids: Id[]): Described | null {
 /** A label inside @{ … }: quoted, with Mermaid's <br> and #quot;. */
 const attr = (text: string) => `"${text.replace(/"/g, "#quot;").replace(/\n/g, "<br>")}"`;
 
+const MERMAID_NAMES: Partial<Record<Node["kind"], string>> = {
+  component: "component", cloud: "cloud", dot: "f-circ", ring: "fr-circ", card: "notch-rect", loop: "notch-pent",
+  display: "curv-trap", stored: "bow-rect", divided: "div-rect", lined: "lin-rect", storage: "win-pane", tape: "flag",
+  manual: "sl-rect", disk: "lin-cyl", lineddoc: "lin-doc", summary: "cross-circ", extract: "tri", merge: "flip-tri",
+  collate: "hourglass",
+};
+
 function shapeText(n: Node, id: string, indent: string): string {
   const q = quote(n.text || id, indent + "  ");
   if (n.kind === "box" && n.border === "none") return `${id}@{ shape: text, label: ${attr(n.text)} }`;
@@ -63,6 +70,13 @@ function shapeText(n: Node, id: string, indent: string): string {
     case "trapezoid": return n.flip ? `${id}[/${q}\\]` : `${id}[\\${q}/]`;
     case "delay": return `${id}@{ shape: delay, label: ${attr(n.text)} }`;
     case "folder": return `${id}@{ shape: folder, label: ${attr(n.text)} }`;
+    case "flag": return `${id}>${q}]`;
+    default: {
+      // Mermaid's other shapes, by name (component is asciigraph's own).
+      const name = MERMAID_NAMES[n.kind];
+      if (name) return `${id}@{ shape: ${name}, label: ${attr(n.text)} }`;
+      return n.border === "rounded" ? `${id}(${q})` : `${id}[${q}]`;
+    }
     case "queue": return `${id}@{ shape: h-cyl, label: ${attr(n.text)} }`;
     case "stack": return `${id}@{ shape: procs, label: ${attr(n.text)} }`;
     case "docs": return `${id}@{ shape: docs, label: ${attr(n.text)} }`;
@@ -74,7 +88,6 @@ function shapeText(n: Node, id: string, indent: string): string {
     case "note": return `${id}@{ shape: comment, label: ${attr(n.text)} }`;
     // Not a Mermaid flowchart shape: asciigraph's own, so a class box stays one.
     case "class": return `${id}@{ shape: class, label: ${attr(n.text)} }`;
-    default: return n.border === "rounded" ? `${id}(${q})` : `${id}[${q}]`;
   }
 }
 

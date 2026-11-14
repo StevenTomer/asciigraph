@@ -1,13 +1,14 @@
 import { type Point, type Side, OPPOSITE, stepSide } from "../geometry/geom";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
 import type { BorderStyle, Diagram, Endpoint, HAlign, Head, Id, LineStyle, NodeKind, VAlign } from "../model/types";
-import { DIR_BITS, DOWN, LEFT, RIGHT, UP, lineGlyph } from "../render/charsets";
+import { DIR_BITS, DOWN, LEFT, RIGHT, UP, asciiChar, lineGlyph } from "../render/charsets";
 import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
 import { table, tableNode, tableText } from "../shapes/table";
 import { ellipseOutline, ellipseSide } from "../shapes/ellipse";
 import { folderOutline, folderTab, stackBehind, stackJoin } from "../shapes/extra";
 import { repairTables } from "./repairTables";
+import { shapeFor } from "../shapes/registry";
 
 /**
  * Reading a drawing back into objects: paste box-drawing (or +--+ ASCII) text and get boxes,
@@ -112,6 +113,9 @@ interface Box {
   id: Id;
   /** A trapezoid wider at the bottom. */
   flip?: boolean;
+  /** Found by drawing its shape there (the rest of the shapes): its text is read from where
+   * the shape puts text. */
+  generic?: boolean;
   /** Slanted shapes (decision, input/output): their outline cells and the side each is on. */
   cells?: Map<number, Side | null>;
   /** A table's column lines (x), and the line under its title row (y), if it has one. */
@@ -216,6 +220,8 @@ export function importAscii(input: string, probe = false): ImportResult {
       if (ch(x - 1, y) === "+") m |= LEFT;
       if (ch(x + 1, y) === "+") m |= RIGHT;
       if (ch(x, y - 1) === "+" || ch(x, y - 1) === "(" || ch(x, y - 1) === ")") m |= UP;
+      // (A card's corner, right under its cut: /, then +--.)
+      if ((ch(x, y - 1) === "/" || ch(x, y - 1) === "\\") && m & (LEFT | RIGHT)) m |= UP;
       if (ch(x, y + 1) === "+" || ch(x, y + 1) === "(" || ch(x, y + 1) === ")") m |= DOWN;
       if (m && popcount(m) >= 2) mask.set(k(x, y), m);
     }
@@ -345,14 +351,15 @@ export function importAscii(input: string, probe = false): ImportResult {
    * junction, where a connector leaves, it turns right rather than going out along it).
    */
   /** An outline walked clockwise from a top-left corner (null if it doesn't come back). */
-  function walk(x0: number, y0: number): Point[] | null {
+  function walk(x0: number, y0: number, straightFirst = false): Point[] | null {
     const RIGHT_OF: Record<Side, Side> = { right: "bottom", bottom: "left", left: "top", top: "right" };
     const LEFT_OF: Record<Side, Side> = { right: "top", top: "left", left: "bottom", bottom: "right" };
     // First step: right, along the top (clockwise).
     const cells: Point[] = [{ x: x0, y: y0 }, { x: x0 + 1, y: y0 }];
     let p = { x: x0 + 1, y: y0 }, dir: Side = "right";
     for (let steps = 0; steps < 4 * (W + H); steps++) {
-      const options: Side[] = [RIGHT_OF[dir], dir, LEFT_OF[dir]].filter((s) => {
+      // (Straight on first past lines that branch inward: a lined document's.)
+      const options: Side[] = (straightFirst ? [dir, RIGHT_OF[dir], LEFT_OF[dir]] : [RIGHT_OF[dir], dir, LEFT_OF[dir]]).filter((s) => {
         const n = { x: p.x + STEP[s].x, y: p.y + STEP[s].y };
         return has(p.x, p.y, s) && has(n.x, n.y, OPPOSITE[s]);
       });
@@ -569,6 +576,194 @@ export function importAscii(input: string, probe = false): ImportResult {
       for (let r = y + 3; r <= y1; r++) for (let xx = x0; xx <= x1; xx++) cells.set(k(xx, r), r === y1 ? "bottom" : null);
       for (const key of cells.keys()) mask.delete(key);
       boxes.push({ x0, y0: y, x1, y1, border: "single", kind: "actor", dividers: [], id: "", cells, name: lines.map((l) => l.text).join("\n") });
+    }
+  }
+  // The rest of the shapes (shapes/symbols.ts): wherever one is drawn exactly as the renderer
+  // draws it. Candidate places come from the boxes found so far, outlines walked straight round,
+  // and a few telltale characters; each candidate is checked by drawing the shape there.
+  {
+    const candidates: { rect: { x: number; y: number; w: number; h: number }; kinds: NodeKind[] }[] = [];
+    const add = (x0: number, y0: number, x1: number, y1: number, kinds: NodeKind[]) => {
+      if (x1 >= x0 && y1 >= y0) candidates.push({ rect: { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }, kinds });
+    };
+    /** Down a side from (x, y) to its bottom corner. */
+    const down = (x: number, y: number) => {
+      while (y < H && has(x, y, "bottom")) y++;
+      return y;
+    };
+    for (const b of boxes) {
+      if (b.cells) continue;
+      add(b.x0, b.y0, b.x1, b.y1, ["disk", "storage", "divided", "lined", "summary"]);
+      add(b.x0 - 2, b.y0, b.x1, b.y1, ["component"]);
+    }
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const c = ch(x, y);
+        if (has(x, y, "right") && has(x, y, "bottom") && !has(x, y, "top") && !has(x, y, "left")) {
+          const cells = walk(x, y, true);
+          if (cells) {
+            const xs = cells.map((p) => p.x), ys = cells.map((p) => p.y);
+            add(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), ["cloud", "tape", "manual", "lineddoc"]);
+          }
+          // Stored data: ( down both sides.
+          if (ch(x, y + 1) === "(") {
+            let yy = y + 1;
+            while (ch(x, yy) === "(") yy++;
+            add(x, y, flatRun(x + 1, y), yy, ["stored"]);
+          }
+        }
+        const flatAfter = has(x + 1, y, "left") && has(x + 1, y, "right");
+        if (UP_SLASH.has(c) && flatAfter) {
+          // A card or loop limit: a cut corner, then the top.
+          const e = flatRun(x + 1, y), x1 = DOWN_SLASH.has(ch(e, y)) ? e + 1 : e;
+          add(x - 1, y, x1, down(x1, y + 1), ["card", "loop"]);
+        }
+        if (DOWN_SLASH.has(c) && flatAfter) {
+          const e = flatRun(x + 1, y);
+          add(x, y, e, down(e, y + 1), ["flag"]);
+          // Merge and collate: narrowing rows below.
+          let i = 1;
+          while (DOWN_SLASH.has(ch(x + i, y + i)) && UP_SLASH.has(ch(e - i, y + i)) && e - i > x + i) i++;
+          add(x, y, e, y + i - 1, ["merge"]);
+          add(x, y, e, y + (e - x), ["collate"]);
+        }
+        if (UP_SLASH.has(c) && DOWN_SLASH.has(ch(x + 1, y))) {
+          let h = 1;
+          while (UP_SLASH.has(ch(x - h, y + h)) && DOWN_SLASH.has(ch(x + 1 + h, y + h))) h++;
+          add(x - (h - 1), y, x + h, y + h - 1, ["extract"]);
+        }
+        if (c === "<") {
+          let m = 1;
+          while (UP_SLASH.has(ch(x + m, y - m))) m++;
+          m--;
+          add(x, y - m, flatRun(x + m + 1, y - m), y + m, ["display"]);
+        }
+        // Dots: ● or ◉ (o or @ in ASCII) with nothing round them but connectors running into
+        // them. (One at the end of a connector, right by a box, is the connector's head.)
+        if (c === "●" || c === "◉" || c === "o" || c === "@") {
+          let lines = 0, clear = true;
+          for (const s of SIDES) {
+            const n = { x: x + STEP[s].x, y: y + STEP[s].y }, nc = ch(n.x, n.y);
+            if (nc === " ") continue;
+            if (has(n.x, n.y, OPPOSITE[s]) || HEADS.get(nc)?.points === OPPOSITE[s]) lines++;
+            else clear = false;
+          }
+          const ascii = c === "o" || c === "@";
+          if (clear && (lines || !ascii)) add(x, y, x, y, [c === "●" || c === "o" ? "dot" : "ring"]);
+        }
+      }
+    }
+    const drawnBy = (kind: NodeKind, rect: { x: number; y: number; w: number; h: number }, border: BorderStyle) => {
+      const node = makeNode(rect, { kind, border });
+      const placed = addNode(emptyDiagram(), node);
+      const n = placed.nodes[node.id];
+      if (n.rect.w !== rect.w || n.rect.h !== rect.h) return null;
+      return { node: n, grid: rasterize(placed).grid };
+    };
+    const ROUND = new Set(["╭", "╮", "╰", "╯"]);
+    const SQUARE = new Set(["┌", "┐", "└", "┘"]);
+    /** Whether the drawing has `kind` at `rect` (with this border): every cell the renderer draws
+     * for it, and no line of its own running inside it (that's some other shape). */
+    const fits = (kind: NodeKind, rect: { x: number; y: number; w: number; h: number }, border: BorderStyle) => {
+      const d = drawnBy(kind, rect, border);
+      if (!d) return null;
+      const drawn = new Set<number>();
+      for (const key of d.grid.cells.keys()) {
+        const [x, y] = key.split(",").map(Number);
+        if (d.grid.glyph({ x, y }) && d.grid.glyph({ x, y }) !== " ") drawn.add(k(x, y));
+      }
+      // Inside it: what can't be reached from outside without crossing what it draws.
+      const outside = new Set<number>();
+      {
+        const x0 = rect.x - 1, y0 = rect.y - 1, x1 = rect.x + rect.w, y1 = rect.y + rect.h;
+        const stack: Point[] = [{ x: x0, y: y0 }];
+        outside.add(k(x0, y0));
+        while (stack.length) {
+          const p = stack.pop()!;
+          for (const s of SIDES) {
+            const n = { x: p.x + STEP[s].x, y: p.y + STEP[s].y };
+            if (n.x < x0 || n.x > x1 || n.y < y0 || n.y > y1 || outside.has(k(n.x, n.y)) || drawn.has(k(n.x, n.y))) continue;
+            outside.add(k(n.x, n.y));
+            stack.push(n);
+          }
+        }
+      }
+      for (const [key, cell] of d.grid.cells) {
+        const [x, y] = key.split(",").map(Number);
+        const g = d.grid.glyph({ x, y });
+        if (!g || g === " ") continue;
+        const c = ch(x, y);
+        if (cell.ch === undefined && cell.mask) {
+          const m = mask.get(k(x, y)) ?? 0;
+          // Only where it joins more of the line: a stub reaching toward a slash (a loop limit's
+          // sides) can't show in ASCII, where it's a +.
+          let need = cell.mask;
+          for (const s of SIDES) {
+            const n = d.grid.get({ x: x + STEP[s].x, y: y + STEP[s].y });
+            if (!n || n.ch !== undefined || !n.mask) need &= ~BIT[s];
+          }
+          if ((m & need) !== need) return null;
+          if ((ROUND.has(g) && SQUARE.has(c)) || (SQUARE.has(g) && ROUND.has(c))) return null;
+          // A line going on inside it.
+          for (const s of SIDES) {
+            if (!(m & BIT[s]) || cell.mask & BIT[s]) continue;
+            const n = { x: x + STEP[s].x, y: y + STEP[s].y };
+            if (!drawn.has(k(n.x, n.y)) && !outside.has(k(n.x, n.y))) return null;
+          }
+        } else if (c !== g && c !== asciiChar(g)) return null;
+      }
+      return { ...d, drawn };
+    };
+    const tried = new Set<string>();
+    for (const { rect, kinds } of candidates) {
+      // (Not where another shape is already: a circle can look like a small cloud.)
+      const x1 = rect.x + rect.w - 1, y1 = rect.y + rect.h - 1;
+      if (boxes.some((b) => (b.generic || b.cells) && b.x0 === rect.x && b.y0 === rect.y && b.x1 === x1 && b.y1 === y1)) continue;
+      for (const kind of kinds) {
+        const key = `${kind} ${rect.x} ${rect.y} ${rect.w} ${rect.h}`;
+        if (tried.has(key)) continue;
+        tried.add(key);
+        // The border: the style of most of its lines (single or rounded: whichever fits).
+        const styles = [] as LineStyle[];
+        for (let y = rect.y; y < rect.y + rect.h; y++) for (let x = rect.x; x < rect.x + rect.w; x++) {
+          const st = style.get(k(x, y));
+          if (st && (mask.get(k(x, y)) === (LEFT | RIGHT) || mask.get(k(x, y)) === (UP | DOWN))) styles.push(st);
+        }
+        const st = majority(styles) ?? "single";
+        // (In ASCII a divided box is a database: that wins.)
+        if (kind === "divided" && st === "ascii") continue;
+        const borders: BorderStyle[] = st === "single" ? ["single", "rounded"] : [st === "dashed" || st === "dotted" ? st : st];
+        let found: ReturnType<typeof fits> = null, border: BorderStyle = "single";
+        for (const b of borders) {
+          found = fits(kind, rect, b);
+          if (found) {
+            border = b;
+            break;
+          }
+        }
+        if (!found) continue;
+        // It takes the place of what was found there before as part of it (the box at a
+        // component's middle, say).
+        for (let i = boxes.length - 1; i >= 0; i--) {
+          const b = boxes[i];
+          const inside = b.x0 >= rect.x && b.x1 < rect.x + rect.w && b.y0 >= rect.y && b.y1 < rect.y + rect.h;
+          const part = b.cells ? [...b.cells.keys()].some((c) => found!.drawn.has(c)) : found.drawn.has(k(b.x0, b.y0)) || found.drawn.has(k(b.x1, b.y1));
+          if (inside && part) boxes.splice(i, 1);
+        }
+        const shape = shapeFor(kind), cells = new Map<number, Side | null>();
+        for (const c of found.drawn) cells.set(c, null);
+        for (const side of SIDES) {
+          const [lo, hi] = shape.sideRange(found.node, side);
+          for (let along = lo; along <= hi; along++) {
+            const r = found.node.rect;
+            const a = shape.anchor?.(found.node, side, along) ??
+              (side === "top" ? { x: along, y: r.y } : side === "bottom" ? { x: along, y: r.y + r.h - 1 } : side === "left" ? { x: r.x, y: along } : { x: r.x + r.w - 1, y: along });
+            cells.set(k(a.x, a.y), side);
+          }
+        }
+        boxes.push({ x0: rect.x, y0: rect.y, x1: rect.x + rect.w - 1, y1: rect.y + rect.h - 1, border, kind, dividers: [], id: "", cells, generic: true });
+        break;
+      }
     }
   }
   if (probe) return { diagram: emptyDiagram(), warnings, boxes: boxes.length };
@@ -847,7 +1042,8 @@ export function importAscii(input: string, probe = false): ImportResult {
         if (owners) {
           // The box whose border this is, from the outside.
           // (A lifeline's line takes messages from either side.)
-          const b = owners.find((o) => sideOf(o, n.x, n.y) === OPPOSITE[s] || (o.life?.has(k(n.x, n.y)) && (s === "left" || s === "right")));
+          // (A dot takes connectors on every side.)
+          const b = owners.find((o) => sideOf(o, n.x, n.y) === OPPOSITE[s] || (o.life?.has(k(n.x, n.y)) && (s === "left" || s === "right")) || o.kind === "dot" || o.kind === "ring");
           if (b) return { cell: p, box: b, side: OPPOSITE[s], border: n, head: h?.head };
         }
         if (ch(n.x, n.y) !== " " || joined > 1) break;
@@ -1043,6 +1239,15 @@ export function importAscii(input: string, probe = false): ImportResult {
       const fields = { ...tableNode(tableText({ rows: cellRows, dividers: dividerAt, aligns, title }), { x: b.x0, y: b.y0 }), border: b.border, ...(Object.keys(options).length && { table: options }) };
       const t = { ...fields, rect: { ...fields.rect, ...table.fitSize({ ...makeNode(fields.rect, fields) }, fields.text) } };
       const node = makeNode(t.rect, t);
+      b.id = node.id;
+      d = addNode(d, node);
+      continue;
+    }
+    if (b.generic) {
+      const n0 = makeNode({ x: b.x0, y: b.y0, w: b.x1 - b.x0 + 1, h: b.y1 - b.y0 + 1 }, { kind: b.kind, border: b.border });
+      const c = shapeFor(b.kind).contentRect(n0);
+      const t = readText(rows, c.x - 1, c.x + c.w, c.y, c.y + c.h - 1, free);
+      const node = { ...n0, text: t.text, align: { h: t.h, v: t.v } };
       b.id = node.id;
       d = addNode(d, node);
       continue;

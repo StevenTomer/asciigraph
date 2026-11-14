@@ -33,8 +33,8 @@ describe("Mermaid state diagrams", () => {
     expect(g.direction).toBe("right");
     const node = (id: string) => g.nodes.find((n) => n.id === id);
     expect(node("Idle")).toMatchObject({ text: "Waiting for work", rounded: true });
-    expect(node("__start")).toMatchObject({ text: "●", plain: true });
-    expect(node("__end")).toMatchObject({ text: "◉", plain: true });
+    expect(node("__start")).toMatchObject({ kind: "dot" });
+    expect(node("__end")).toMatchObject({ kind: "ring" });
     // Each composite has its own start and end.
     expect(node("__start_Busy")).toBeDefined();
     expect(node("__end_Busy")).toBeDefined();

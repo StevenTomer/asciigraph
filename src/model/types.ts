@@ -75,6 +75,8 @@ export type HAlign = "left" | "center" | "right";
 export type NodeKind =
   | "box" | "decision" | "io" | "terminal" | "ellipse" | "hexagon" | "database" | "queue" | "document" | "docs"
   | "subroutine" | "stack" | "note" | "actor" | "trapezoid" | "delay" | "folder"
+  | "component" | "cloud" | "dot" | "ring" | "card" | "loop" | "display" | "stored" | "divided" | "lined" | "storage"
+  | "flag" | "tape" | "manual" | "disk" | "lineddoc" | "summary" | "extract" | "merge" | "collate"
   | "class" | "table" | "timeline" | "frame" | "lifeline" | "activation";
 export type VAlign = "top" | "middle" | "bottom";
 

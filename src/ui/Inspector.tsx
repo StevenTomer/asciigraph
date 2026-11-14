@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { reveal, whenIdle } from "../editor/view";
 import { deleteObjects, freeEndpoint, headOf, updateEdge, updateNode, withHead } from "../model/ops";
 import { HEAD_NAMES, arrowGlyph } from "../render/charsets";
 import { arrange } from "../editor/commands";
 import { locksOf, unlock } from "../model/locks";
-import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
+import { pickerKinds, shapeFor } from "../shapes/registry";
 import { ago } from "../collab/history";
 import { type BorderStyle, type Edge, type HAlign, type LineStyle, type Node, type VAlign, HEADS } from "../model/types";
 import { apply, begin, commit, getState, openBannerDialog, openTextDialog, select, set, setPrefs, startEditing, useEditor } from "../editor/store";
@@ -41,6 +41,7 @@ export function Inspector() {
   const shown = nodes.length > 0 || edges.length > 0;
   // In a live diagram: who last changed the one thing selected.
   const stamp = useEditor((s) => (s.live && selection.length === 1 ? s.live.by[selection[0]] : undefined));
+  const [moreShapes, setMoreShapes] = useState(false);
   const ref = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
@@ -102,9 +103,12 @@ export function Inspector() {
         <section>
           {e0 && <h3>{nodes.length > 1 ? `${nodes.length} boxes` : n0.border === "none" ? "text" : "box"}</h3>}
           <Row label="shape">
-            {SHAPE_KINDS.map((k) => (
+            {pickerKinds(moreShapes, n0.kind).map((k) => (
               <Choice key={k} active={n0.kind === k} onClick={() => eachNode(() => ({ kind: k }))}>{shapeFor(k).label}</Choice>
             ))}
+            <Choice active={false} onClick={() => setMoreShapes(!moreShapes)} title={moreShapes ? "Just the usual shapes" : "Every shape"}>
+              {moreShapes ? "fewer ▴" : "more ▾"}
+            </Choice>
           </Row>
           <Row label="border">
             {BORDERS.map(([v, sample]) => (

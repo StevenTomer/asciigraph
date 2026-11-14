@@ -102,6 +102,24 @@ afterwards in the properties panel.
 | subroutine | `│ │ Ship it │ │` | a predefined step |
 | note | a box with a folded corner | comments |
 | actor | a stick figure, `○ ╱│╲ ╱ ╲`, its name under it | people, users, outside systems |
+| component | a box with two tabs on its left, `┌─┤` over `└─┤` | UML components |
+| cloud | bumps along the top and bottom, `╭──╮ ╭──╮` | the internet, outside services |
+| card | a box with its top-left corner cut off, `╱───┐` | cards, punched cards |
+| loop limit | a box with both top corners cut off, `╱───╲` | the start of a loop |
+| display | pointed on the left, rounded on the right, `< screen )` | screens, output shown |
+| stored data | `( archive (`: curved the same way on both sides | stored data |
+| divided | a box with a line under its top | divided processes |
+| lined | a box with a line down its left, `│ │ lined │` | lined (shaded) processes |
+| internal storage | a box with lines under its top and down its left, `┌─┬───┐ ├─┼───┤` | internal storage |
+| flag | notched on the left, `> flag ┤` (Mermaid's `>text]`) | flags, asymmetric steps |
+| paper tape | wavy top and bottom | paper tape |
+| manual input | a box whose top steps up to the right | typed-in input |
+| disk | a database with two rims | disk storage |
+| lined document | a document with a line down its left | lined documents |
+| summary | a small circle with a cross, `╭─╮ │╳│ ╰─╯` | summing junctions |
+| extract, merge | a triangle pointing up or down | extracting, merging |
+| collate | an hourglass, crossing at `╳` | collating |
+| dot, end dot | `●` and `◉`: a state diagram's start and end, a junction | |
 | class | a box in compartments, `├───┤` between them | UML classes, ER entities |
 | table | a grid of cells (the table tool, or a Markdown table) | tables |
 | frame | a named box drawn behind things | grouping; boxes inside it aren't hidden |
@@ -582,7 +600,9 @@ flowchart TD
 | `id[(text)]` | database |
 | `id[[text]]` | subroutine |
 | `id@{ shape: doc }`, `docs`, `procs`, `h-cyl`, `delay` | document, stacked documents, stacked boxes, queue, delay |
-| `id@{ shape: actor }`, `folder` | actor, folder (asciigraph's own; Mermaid's flowcharts don't have them) |
+| `id@{ shape: actor }`, `folder`, `component` | actor, folder, component (asciigraph's own; Mermaid's flowcharts don't have them) |
+| `id>text]` | flag |
+| `id@{ shape: … }` with `notch-rect`, `notch-pent`, `curv-trap`, `bow-rect`, `div-rect`, `lin-rect`, `win-pane`, `flag`, `sl-rect`, `lin-cyl`, `lin-doc`, `cross-circ`, `tri`, `flip-tri`, `hourglass`, `cloud`, `f-circ` / `sm-circ`, `fr-circ` (and their long names) | card, loop limit, display, stored data, divided, lined, internal storage, paper tape, manual input, disk, lined document, summary, extract, merge, collate, cloud, dot, end dot |
 
 | Syntax | Connector |
 |---|---|
@@ -724,7 +744,8 @@ digraph {
 - Subgraphs named `cluster…` are frames, named by their `label`.
 - Shapes: `box` and the like → box; no shape (DOT's default ellipse) → rounded box, so plain
   graphs stay compact; `ellipse`, `oval`, `circle`, `doublecircle` given → circle; `diamond` →
-  decision; `hexagon`; `trapezium`, `invtrapezium` → trapezoid; `folder`, `tab` → folder; `cylinder` → database; `note`; `parallelogram` → input/output; `record` / `Mrecord` → class box (fields as compartments); `plaintext`, `none` →
+  decision; `hexagon`; `trapezium`, `invtrapezium` → trapezoid; `folder`, `tab` → folder; `component`; `tape` → paper
+  tape; `triangle`, `invtriangle` → extract, merge; `box3d` → stacked boxes; `point` → dot; `cylinder` → database; `note`; `parallelogram` → input/output; `record` / `Mrecord` → class box (fields as compartments); `plaintext`, `none` →
   text.
 - Edges: `label`; `taillabel` / `headlabel` as end labels; `style=dashed / dotted / bold`;
   `dir`, `arrowhead`, `arrowtail` (`normal`, `empty`, `diamond`, `odiamond`, `dot`, `odot`,
@@ -812,7 +833,9 @@ What it recognizes:
   becomes a frame.
 - **Shapes** as asciigraph draws them: decisions (`< >`), input/output (`╱ ╱`), start/end
   (`( )`), circles (`╭─╯ ╰─╮`, or `.-' '-.` in ASCII), hexagons, trapezoids, delays, folders,
-  queues, stacked boxes and documents, actors (stick figures, with their names), databases (a rim under the top), documents (a wavy bottom), subroutines
+  queues, stacked boxes and documents, actors, and every shape in the table above (found
+  wherever one is drawn exactly as asciigraph draws it; in ASCII a divided box reads back as a
+  database, which looks the same) (stick figures, with their names), databases (a rim under the top), documents (a wavy bottom), subroutines
   (`│ │ … │ │`), notes (a folded corner), class boxes (full-width `├──┤` rows divide them), and
   tables (`┬ ┼ ┴` column lines all the way down, in box characters or `+---+` ASCII), whose text
   is written as a Markdown table. A row across the top with no column lines is its title, and so

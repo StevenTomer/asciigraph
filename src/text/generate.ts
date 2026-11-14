@@ -1,3 +1,4 @@
+import { shapeFor } from "../shapes/registry";
 import { ellipseFit } from "../shapes/ellipse";
 import type { Point, Rect, Side } from "../geometry/geom";
 import { autoLayout } from "../model/layout";
@@ -303,9 +304,30 @@ function nodeSize(kind: Node["kind"], text: string, plain?: boolean): { w: numbe
     case "stack": return { w: tw + 5, h: lines + 4 };
     case "docs": return { w: tw + 5, h: lines + 5 };
     case "actor": return { w: Math.max(3, tw), h: 3 + (text.trim() ? lines : 0) };
+    case "dot": case "ring": return { w: 1, h: 1 };
+    case "summary": return { w: 3, h: 3 };
+    case "collate": return { w: 5, h: 5 };
+    case "component": case "cloud": case "card": case "loop": case "display": case "stored": case "divided": case "lined":
+    case "storage": case "flag": case "tape": case "manual": case "disk": case "lineddoc": case "extract": case "merge":
+      return fitShape(kind, tw, lines);
     default: return { w: tw + 4, h: lines + 2 };
   }
 }
+
+/** The smallest size of `kind` whose text area holds text `tw` wide and `lines` tall. */
+function fitShape(kind: Node["kind"], tw: number, lines: number): { w: number; h: number } {
+  const shape = shapeFor(kind), probe = { ...emptyNode, kind } as Node;
+  const min = shape.minSize(probe);
+  for (let h = Math.max(min.h, kind === "component" ? 7 : 0); h < min.h + lines + 30; h++) {
+    for (let w = min.w; w < tw + 2 * h + 12; w++) {
+      const r = shape.normalize?.({ x: 0, y: 0, w, h }) ?? { x: 0, y: 0, w, h };
+      const c = shape.contentRect({ ...probe, rect: r });
+      if (c.w >= tw && c.h >= lines) return { w: r.w, h: r.h };
+    }
+  }
+  return shape.defaultSize;
+}
+const emptyNode: Omit<Node, "rect"> = { id: "", kind: "box", border: "single", text: "", align: { h: "center", v: "middle" } };
 
 const PAD = 2;
 

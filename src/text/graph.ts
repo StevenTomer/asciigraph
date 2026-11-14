@@ -36,7 +36,25 @@ export interface GraphNode {
 const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolean; flip?: boolean }?]> = {
   rect: ["box"], process: ["box"], proc: ["box"], rectangle: ["box"],
   rounded: ["box", { rounded: true }], event: ["box", { rounded: true }],
-  stadium: ["terminal"], terminal: ["terminal"], pill: ["terminal"], circle: ["ellipse"], circ: ["ellipse"], "dbl-circ": ["ellipse"], "double-circle": ["ellipse"], "sm-circ": ["ellipse"], "small-circle": ["ellipse"],
+  stadium: ["terminal"], terminal: ["terminal"], pill: ["terminal"], circle: ["ellipse"], circ: ["ellipse"], "dbl-circ": ["ellipse"], "double-circle": ["ellipse"],
+  "sm-circ": ["dot"], "small-circle": ["dot"], start: ["dot"], "f-circ": ["dot"], "filled-circle": ["dot"], junction: ["dot"],
+  "fr-circ": ["ring"], "framed-circle": ["ring"], stop: ["ring"],
+  "notch-rect": ["card"], card: ["card"], "notched-rectangle": ["card"],
+  "notch-pent": ["loop"], "loop-limit": ["loop"], "notched-pentagon": ["loop"],
+  "curv-trap": ["display"], display: ["display"], "curved-trapezoid": ["display"],
+  "bow-rect": ["stored"], "stored-data": ["stored"], "bow-tie-rectangle": ["stored"],
+  "div-rect": ["divided"], "div-proc": ["divided"], "divided-rectangle": ["divided"], "divided-process": ["divided"],
+  "lin-rect": ["lined"], "lin-proc": ["lined"], "lined-rectangle": ["lined"], "lined-process": ["lined"], "shaded-process": ["lined"],
+  "win-pane": ["storage"], "internal-storage": ["storage"], "window-pane": ["storage"],
+  odd: ["flag"], flag: ["tape"], "paper-tape": ["tape"],
+  "sl-rect": ["manual"], "manual-input": ["manual"], "sloped-rectangle": ["manual"],
+  "lin-cyl": ["disk"], disk: ["disk"], "lined-cylinder": ["disk"],
+  "lin-doc": ["lineddoc"], "lined-document": ["lineddoc"],
+  "cross-circ": ["summary"], summary: ["summary"], "crossed-circle": ["summary"],
+  tri: ["extract"], extract: ["extract"], triangle: ["extract"],
+  "flip-tri": ["merge"], "manual-file": ["merge"], "flipped-triangle": ["merge"],
+  hourglass: ["collate"], collate: ["collate"],
+  cloud: ["cloud"],
   diam: ["decision"], decision: ["decision"], diamond: ["decision"], question: ["decision"],
   hex: ["hexagon"], hexagon: ["hexagon"], prepare: ["hexagon"],
   "trap-t": ["trapezoid"], "inv-trapezoid": ["trapezoid"], manual: ["trapezoid"], "trapezoid-top": ["trapezoid"],
@@ -52,7 +70,7 @@ const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolea
   brace: ["note"], comment: ["note"], "brace-r": ["note"], braces: ["note"], note: ["note"],
   text: ["box", { plain: true }],
   // asciigraph's own (written for hand-drawn class boxes by fromDiagram.ts).
-  class: ["class"], actor: ["actor"], folder: ["folder"],
+  class: ["class"], actor: ["actor"], folder: ["folder"], component: ["component"],
 };
 
 export interface GraphEdge {
@@ -100,7 +118,7 @@ const SHAPES: [string, string, NodeKind, boolean, boolean?][] = [
   ["(", ")", "box", true],
   ["{{", "}}", "hexagon", false],
   ["{", "}", "decision", false],
-  [">", "]", "box", false],
+  [">", "]", "flag", false],
 ];
 
 // Edge operators, with their style. Labelled forms are handled separately.

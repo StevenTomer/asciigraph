@@ -37,7 +37,7 @@ export function parseState(text: string): ParsedGraph {
     if (id !== "[*]") return id;
     const scope = b.current?.id ?? "";
     const key = `__${asSource ? "start" : "end"}${scope ? "_" + scope : ""}`;
-    b.node(key, { text: asSource ? "●" : "◉", plain: true });
+    b.node(key, { text: "", kind: asSource ? "dot" : "ring" });
     return key;
   };
 

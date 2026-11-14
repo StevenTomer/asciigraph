@@ -82,8 +82,8 @@ function tokenize(src: string, warnings: string[]): Token[] {
 }
 
 const SHAPES: Record<string, [NodeKind, Partial<GraphNode>?]> = {
-  box: ["box"], rect: ["box"], rectangle: ["box"], square: ["box"], component: ["box"], folder: ["folder"], tab: ["folder"], box3d: ["box"],
-  ellipse: ["ellipse"], oval: ["ellipse"], circle: ["ellipse"], point: ["box", { rounded: true }],
+  box: ["box"], rect: ["box"], rectangle: ["box"], square: ["box"], component: ["component"], folder: ["folder"], tab: ["folder"], box3d: ["stack"], tape: ["tape"], triangle: ["extract"], invtriangle: ["merge"],
+  ellipse: ["ellipse"], oval: ["ellipse"], circle: ["ellipse"], point: ["dot"],
   egg: ["ellipse"], doublecircle: ["ellipse"], Mcircle: ["ellipse"],
   diamond: ["decision"], Mdiamond: ["decision"], hexagon: ["hexagon"],
   cylinder: ["database"], note: ["note"], parallelogram: ["io"], trapezium: ["trapezoid", { flip: true }], invtrapezium: ["trapezoid"],

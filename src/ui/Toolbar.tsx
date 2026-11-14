@@ -1,5 +1,6 @@
 import { openFind, openStampsDialog, openTextDialog, redo, setPrefs, setShape, setTableSize, setTool, undo, useEditor } from "../editor/store";
-import { SHAPE_KINDS, shapeFor } from "../shapes/registry";
+import { pickerKinds, shapeFor } from "../shapes/registry";
+import { useState } from "react";
 import { TOOLS } from "../editor/tools";
 import { saveCopy } from "../editor/session";
 import { saveFile } from "../editor/file";
@@ -22,6 +23,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
   const file = useEditor((s) => s.file);
   const canInstall = useEditor((s) => s.canInstall);
   const unsaved = useEditor((s) => !!s.file && s.file.saved !== s.diagram);
+  const [moreShapes, setMoreShapes] = useState(false);
 
   return (
     <div className="toolbar-wrap">
@@ -96,11 +98,14 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
       {tool === "box" && (
         <div className="toolbar sub" role="toolbar" aria-label="Shape">
           <span className="muted">shape</span>
-          {SHAPE_KINDS.filter((k) => k !== "table" && k !== "timeline").map((k) => (
+          {pickerKinds(moreShapes, shape).filter((k) => k !== "table" && k !== "timeline").map((k) => (
             <button key={k} className={"tb" + (shape === k ? " active" : "")} aria-pressed={shape === k} onClick={() => setShape(k)}>
               {shapeFor(k).label}
             </button>
           ))}
+          <button className="tb muted" aria-expanded={moreShapes} onClick={() => setMoreShapes(!moreShapes)} title={moreShapes ? "Just the usual shapes" : "Every shape: the rest of the flowchart shapes, and more"}>
+            {moreShapes ? "fewer ▴" : "more ▾"}
+          </button>
         </div>
       )}
       {tool === "table" && (
