@@ -66,7 +66,8 @@ export interface Generated {
 export type Id = string;
 
 export type BorderStyle = "single" | "double" | "rounded" | "heavy" | "dashed" | "dotted" | "ascii" | "none";
-export type LineStyle = "single" | "double" | "heavy" | "dashed" | "dotted" | "ascii";
+/** "bus": a band three cells wide (render/bus.ts), for connectors only. */
+export type LineStyle = "single" | "double" | "heavy" | "dashed" | "dotted" | "ascii" | "bus";
 export type HAlign = "left" | "center" | "right";
 /** Node shapes: plain box; flowchart decision, input/output, start/end, circle (ellipse), hexagon,
  * database, queue, document, stacked documents (docs), stacked boxes (stack), an actor (stick figure);

@@ -19,7 +19,7 @@ const BORDERS: [BorderStyle, string][] = [
   ["dashed", "dashed"], ["dotted", "dotted"], ["ascii", "ascii"], ["none", "none"],
 ];
 const LINES: [LineStyle, string][] = [
-  ["single", "───"], ["double", "═══"], ["heavy", "━━━"], ["dashed", "┄┄┄"], ["dotted", "┈┈┈"], ["ascii", "---"],
+  ["single", "───"], ["double", "═══"], ["heavy", "━━━"], ["dashed", "┄┄┄"], ["dotted", "┈┈┈"], ["ascii", "---"], ["bus", "▐█▌"],
 ];
 const HALIGN: [HAlign, string][] = [["left", "left"], ["center", "center"], ["right", "right"]];
 const VALIGN: [VAlign, string][] = [["top", "top"], ["middle", "middle"], ["bottom", "bottom"]];

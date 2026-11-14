@@ -427,9 +427,43 @@ connectors that were attached to it.
 
 ### Lines and heads
 
-The properties panel sets the **line** (single, double, heavy, dashed, dotted, ASCII), and the
-head at the **start** and at the **end**. The right-click menu has **Start Head** and **End
+The properties panel sets the **line** (single, double, heavy, dashed, dotted, ASCII, bus), and
+the head at the **start** and at the **end**. The right-click menu has **Start Head** and **End
 Head** too.
+
+A **bus** is a band three cells wide, for a data bus or any connection that carries a lot. Its
+label goes inside the band. Where it leaves a box without a head, it joins the box's side. An
+arrow (or hollow arrow) end narrows to a wide point, a bar is a crossbar across the end, and the
+other heads sit in a cap that closes the band:
+
+<!-- drawing: bus -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/bus-dark.png">
+  <img src="images/bus.png" width="409" alt="A bus from A to B with the label data inside it and a wide arrowhead; a bus going down from A to B; and a bus with a diamond in a cap at one end and a dot at the other">
+</picture>
+
+<details>
+<summary>The same, as text</summary>
+
+```
+┌─────┐             ┌─────┐       ┌─────┐
+│     ┝━━━━━━━━━━━━╲│     │       │  A  │
+│  A  │    data    ►│  B  │       └─┰─┰─┘
+│     ┝━━━━━━━━━━━━╱│     │         ┃ ┃
+└─────┘             └─────┘         ╲▼╱
+                                  ┌─────┐
+┌─────┐             ┌─────┐       │  B  │
+│     │┏━━━━━━━━━━━┓│     │       └─────┘
+│  A  │◆           ●│  B  │
+│     │┗━━━━━━━━━━━┛│     │
+└─────┘             └─────┘
+```
+
+</details>
+
+A bus keeps a cell further from boxes than other connectors, so its walls clear them. Mermaid
+has no bus, so **Edit as Text** writes it as a thick line (`==>`), and it stays a bus in the
+drawing.
 
 ![Every connector head](images/heads.png)
 
@@ -843,7 +877,8 @@ What it recognizes:
   carries on the row above it (a cell over several lines).
 - **Connectors:** lines between boxes, attached to the side they touch, with their heads
   (`► ▷ ◆ ◊ ● ○ × ┤`, and in ASCII `> |> * o @ O x |`), line style, and a label in a gap in the line (`── yes ──►`)
-  or just beside a vertical one. A line a space or two short of a box (as ASCII often is) still
+  or just beside a vertical one. A bus (two heavy walls with its label between them) reads back
+  as a bus; in ASCII, only one with a head at an end (without one, it looks just like two lines). A line a space or two short of a box (as ASCII often is) still
   attaches. A line that branches (one trunk to several boxes) becomes a connector per branch.
 - **Sequence diagrams:** a three-row box with a line straight down from it is a lifeline (with
   its activation bars); arrows between lifelines are messages at their rows.

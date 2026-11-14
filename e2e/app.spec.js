@@ -602,6 +602,22 @@ test("a connector inside a box can be clicked and selected", async ({ page }) =>
   expect((await state(page)).selection).toEqual([outer]);
 });
 
+test("a connector made a bus is drawn three wide, and clicking its wall selects it", async ({ page }) => {
+  await box(page, [2, 2], [10, 6], "A");
+  await box(page, [30, 2], [38, 6], "B");
+  await page.keyboard.press("a");
+  await drag(page, [6, 4], [34, 4]);
+  await page.keyboard.press("s");
+  const id = (await state(page)).selection[0];
+  await page.getByRole("button", { name: "bus", exact: true }).click();
+  expect((await state(page)).diagram.edges[id].line).toBe("bus");
+  expect(await text(page)).toContain("┝━━━━━━━━━━━━━━━━━━╲");
+  await page.keyboard.press("Escape");
+  expect((await state(page)).selection).toEqual([]);
+  await click(page, 20, 5); // the bottom wall
+  expect((await state(page)).selection).toEqual([id]);
+});
+
 test("connector labels and bend points", async ({ page }) => {
   await box(page, [2, 2], [10, 4], "A");
   await box(page, [30, 2], [38, 4], "B");

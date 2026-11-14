@@ -8,6 +8,7 @@ import { renderText } from "./markdown";
 import { chars } from "./textLayout";
 import { footprint, shapeOf } from "../shapes/registry";
 import { CharGrid, cellGlyph } from "./grid";
+import { drawBus } from "./bus";
 
 export interface Rendered {
   grid: CharGrid;
@@ -45,15 +46,21 @@ export function rasterize(d: Diagram, quick = false): Rendered {
     const style = edge.line;
     const hiders = hidingNodes(d, r);
     const hidden = (p: Point) => hiders.some((rect) => contains(rect, p));
-    for (const c of cells) if (!hidden(c)) edgeCells.set(key(c), edge.id);
+    const bus = style === "bus";
+    if (bus) {
+      // A band three cells wide: its walls keep later connectors off too.
+      const drawn = drawBus(grid, r, hidden);
+      for (const c of drawn.cells) if (!hidden(c)) edgeCells.set(key(c), edge.id);
+      for (const w of drawn.walls) occupancy.add(w, [`${key(r.from.cell)}>`, `${key(r.to.cell)}<`]);
+    } else for (const c of cells) if (!hidden(c)) edgeCells.set(key(c), edge.id);
 
-    for (let k = 1; k < cells.length; k++) {
+    for (let k = 1; !bus && k < cells.length; k++) {
       const a = cells[k - 1], b = cells[k];
       const dir = stepSide(a, b);
       if (!hidden(a)) grid.stroke(a, dir, style);
       if (!hidden(b)) grid.stroke(b, OPPOSITE[dir], style);
     }
-    for (const [anchor, arrow, end] of [
+    for (const [anchor, arrow, end] of bus ? [] : [
       [r.from, headOf(edge, "start"), cells[0]],
       [r.to, headOf(edge, "end"), cells[cells.length - 1]],
     ] as const) {
@@ -90,7 +97,7 @@ export function rasterize(d: Diagram, quick = false): Rendered {
       for (const which of ["start", "end"] as const) {
         const text = edge.endLabels?.[which];
         if (!text || r.cells.length < 2) continue;
-        const rect = placeEndLabel(which === "start" ? r.cells : [...r.cells].reverse(), text, canUse);
+        const rect = placeEndLabel(which === "start" ? r.cells : [...r.cells].reverse(), text, canUse, bus ? 2 : 1);
         (r.endLabels ??= {})[which] = rect;
         chars(text).forEach((ch, i) => {
           const p = { x: rect.x + i, y: rect.y };
@@ -101,7 +108,7 @@ export function rasterize(d: Diagram, quick = false): Rendered {
         });
         for (let x = rect.x - 1; x <= rect.x + rect.w; x++) labelCells.add(`${x},${rect.y}`);
       }
-      const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt, canUse);
+      const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt, canUse, bus ? 2 : 1);
       if (edge.label) {
         for (let y = placed.rect.y; y < placed.rect.y + placed.rect.h; y++) {
           for (let x = placed.rect.x - 1; x <= placed.rect.x + placed.rect.w; x++) labelCells.add(`${x},${y}`);
@@ -139,15 +146,20 @@ export function rasterize(d: Diagram, quick = false): Rendered {
  *   │ A ├───────────────────┤ B │      └─┬─┘
  *   └───┘                    └───┘        │ 1
  */
-export function placeEndLabel(cells: Point[], text: string, canUse: (p: Point, onLine: boolean) => boolean): Rect {
+export function placeEndLabel(
+  cells: Point[], text: string, canUse: (p: Point, onLine: boolean) => boolean,
+  /** How far the line reaches either side of its route: 1, or 2 for a bus. */
+  spread = 1,
+): Rect {
   const e = cells[0], away = stepSide(e, cells[1]);
   const len = chars(text).length;
+  const s = spread;
   const spots: Point[] =
-    away === "right" ? [{ x: e.x + 1, y: e.y - 1 }, { x: e.x + 1, y: e.y + 1 }]
-    : away === "left" ? [{ x: e.x - len, y: e.y - 1 }, { x: e.x - len, y: e.y + 1 }]
+    away === "right" ? [{ x: e.x + 1, y: e.y - s }, { x: e.x + 1, y: e.y + s }]
+    : away === "left" ? [{ x: e.x - len, y: e.y - s }, { x: e.x - len, y: e.y + s }]
     : [
-        { x: e.x + 2, y: e.y }, { x: e.x - 1 - len, y: e.y },
-        { x: e.x + 2, y: e.y + (away === "bottom" ? 1 : -1) }, { x: e.x - 1 - len, y: e.y + (away === "bottom" ? 1 : -1) },
+        { x: e.x + 1 + s, y: e.y }, { x: e.x - s - len, y: e.y },
+        { x: e.x + 1 + s, y: e.y + (away === "bottom" ? 1 : -1) }, { x: e.x - s - len, y: e.y + (away === "bottom" ? 1 : -1) },
       ];
   const clear = (s: Point) => {
     for (let i = 0; i < len; i++) if (!canUse({ x: s.x + i, y: s.y }, false)) return false;
@@ -168,6 +180,8 @@ export function placeLabel(
   /** Whether label text may go in a cell; `onLine`: the cell is on the label's own row of an
    * inline label, where covering this connector's own line is fine. */
   canUse: (p: Point, onLine: boolean) => boolean = () => true,
+  /** How far the line reaches either side of its route: 1, or 2 for a bus. */
+  spread = 1,
 ): { rect: Rect; chars: [Point, string][] } {
   // Lines as shown (Markdown lists rendered). A block of several lines is centered on the line.
   const rendered = label ? renderText(label, 1000) : { lines: [], list: false };
@@ -213,7 +227,7 @@ export function placeLabel(
   };
   /** Beside a cell of a vertical stretch: to its right, or to its left. */
   const beside = (cell: Point, side: "right" | "left" = "right"): Placed => {
-    const x0 = side === "right" ? cell.x + 2 : cell.x - 1 - len, top = cell.y - Math.floor((n - 1) / 2);
+    const x0 = side === "right" ? cell.x + 1 + spread : cell.x - spread - len, top = cell.y - Math.floor((n - 1) / 2);
     const out: [Point, string][] = [];
     place(x0, top, out);
     return { rect: { x: x0, y: top, w: len, h: n }, chars: out };

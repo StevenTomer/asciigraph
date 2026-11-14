@@ -105,9 +105,17 @@ function paint(canvas: HTMLCanvasElement, s: EditorState) {
   for (const id of s.selection) {
     const e = r.edges.get(id);
     if (!e) continue;
+    // (A bus: the whole band, a cell either side of its route.)
+    const band = e.edge.line === "bus" ? 1 : 0;
+    const tinted = new Set<string>();
     for (const cell of e.cells) {
-      const p = cellToScreen(cell.x, cell.y);
-      ctx.fillRect(p.x, p.y, cw, ch);
+      for (let dy = -band; dy <= band; dy++) for (let dx = -band; dx <= band; dx++) {
+        const key = `${cell.x + dx},${cell.y + dy}`;
+        if (tinted.has(key)) continue;
+        tinted.add(key);
+        const p = cellToScreen(cell.x + dx, cell.y + dy);
+        ctx.fillRect(p.x, p.y, cw, ch);
+      }
     }
   }
 

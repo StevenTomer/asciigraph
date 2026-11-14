@@ -94,6 +94,17 @@ it("writes crosses and circles as Mermaid's --x and --o, and links without chang
   expect(diagramToText(updateSource(a.diagram, a.id, {}).diagram)).toBe(diagramToText(d));
 });
 
+it("writes a bus as a thick line, and links it without changing it", () => {
+  const box = (id: string, x: number) => makeNode({ x, y: 0, w: 7, h: 5 }, { id, text: id.toUpperCase() });
+  let d = [box("a", 0), box("b", 20)].reduce(addNode, emptyDiagram());
+  d = addEdge(d, makeEdge(att("a"), att("b"), { id: "e", line: "bus", label: "data" }));
+  const desc = describe(d, all(d))!;
+  expect(desc.text).toContain("A ==>|data| B");
+  const a = adopt(d, all(d))!;
+  expect(diagramToText(a.diagram)).toBe(diagramToText(d));
+  expect(diagramToText(updateSource(a.diagram, a.id, {}).diagram)).toBe(diagramToText(d));
+});
+
 it("keeps a hand-drawn class box a class box when linked to text", () => {
   let d = addNode(emptyDiagram(), makeNode({ x: 0, y: 0, w: 17, h: 7 }, { id: "c", kind: "class", text: "Animal\n---\n+name\n---\n+eat()", align: { h: "center", v: "top" }, lists: false }));
   d = addNode(d, makeNode({ x: 30, y: 2, w: 7, h: 3 }, { id: "z", text: "Zoo" }));

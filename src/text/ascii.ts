@@ -1,14 +1,17 @@
 import { type Point, type Side, OPPOSITE, stepSide } from "../geometry/geom";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
-import type { BorderStyle, Diagram, Endpoint, HAlign, Head, Id, LineStyle, NodeKind, VAlign } from "../model/types";
+import type { BorderStyle, Diagram, Endpoint, HAlign, Head, Id, LineStyle as AnyLineStyle, NodeKind, VAlign } from "../model/types";
 import { DIR_BITS, DOWN, LEFT, RIGHT, UP, asciiChar, lineGlyph } from "../render/charsets";
 import { rasterize } from "../render/rasterize";
+import { findBuses } from "./busRead";
 import { chars } from "../render/textLayout";
 import { table, tableNode, tableText } from "../shapes/table";
 import { ellipseOutline, ellipseSide } from "../shapes/ellipse";
 import { folderOutline, folderTab, stackBehind, stackJoin } from "../shapes/extra";
 import { repairTables } from "./repairTables";
 import { shapeFor } from "../shapes/registry";
+/** The styles a drawing's characters can show (a bus is read back as its two walls). */
+type LineStyle = Exclude<AnyLineStyle, "bus">;
 
 /**
  * Reading a drawing back into objects: paste box-drawing (or +--+ ASCII) text and get boxes,
@@ -948,6 +951,29 @@ export function importAscii(input: string, probe = false): ImportResult {
     const c = ch(x, y);
     return HEADS.has(c) && !(/\p{L}/u.test(c) && (alnum(x - 1, y) || alnum(x + 1, y)));
   };
+  // Buses (three-wide bands, render/bus.ts): found first, and taken off the lines.
+  const busUsed = new Set<number>();
+  const buses = findBuses<Box>({
+    ch,
+    // (An ASCII crossbar beside a border reads as a bar head on a line: a bus's may be one.)
+    maskAt: (x, y) => (structure.has(k(x, y)) && !barAt.has(k(x, y)) ? 0 : mask.get(k(x, y)) ?? 0),
+    isOutline: (x, y) => outline.has(k(x, y)),
+    isAscii: (x, y) => asciiCell.has(k(x, y)),
+    isHeavy: (x, y) => style.get(k(x, y)) === "heavy",
+    boxAt: (p, side) => outline.get(k(p.x, p.y))?.find((o) => sideOf(o, p.x, p.y) === side) ?? null,
+    headOf: (c) => HEADS.get(c),
+  }, W, H);
+  for (const b of buses) {
+    for (const { p, mask: bits } of b.strokes) {
+      const left = (mask.get(k(p.x, p.y)) ?? 0) & ~bits;
+      if (left) mask.set(k(p.x, p.y), left);
+      else mask.delete(k(p.x, p.y));
+    }
+    for (const p of b.cells) {
+      busUsed.add(k(p.x, p.y));
+      if (barAt.delete(k(p.x, p.y))) structure.delete(k(p.x, p.y));
+    }
+  }
   // ASCII strokes that don't join anything (a hyphen in a word, a | between words) are text.
   {
     const seen = new Set<number>();
@@ -1058,7 +1084,11 @@ export function importAscii(input: string, probe = false): ImportResult {
   const visited = new Set<number>();
   /** `labelAt`: where the label's text starts as drawn, and the path cell it goes by. */
   type LabelAt = { start: Point; cell: Point };
-  const edges: { from: Terminal; to: Terminal; path: Point[]; label?: string; labelAt?: LabelAt; endLabels?: { start?: string; end?: string } }[] = [];
+  const edges: {
+    from: Terminal; to: Terminal; path: Point[]; label?: string; labelAt?: LabelAt; endLabels?: { start?: string; end?: string };
+    /** A bus (its style isn't in its cells), which reaches 2 cells either side of its path. */
+    bus?: boolean;
+  }[] = buses.map((b) => ({ from: b.from, to: b.to, path: b.path, label: b.label, labelAt: b.labelAt, bus: true }));
   const allLine: Point[] = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isLine(x, y) || headAt.has(k(x, y))) allLine.push({ x, y });
   for (const start of allLine) {
@@ -1119,7 +1149,7 @@ export function importAscii(input: string, probe = false): ImportResult {
     }
   }
   // Labels just beside a vertical line (│ label): the nearest connector's, if it has none.
-  const used = new Set<number>([...labelCells, ...nameCells]);
+  const used = new Set<number>([...labelCells, ...nameCells, ...busUsed]);
   const runs = textRuns(rows, W, (x, y) => {
     const key = k(x, y);
     return mask.has(key) || outline.has(key) || structure.has(key) || headAt.has(key) || used.has(key);
@@ -1131,11 +1161,11 @@ export function importAscii(input: string, probe = false): ImportResult {
     if (e.path.length < 2) continue;
     for (const which of ["start", "end"] as const) {
       const cells = which === "start" ? e.path : [...e.path].reverse();
-      const p0 = cells[0], away = stepSide(p0, cells[1]);
+      const p0 = cells[0], away = stepSide(p0, cells[1]), s = e.bus ? 2 : 1;
       const fits = (r: { x: number; y: number; len: number }) =>
-        away === "right" ? r.x === p0.x + 1 && (r.y === p0.y - 1 || r.y === p0.y + 1)
-        : away === "left" ? r.x + r.len === p0.x && (r.y === p0.y - 1 || r.y === p0.y + 1)
-        : r.y === p0.y && (r.x === p0.x + 2 || r.x + r.len === p0.x - 1);
+        away === "right" ? r.x === p0.x + 1 && (r.y === p0.y - s || r.y === p0.y + s)
+        : away === "left" ? r.x + r.len === p0.x && (r.y === p0.y - s || r.y === p0.y + s)
+        : r.y === p0.y && (r.x === p0.x + 1 + s || r.x + r.len === p0.x - s);
       const run = runs.find((r) => !taken2.has(`${r.x},${r.y}`) && r.len <= 16 && !r.text.includes("  ") && fits(r));
       if (!run) continue;
       taken2.add(`${run.x},${run.y}`);
@@ -1147,13 +1177,15 @@ export function importAscii(input: string, probe = false): ImportResult {
     if (run.text.includes("  ") || taken2.has(`${run.x},${run.y}`)) continue;
     for (const e of edges) {
       if (e.label) continue;
+      const s = e.bus ? 2 : 1;
+      const besideAt = (p: Point) => p.y === run.y && (run.x === p.x + 1 + s || run.x + run.len === p.x - s);
       const beside = e.path.some((p, i) => {
         const vertical = (i > 0 && e.path[i - 1].x === p.x) || (i + 1 < e.path.length && e.path[i + 1].x === p.x);
-        return vertical && p.y === run.y && (run.x === p.x + 2 || run.x + run.len === p.x - 1);
+        return vertical && besideAt(p);
       });
       if (beside && !boxes.some((b) => inBox(run.x, run.y, b) !== inBox(e.path[0].x, e.path[0].y, b))) {
         e.label = run.text;
-        const cell = e.path.find((p) => p.y === run.y && (run.x === p.x + 2 || run.x + run.len === p.x - 1))!;
+        const cell = e.path.find(besideAt)!;
         e.labelAt = { start: { x: run.x, y: run.y }, cell };
         for (let x = run.x; x < run.x + run.len; x++) used.add(k(x, run.y));
         break;
@@ -1318,7 +1350,7 @@ export function importAscii(input: string, probe = false): ImportResult {
   for (const e of edges) {
     const straight = (p: Point) => mask.get(k(p.x, p.y)) === (LEFT | RIGHT) || mask.get(k(p.x, p.y)) === (UP | DOWN);
     const own = e.path.filter((p) => straight(p) && uses.get(k(p.x, p.y)) === 1);
-    const line = lineStyleOf(own.map((p) => style.get(k(p.x, p.y))!), e.path.filter(straight).map((p) => style.get(k(p.x, p.y))!));
+    const line: AnyLineStyle = e.bus ? "bus" : lineStyleOf(own.map((p) => style.get(k(p.x, p.y))!), e.path.filter(straight).map((p) => style.get(k(p.x, p.y))!));
     // Messages on lifelines and activation bars are attached by row.
     const end = (t: Terminal): Endpoint =>
       !t.box ? { kind: "free", at: t.cell }

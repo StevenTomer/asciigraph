@@ -100,7 +100,8 @@ const ARROWS: Record<"plain" | "heavy" | "dotted", { both: string; end: string; 
 
 function arrow(e: Edge, swap: boolean): string {
   const start = swap ? e.arrows.end : e.arrows.start, end = swap ? e.arrows.start : e.arrows.end;
-  const set = ARROWS[e.line === "heavy" ? "heavy" : e.line === "dotted" || e.line === "dashed" ? "dotted" : "plain"];
+  // (Mermaid has no bus: it's written as a thick line, and stays a bus in the drawing.)
+  const set = ARROWS[e.line === "heavy" || e.line === "bus" ? "heavy" : e.line === "dotted" || e.line === "dashed" ? "dotted" : "plain"];
   if (start && end) return set.both;
   if (!end) return set.none;
   // Mermaid's other ends: --x (cross) and --o (circle), on plain lines. (Others stay as styling.)

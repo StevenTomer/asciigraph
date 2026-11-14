@@ -3,6 +3,7 @@ import {
 } from "../geometry/geom";
 import type { Diagram, Edge, Endpoint, Node } from "../model/types";
 import { within } from "../model/containment";
+import { headOf } from "../model/ops";
 import { footprint, shapeOf } from "../shapes/registry";
 import type { Occupancy } from "./occupancy";
 import { type RouteEnd, route } from "./orthogonal";
@@ -168,6 +169,10 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
   const obstacles = d.order
     .filter((id) => !holds(d.nodes[id], edge.from) && !holds(d.nodes[id], edge.to))
     .flatMap((id) => footprint(d.nodes[id]));
+  // A bus is three cells wide: it keeps a cell further from boxes than its route (so its walls
+  // clear them), and its ends start a cell further out (so it leaves its box straight).
+  const bus = edge.line === "bus";
+  const routeAround = bus ? obstacles.map((o) => ({ x: o.x - 1, y: o.y - 1, w: o.w + 2, h: o.h + 2 })) : obstacles;
   const via = edge.via ?? [];
   const towards = (p: Point): Endpoint => ({ kind: "free", at: p });
   const fromOther = via.length ? towards(via[0]) : edge.to;
@@ -220,20 +225,31 @@ export function resolveEdge(d: Diagram, edge: Edge, occupancy?: Occupancy, quick
     // A loop back to its own box leaves and arrives straight on at both ends (not along its
     // border, which it would otherwise hug).
     const loop = !!f.node && f.node === t.node;
+    // (Two cells for an end that narrows to a point or has a crossbar: its walls stop short.)
+    const lead = (which: "start" | "end", a: Anchor) => {
+      if (!bus || !a.dir) return 0;
+      const h = headOf(edge, which);
+      return h === "arrow" || h === "triangle" || h === "bar" ? 2 : 1;
+    };
+    let pushF = lead("start", f), pushT = lead("end", t);
+    if (Math.abs(f.cell.x - t.cell.x) + Math.abs(f.cell.y - t.cell.y) < 2 * (pushF + pushT) && !via.length) pushF = pushT = 0;
+    const out = (a: Anchor, n: number) => (n ? { x: a.cell.x + STEP[a.dir!].x * n, y: a.cell.y + STEP[a.dir!].y * n } : a.cell);
     const stops: RouteEnd[] = [
-      { cell: f.cell, dir: f.dir, strict: edge.arrows.start || loop },
+      { cell: out(f, pushF), dir: f.dir, strict: edge.arrows.start || loop || bus },
       ...via.map((p) => ({ cell: p, dir: null })),
-      { cell: t.cell, dir: t.dir, strict: edge.arrows.end || loop },
+      { cell: out(t, pushT), dir: t.dir, strict: edge.arrows.end || loop || bus },
     ];
     const groups = [`${key(f.cell)}>`, `${key(t.cell)}<`];
     let cells: Point[] = [];
     let cost = 0, clean = true;
     for (let i = 0; i + 1 < stops.length; i++) {
-      const r = route(stops[i], stops[i + 1], obstacles, occupancy, groups, turnFor(stops[i].cell, stops[i + 1].cell));
+      const r = route(stops[i], stops[i + 1], routeAround, occupancy, groups, turnFor(stops[i].cell, stops[i + 1].cell));
       cells = i === 0 ? r.cells : [...cells, ...r.cells.slice(1)];
       cost += r.cost;
       clean &&= r.clean;
     }
+    for (let i = pushF - 1; i >= 0; i--) cells = [out(f, i), ...cells];
+    for (let i = pushT - 1; i >= 0; i--) cells = [...cells, out(t, i)];
     // An end squeezed onto a cell another connector uses the other way: a last resort.
     return crowded ? { cells, cost: cost + CROWDED_END_COST, clean: false, f, t } : { cells, cost, clean, f, t };
   };

@@ -13,13 +13,14 @@ export const DIR_BITS = [UP, RIGHT, DOWN, LEFT];
 export const SIDE_INDEX: Record<Side, number> = { top: 0, right: 1, bottom: 2, left: 3 };
 
 /** When strokes of different styles reach a cell from the same direction, the heavier one wins. */
-export const STYLE_WEIGHT: Record<LineStyle, number> = { ascii: 0, dotted: 1, dashed: 2, single: 3, double: 4, heavy: 5 };
+export const STYLE_WEIGHT: Record<LineStyle, number> = { ascii: 0, dotted: 1, dashed: 2, single: 3, double: 4, heavy: 5, bus: 5 };
 
 // Uniform sets. Order: [vertical, horizontal, ┌, ┐, └, ┘, ├, ┤, ┬, ┴, ┼]
-const SETS: Record<"single" | "double" | "heavy" | "ascii", string> = {
+const SETS: Record<"single" | "double" | "heavy" | "bus" | "ascii", string> = {
   single: "│─┌┐└┘├┤┬┴┼",
   double: "║═╔╗╚╝╠╣╦╩╬",
   heavy: "┃━┏┓┗┛┣┫┳┻╋",
+  bus: "┃━┏┓┗┛┣┫┳┻╋", // (a bus is drawn with heavy walls; this only completes the table)
   ascii: "|-++++++++++",
 };
 /** Dashed and dotted lines have straight glyphs only; corners and junctions use single ones. */
@@ -71,7 +72,7 @@ const MIXED = new Map<string, string>(
     .map((s) => [s.slice(1), s[0]] as [string, string])
 );
 
-const WEIGHT_CODE: Record<LineStyle, number> = { ascii: 1, dotted: 1, dashed: 1, single: 1, heavy: 2, double: 3 };
+const WEIGHT_CODE: Record<LineStyle, number> = { ascii: 1, dotted: 1, dashed: 1, single: 1, heavy: 2, double: 3, bus: 2 };
 const CODE_STYLE = ["single", "single", "heavy", "double"] as const; // by weight code (0 unused)
 const STRAIGHT = new Set([UP, DOWN, UP | DOWN, LEFT, RIGHT, LEFT | RIGHT]);
 
