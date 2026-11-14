@@ -24,11 +24,21 @@ describe("hexagon, stacks, queue, actor", () => {
       "│ workers  ├┘",
       "└──────────┘",
     ].join("\n"));
+    // Taller: the one behind is as tall as the front one.
+    expect(one("stack", 13, 7, "workers")).toBe([
+      " ┌──────────┐",
+      "┌┴─────────┐│",
+      "│          ││",
+      "│ workers  ││",
+      "│          ││",
+      "│          ├┘",
+      "└──────────┘",
+    ].join("\n"));
     expect(one("docs", 14, 6, "reports")).toBe([
       " ┌───────────┐",
       "┌┴──────────┐│",
-      "│  reports  ├┘",
-      "│           │",
+      "│  reports  ││",
+      "│           ├┘",
       "╰──╮  ╭──╮  │",
       "   ╰──╯  ╰──╯",
     ].join("\n"));
@@ -51,6 +61,8 @@ describe("hexagon, stacks, queue, actor", () => {
     let d: Diagram = [
       makeNode({ x: 0, y: 0, w: 14, h: 4 }, { id: "h", kind: "hexagon", text: "prepare" }),
       makeNode({ x: 22, y: 0, w: 14, h: 5 }, { id: "s", kind: "stack", text: "workers" }),
+      makeNode({ x: 66, y: 0, w: 14, h: 9 }, { id: "s2", kind: "stack", text: "tall" }),
+      makeNode({ x: 66, y: 14, w: 14, h: 9 }, { id: "d2", kind: "docs", text: "tall docs" }),
       makeNode({ x: 44, y: 0, w: 16, h: 6 }, { id: "d", kind: "docs", text: "reports" }),
       makeNode({ x: 0, y: 12, w: 16, h: 3 }, { id: "q", kind: "queue", text: "orders" }),
       makeNode({ x: 26, y: 12, w: 8, h: 5 }, { id: "a", kind: "actor", text: "Customer\nAnn" }),
@@ -62,12 +74,14 @@ describe("hexagon, stacks, queue, actor", () => {
     d = addEdge(d, makeEdge(att("a"), att("q")));
     d = addEdge(d, makeEdge(att("a"), att("h2")));
     d = addEdge(d, makeEdge(att("d"), att("h2")));
+    d = addEdge(d, makeEdge(att("s2"), att("d2")));
+    d = addEdge(d, makeEdge(att("d"), att("s2")));
     for (const ascii of [false, true]) {
       const text = diagramToText(d, ascii);
       const r = importAscii(text);
       expect(r.warnings).toEqual([]);
-      expect(Object.values(r.diagram.nodes).map((n) => n.kind).sort()).toEqual(["actor", "docs", "hexagon", "hexagon", "queue", "stack"]);
-      expect(Object.keys(r.diagram.edges)).toHaveLength(6);
+      expect(Object.values(r.diagram.nodes).map((n) => n.kind).sort()).toEqual(["actor", "docs", "docs", "hexagon", "hexagon", "queue", "stack", "stack"]);
+      expect(Object.keys(r.diagram.edges)).toHaveLength(8);
       expect(diagramToText(r.diagram, ascii)).toBe(text);
     }
   });

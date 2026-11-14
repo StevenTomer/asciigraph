@@ -92,16 +92,20 @@ export const hexagon: ShapeDef = {
 /** The front one of a stack: all but the top row and right column. */
 export const frontOf = (r: Rect): Rect => ({ x: r.x, y: r.y + 1, w: r.w - 1, h: r.h - 1 });
 
-/** The edge of the one behind: up from the front's top, along, down, and into the front's right
- * side one row down (┌┴───┐│ over ├┘). */
-export function stackBehind(r: Rect): Point[] {
+/** The row where the one behind joins the front one's right side: just above the front's
+ * bottom (a document's: just above its wave), so the one behind is as tall as the front. */
+export const stackJoin = (r: Rect, wavy: boolean) => bottom(r) - (wavy ? 2 : 1);
+
+/** The edge of the one behind: up from the front's top, along, down its right side, and into the
+ * front's right side at `join` (┌┴───┐│ … ├┘). */
+export function stackBehind(r: Rect, join: number): Point[] {
   return through([
-    { x: r.x + 1, y: r.y + 1 }, { x: r.x + 1, y: r.y }, { x: right(r), y: r.y }, { x: right(r), y: r.y + 2 }, { x: right(r) - 1, y: r.y + 2 },
+    { x: r.x + 1, y: r.y + 1 }, { x: r.x + 1, y: r.y }, { x: right(r), y: r.y }, { x: right(r), y: join }, { x: right(r) - 1, y: join },
   ]);
 }
 
-/** A stack of `front` shapes. */
-function stackOf(front: ShapeDef, label: string, min: { w: number; h: number }, size: { w: number; h: number }): ShapeDef {
+/** A stack of `front` shapes (`wavy`: documents, whose right side stops above the wave). */
+function stackOf(front: ShapeDef, label: string, min: { w: number; h: number }, size: { w: number; h: number }, wavy: boolean): ShapeDef {
   const f = (n: Node): Node => ({ ...n, rect: frontOf(n.rect) });
   return {
     label,
@@ -112,27 +116,22 @@ function stackOf(front: ShapeDef, label: string, min: { w: number; h: number }, 
     sideRange(n, side) {
       const r = n.rect;
       if (side === "top") return [r.x + 2, right(r) - 1];
-      if (side === "right") {
-        // The front's side below where the one behind joins it (else the one behind's).
-        const [lo, hi] = front.sideRange(f(n), "right");
-        return Math.max(lo, r.y + 3) <= hi ? [Math.max(lo, r.y + 3), hi] : [r.y + 1, r.y + 1];
-      }
+      // The one behind's right side, above where it joins the front one.
+      if (side === "right") return [r.y + 1, Math.max(r.y + 1, stackJoin(r, wavy) - 1)];
       return front.sideRange(f(n), side);
     },
     anchor(n, side, along) {
-      if (side === "right") return { x: along === n.rect.y + 1 ? right(n.rect) : right(n.rect) - 1, y: along };
-      if (side === "top") return undefined;
+      if (side === "right" || side === "top") return undefined;
       return front.anchor?.(f(n), side, along);
     },
     fitSize: keepSize,
-    footprint: (n) => [frontOf(n.rect), { x: n.rect.x + 1, y: n.rect.y, w: n.rect.w - 1, h: 3 }],
+    footprint: (n) => [frontOf(n.rect), { x: n.rect.x + 1, y: n.rect.y, w: n.rect.w - 1, h: stackJoin(n.rect, wavy) - n.rect.y + 1 }],
     rasterize(n, grid) {
       const r = n.rect, style = lineStyle(n.border);
       front.rasterize(f(n), grid);
       if (style) {
-        const round = n.border === "rounded";
-        const behind = stackBehind(r);
-        strokePath(grid, behind, style, (p) => round && (p.y === r.y || (p.x === right(r) && p.y === r.y + 2)));
+        const round = n.border === "rounded", join = stackJoin(r, wavy);
+        strokePath(grid, stackBehind(r, join), style, (p) => round && (p.y === r.y || (p.x === right(r) && p.y === join)));
       }
     },
   };
@@ -154,8 +153,8 @@ const plainBox: ShapeDef = {
   },
 };
 
-export const stack = stackOf(plainBox, "stacked", { w: 7, h: 4 }, { w: 16, h: 5 });
-export const docs = stackOf(document, "documents", { w: 8, h: 5 }, { w: 17, h: 6 });
+export const stack = stackOf(plainBox, "stacked", { w: 7, h: 4 }, { w: 16, h: 5 }, false);
+export const docs = stackOf(document, "documents", { w: 8, h: 5 }, { w: 17, h: 6 }, true);
 
 // ---------------------------------------------------------------------------------------------
 

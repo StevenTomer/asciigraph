@@ -6,7 +6,7 @@ import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
 import { table, tableNode, tableText } from "../shapes/table";
 import { ellipseOutline, ellipseSide } from "../shapes/ellipse";
-import { stackBehind } from "../shapes/extra";
+import { stackBehind, stackJoin } from "../shapes/extra";
 import { repairTables } from "./repairTables";
 
 /**
@@ -447,11 +447,13 @@ export function importAscii(input: string, probe = false): ImportResult {
     if (nameStart >= 0) for (let xx = nameStart; xx <= nameEnd; xx++) nameCells.add(k(xx, y0));
     return b;
   }
-  // Stacks: a box or document with the edge of another behind it, up and to the right
-  // (┌┴───┐│ over ├┘, as shapes/extra.ts draws it).
+  // Stacks: a box or document with another behind it, up and to the right (┌┴───┐│ … ├┘, as
+  // shapes/extra.ts draws it).
   for (const b of boxes) {
     if ((b.kind !== "box" && b.kind !== "document") || (b.kind === "box" && b.cells)) continue;
-    const behind = stackBehind({ x: b.x0, y: b.y0 - 1, w: b.x1 - b.x0 + 2, h: b.y1 - b.y0 + 2 });
+    const whole = { x: b.x0, y: b.y0 - 1, w: b.x1 - b.x0 + 2, h: b.y1 - b.y0 + 2 };
+    const join = stackJoin(whole, b.kind === "document");
+    const behind = stackBehind(whole, join);
     const joined = behind.every((p, i) => {
       if (i === 0) return true;
       const s = stepSide(behind[i - 1], p);
@@ -466,10 +468,13 @@ export function importAscii(input: string, probe = false): ImportResult {
       for (let x = b.x0; x <= b.x1; x++) sides.set(k(x, b.y0), null).set(k(x, b.y1), x > b.x0 && x < b.x1 ? "bottom" : null);
       for (let y = b.y0 + 1; y < b.y1; y++) sides.set(k(b.x0, y), "left").set(k(b.x1, y), "right");
     }
-    // The front's top is behind the one at the back now, and so is its right side above the join.
+    // The one behind has the top, and the right side down to where it joins the front one.
     for (let x = b.x0; x <= fx1; x++) sides.set(k(x, fy0), null);
-    sides.set(k(fx1, fy0 + 1), null);
-    for (const p of behind) sides.set(k(p.x, p.y), p.y === fy0 - 1 && p.x > b.x0 + 1 && p.x < fx1 + 1 ? "top" : p.x === fx1 + 1 && p.y === fy0 ? "right" : sides.get(k(p.x, p.y)) ?? null);
+    for (let y = fy0; y <= join; y++) sides.set(k(fx1, y), null);
+    for (const p of behind) {
+      const top = p.y === fy0 - 1 && p.x > b.x0 + 1 && p.x < fx1 + 1, side = p.x === fx1 + 1 && p.y >= fy0 && p.y < join;
+      sides.set(k(p.x, p.y), top ? "top" : side ? "right" : sides.get(k(p.x, p.y)) ?? null);
+    }
     b.kind = b.kind === "document" ? "docs" : "stack";
     b.cells = sides;
     b.y0 = fy0 - 1;
