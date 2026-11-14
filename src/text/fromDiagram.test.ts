@@ -106,3 +106,15 @@ it("keeps a hand-drawn class box a class box when linked to text", () => {
   const redrawn = updateSource(r.diagram, r.id, { text: r.source.text + "\n  Zoo --> Keeper" }).diagram;
   expect(Object.values(redrawn.nodes).find((n) => n.text.startsWith("Animal"))?.kind).toBe("class");
 });
+
+it("writes a circle as Mermaid's (( )), and links it without changing it", () => {
+  let d = [
+    makeNode({ x: 0, y: 0, w: 11, h: 5 }, { id: "a", kind: "ellipse", text: "Start" }),
+    makeNode({ x: 20, y: 1, w: 10, h: 3 }, { id: "b", text: "Next" }),
+  ].reduce(addNode, emptyDiagram());
+  d = addEdge(d, makeEdge(att("a"), att("b"), { id: "e" }));
+  const desc = describe(d, all(d))!;
+  expect(desc.text).toContain("Start((Start))");
+  const before = diagramToText(d);
+  expect(diagramToText(adopt(d, all(d))!.diagram)).toBe(before);
+});

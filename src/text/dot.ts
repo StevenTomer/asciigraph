@@ -9,9 +9,9 @@ import type { GraphNode, ParsedGraph } from "./graph";
  *    ({a b} -> c); `node [...]` and `edge [...]` defaults; `rankdir=LR`.
  *  - Subgraphs named cluster… are drawn as frames (their `label` the frame's name); other
  *    subgraphs just group.
- *  - Node shapes: box / rect / square → box; ellipse, oval, circle (the default) → rounded box;
- *    diamond → decision; cylinder → database; note → note; parallelogram → input/output;
- *    doublecircle → start/end; record / Mrecord → class boxes (fields as compartments);
+ *  - Node shapes: box / rect / square → box; no shape (DOT's default ellipse) → rounded box;
+ *    ellipse, oval, circle, doublecircle (given) → circle; diamond → decision; cylinder →
+ *    database; note → note; parallelogram → input/output; record / Mrecord → class boxes (fields as compartments);
  *    plaintext / plain / none → text.
  *  - Edges: label, taillabel / headlabel (end labels); style dashed / dotted / bold; dir
  *    (forward, back, both, none); arrowhead / arrowtail (normal, vee, empty, diamond, odiamond,
@@ -83,8 +83,8 @@ function tokenize(src: string, warnings: string[]): Token[] {
 
 const SHAPES: Record<string, [NodeKind, Partial<GraphNode>?]> = {
   box: ["box"], rect: ["box"], rectangle: ["box"], square: ["box"], component: ["box"], folder: ["box"], tab: ["box"], box3d: ["box"],
-  ellipse: ["box", { rounded: true }], oval: ["box", { rounded: true }], circle: ["box", { rounded: true }], point: ["box", { rounded: true }],
-  egg: ["box", { rounded: true }], doublecircle: ["terminal"], Mcircle: ["terminal"],
+  ellipse: ["ellipse"], oval: ["ellipse"], circle: ["ellipse"], point: ["box", { rounded: true }],
+  egg: ["ellipse"], doublecircle: ["ellipse"], Mcircle: ["ellipse"],
   diamond: ["decision"], Mdiamond: ["decision"], hexagon: ["decision"],
   cylinder: ["database"], note: ["note"], parallelogram: ["io"], trapezium: ["io"],
   record: ["class"], Mrecord: ["class"],

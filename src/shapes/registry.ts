@@ -6,6 +6,7 @@ import { classBox } from "./compartments";
 import { table } from "./table";
 import { timeline } from "./timeline";
 import { decision, io, terminal } from "./flowchart";
+import { ellipse } from "./ellipse";
 import { activation, lifeline } from "./lifeline";
 import { database, document, note, subroutine } from "./more";
 
@@ -51,7 +52,7 @@ export interface ShapeDef {
 
 /** In picker order. */
 const SHAPES: Record<NodeKind, ShapeDef> = {
-  box, decision, io, terminal, database, document, subroutine, note, class: classBox, table, timeline, frame, lifeline, activation,
+  box, decision, io, terminal, ellipse, database, document, subroutine, note, class: classBox, table, timeline, frame, lifeline, activation,
 };
 
 export const SHAPE_KINDS = Object.keys(SHAPES) as NodeKind[];

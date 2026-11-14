@@ -14,13 +14,13 @@ import type { ShapeDef } from "./registry";
  *   ╰────────╯         ╰──╯  ╰──╯                        └────────┘
  */
 
-function lineStyle(border: BorderStyle): LineStyle | null {
+export function lineStyle(border: BorderStyle): LineStyle | null {
   if (border === "none") return null;
   return border === "rounded" ? "single" : border;
 }
 
 /** Stroke a path of orthogonally adjacent cells (a closed outline if it ends where it started). */
-function strokePath(grid: CharGrid, cells: Point[], style: LineStyle, roundedAt: (p: Point) => boolean = () => false) {
+export function strokePath(grid: CharGrid, cells: Point[], style: LineStyle, roundedAt: (p: Point) => boolean = () => false) {
   for (let k = 1; k < cells.length; k++) {
     const dir = stepSide(cells[k - 1], cells[k]);
     grid.stroke(cells[k - 1], dir, style, roundedAt(cells[k - 1]));
@@ -29,7 +29,7 @@ function strokePath(grid: CharGrid, cells: Point[], style: LineStyle, roundedAt:
 }
 
 /** Every cell along a list of corner points. */
-function through(points: Point[]): Point[] {
+export function through(points: Point[]): Point[] {
   const out: Point[] = [points[0]];
   for (const target of points.slice(1)) {
     let p = out[out.length - 1];

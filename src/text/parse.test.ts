@@ -145,3 +145,18 @@ describe("connector ends from Mermaid", () => {
     expect(g.edges.map((e) => e.heads?.end)).toEqual(["cross", "circle", undefined]);
   });
 });
+
+describe("circles in text", () => {
+  it("reads Mermaid's (( )), ((( ))) and circle shapes, and DOT's circle and ellipse, as circles", () => {
+    const g = parseGraph(`flowchart TD
+      A((one)) --> B(((two)))
+      B --> C@{ shape: circle, label: "three" }
+      C --> D(rounded box)`);
+    expect(g.warnings).toEqual([]);
+    expect(g.nodes.map((n) => [n.id, n.kind, n.text])).toEqual([
+      ["A", "ellipse", "one"], ["B", "ellipse", "two"], ["C", "ellipse", "three"], ["D", "box", "rounded box"],
+    ]);
+    const dot = parseGraph(`digraph { a [shape=circle]; b [shape=ellipse]; c [shape=box]; a -> b -> c }`);
+    expect(dot.nodes.map((n) => [n.id, n.kind])).toEqual([["a", "ellipse"], ["b", "ellipse"], ["c", "box"]]);
+  });
+});

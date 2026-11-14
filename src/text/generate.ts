@@ -1,3 +1,4 @@
+import { ellipseFit } from "../shapes/ellipse";
 import type { Point, Rect, Side } from "../geometry/geom";
 import { autoLayout } from "../model/layout";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
@@ -288,6 +289,7 @@ function nodeSize(kind: Node["kind"], text: string, plain?: boolean): { w: numbe
     case "document": return { w: tw + 4, h: lines + 3 };
     case "note": return { w: tw + 5, h: lines + 2 };
     case "subroutine": return { w: tw + 8, h: lines + 2 };
+    case "ellipse": return ellipseFit(tw, lines);
     default: return { w: tw + 4, h: lines + 2 };
   }
 }

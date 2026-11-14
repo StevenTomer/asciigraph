@@ -34,7 +34,7 @@ export interface GraphNode {
 const SHAPE_NAMES: Record<string, [NodeKind, { rounded?: boolean; plain?: boolean }?]> = {
   rect: ["box"], process: ["box"], proc: ["box"], rectangle: ["box"],
   rounded: ["box", { rounded: true }], event: ["box", { rounded: true }],
-  stadium: ["terminal"], terminal: ["terminal"], pill: ["terminal"], circle: ["terminal"], circ: ["terminal"],
+  stadium: ["terminal"], terminal: ["terminal"], pill: ["terminal"], circle: ["ellipse"], circ: ["ellipse"], "dbl-circ": ["ellipse"], "double-circle": ["ellipse"], "sm-circ": ["ellipse"], "small-circle": ["ellipse"],
   diam: ["decision"], decision: ["decision"], diamond: ["decision"], question: ["decision"], hex: ["decision"], hexagon: ["decision"],
   "lean-r": ["io"], "lean-l": ["io"], "in-out": ["io"], "lean-right": ["io"], "lean-left": ["io"],
   cyl: ["database"], cylinder: ["database"], database: ["database"], db: ["database"],
@@ -81,7 +81,8 @@ const SHAPES: [string, string, NodeKind, boolean][] = [
   ["([", "])", "terminal", false],
   ["[(", ")]", "database", false],
   ["[[", "]]", "subroutine", false],
-  ["((", "))", "terminal", false],
+  ["(((", ")))", "ellipse", false],
+  ["((", "))", "ellipse", false],
   ["[/", "/]", "io", false],
   ["[\\", "\\]", "io", false],
   ["[/", "\\]", "io", false],

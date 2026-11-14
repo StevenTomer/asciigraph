@@ -58,6 +58,7 @@ function shapeText(n: Node, id: string, indent: string): string {
     case "decision": return `${id}{${q}}`;
     case "io": return `${id}[/${q}/]`;
     case "terminal": return `${id}([${q}])`;
+    case "ellipse": return `${id}((${q}))`;
     case "database": return `${id}[(${q})]`;
     case "subroutine": return `${id}[[${q}]]`;
     case "document": return `${id}@{ shape: doc, label: ${attr(n.text)} }`;

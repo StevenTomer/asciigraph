@@ -8,6 +8,8 @@ export interface Cell {
   /** The line style reaching the cell from each direction: up, right, down, left. */
   styles: (LineStyle | undefined)[];
   rounded: boolean;
+  /** In ASCII, a corner here is . or ' (a curve) rather than + (circles). */
+  soft?: boolean;
   /** A text character; wins over strokes. */
   ch?: string;
   /** An arrowhead pointing this way; wins over strokes. */
@@ -43,6 +45,11 @@ export class CharGrid {
       c.mask |= DIR_BITS[i];
     }
     if (rounded) c.rounded = true;
+  }
+
+  /** Draw a corner here as . or ' in ASCII (a curve, not a +). */
+  soften(p: Point) {
+    this.cell(p).soft = true;
   }
 
   setChar(p: Point, ch: string) {
@@ -111,7 +118,12 @@ export class CharGrid {
 export function cellGlyph(c: Cell, ascii: boolean): string {
   if (c.ch !== undefined) return ascii ? asciiChar(c.ch) : c.ch;
   if (c.arrow) return arrowGlyph(c.arrow, ascii ? "ascii" : (c.arrowStyle ?? "single"), c.head);
-  if (c.mask) return lineGlyph(c.styles, c.rounded, ascii);
+  if (c.mask) {
+    // A curve's corner: . at the top of a bend, ' at the bottom (just two strokes, at right angles).
+    if (ascii && c.soft && (c.mask === (DIR_BITS[2] | DIR_BITS[1]) || c.mask === (DIR_BITS[2] | DIR_BITS[3]))) return ".";
+    if (ascii && c.soft && (c.mask === (DIR_BITS[0] | DIR_BITS[1]) || c.mask === (DIR_BITS[0] | DIR_BITS[3]))) return "'";
+    return lineGlyph(c.styles, c.rounded, ascii);
+  }
   return "";
 }
 

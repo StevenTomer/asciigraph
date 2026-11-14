@@ -5,6 +5,7 @@ import { DIR_BITS, DOWN, LEFT, RIGHT, UP, lineGlyph } from "../render/charsets";
 import { rasterize } from "../render/rasterize";
 import { chars } from "../render/textLayout";
 import { table, tableNode, tableText } from "../shapes/table";
+import { ellipseOutline, ellipseSide } from "../shapes/ellipse";
 import { repairTables } from "./repairTables";
 
 /**
@@ -171,6 +172,24 @@ export function importAscii(input: string, probe = false): ImportResult {
       }
     }
   }
+  // A circle's corners in ASCII: . where a curve bends down, ' where it bends up, joined to a -
+  // (or the next bend) on one side, the line going on below (or above). (Before the +s, which
+  // may join them.)
+  const bends = new Set([".", "'"]);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const c = ch(x, y);
+      if (!bends.has(c)) continue;
+      const joins = (n: string) => n === "-" || n === "+" || (bends.has(n) && n !== c);
+      const l = joins(ch(x - 1, y)), r = joins(ch(x + 1, y));
+      if (l === r) continue;
+      const v = c === "." ? ch(x, y + 1) : ch(x, y - 1);
+      if (!(v === "|" || v === "+" || (bends.has(v) && v !== c))) continue;
+      mask.set(k(x, y), (c === "." ? DOWN : UP) | (l ? LEFT : RIGHT));
+      style.set(k(x, y), "ascii");
+      asciiCell.add(k(x, y));
+    }
+  }
   const reaches = (x: number, y: number, toward: Side): boolean => {
     // Does the cell at (x, y) have a stroke toward `toward`, or is it a + (or an ASCII head
     // pointing away)?
@@ -198,6 +217,7 @@ export function importAscii(input: string, probe = false): ImportResult {
       if (m && popcount(m) >= 2) mask.set(k(x, y), m);
     }
   }
+
   const has = (x: number, y: number, s: Side) => !!((mask.get(k(x, y)) ?? 0) & BIT[s]);
 
   // 2. Boxes.
@@ -208,7 +228,7 @@ export function importAscii(input: string, probe = false): ImportResult {
     for (let x = 0; x < W; x++) {
       // A corner: right and down only (├ ┬ ┼ start dividers and branches, not boxes).
       if (!(has(x, y, "right") && has(x, y, "bottom")) || has(x, y, "top") || has(x, y, "left")) continue;
-      const b = traceBox(x, y) ?? traceDocument(x, y);
+      const b = traceBox(x, y) ?? traceDocument(x, y) ?? traceEllipse(x, y);
       if (!b) continue;
       boxes.push(b);
     }
@@ -270,7 +290,8 @@ export function importAscii(input: string, probe = false): ImportResult {
    * ╰──╯). Walked clockwise from the top-left corner, keeping the inside on the right (so at a
    * junction, where a connector leaves, it turns right rather than going out along it).
    */
-  function traceDocument(x0: number, y0: number): Box | null {
+  /** An outline walked clockwise from a top-left corner (null if it doesn't come back). */
+  function walk(x0: number, y0: number): Point[] | null {
     const RIGHT_OF: Record<Side, Side> = { right: "bottom", bottom: "left", left: "top", top: "right" };
     const LEFT_OF: Record<Side, Side> = { right: "top", top: "left", left: "bottom", bottom: "right" };
     // First step: right, along the top (clockwise).
@@ -284,10 +305,37 @@ export function importAscii(input: string, probe = false): ImportResult {
       if (!options.length) return null;
       dir = options[0];
       p = { x: p.x + STEP[dir].x, y: p.y + STEP[dir].y };
-      if (p.x === x0 && p.y === y0) break;
+      if (p.x === x0 && p.y === y0) return cells;
       cells.push(p);
     }
-    if (p.x !== x0 || p.y !== y0) return null;
+    return null;
+  }
+
+  /** A circle (shapes/ellipse.ts): exactly the outline the renderer draws for its bounds. */
+  function traceEllipse(x0: number, y0: number): Box | null {
+    const cells = walk(x0, y0);
+    if (!cells || cells.length < 12) return null;
+    const xs = cells.map((c) => c.x), ys = cells.map((c) => c.y);
+    const rect = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs) + 1, h: Math.max(...ys) - Math.min(...ys) + 1 };
+    if (rect.y !== y0 || rect.h < 5 || rect.h % 2 === 0 || rect.w < 9) return null;
+    const want = ellipseOutline(rect);
+    // From its own top-left corner only (not a step lower down), and the same cells exactly.
+    if (want[0].x !== x0 || want.length !== cells.length) return null;
+    const got = new Set(cells.map((c) => k(c.x, c.y)));
+    if (!want.every((c) => got.has(k(c.x, c.y)))) return null;
+    const x1 = rect.x + rect.w - 1, y1 = rect.y + rect.h - 1;
+    if (boxes.some((b) => b.x0 === rect.x && b.y0 === rect.y && b.x1 === x1 && b.y1 === y1)) return null;
+    const edge = cells.filter((c) => mask.get(k(c.x, c.y)) === (LEFT | RIGHT)).map((c) => style.get(k(c.x, c.y))!);
+    const st = majority(edge) ?? "single";
+    return {
+      x0: rect.x, y0: rect.y, x1, y1, border: st === "dashed" || st === "dotted" ? st : st, kind: "ellipse", dividers: [], id: "",
+      cells: new Map(cells.map((c) => [k(c.x, c.y), ellipseSide(rect, c)])),
+    };
+  }
+
+  function traceDocument(x0: number, y0: number): Box | null {
+    const cells = walk(x0, y0);
+    if (!cells) return null;
     const x1 = Math.max(...cells.map((c) => c.x)), y1 = Math.max(...cells.map((c) => c.y));
     if (x1 - x0 < 6 || y1 - y0 < 3 || boxes.some((b) => b.x0 === x0 && b.y0 === y0)) return null;
     // The top runs all the way across, the left side straight down to the crest row, and the

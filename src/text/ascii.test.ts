@@ -67,6 +67,13 @@ describe("reading a drawing back into objects", () => {
       A@{ shape: doc, label: "report" } --> B[Read it]
       C@{ shape: doc, label: "a much longer report" } --> B
       B --> D@{ shape: doc, label: "summary" }`],
+    ["circles, top to bottom", `flowchart TD
+      A((Start)) --> B[Check the order]
+      B --> C((a bigger circle here))
+      B --> D((x))`],
+    ["circles, left to right", `flowchart LR
+      A((in)) --> B((process it))
+      B --> C((out))`],
   ];
   for (const [name, text, dir] of cases) {
     it(`round-trips ${name}`, () => {
@@ -75,6 +82,12 @@ describe("reading a drawing back into objects", () => {
         : drawn(text, dir);
       // (A narrow document's connector joins its wave: ╰─┬╯, not a gap below it.)
       if (name.startsWith("documents")) expect(before).toContain("╰─┬╯");
+      if (name.startsWith("circles")) {
+        expect(nodes(importAscii(before).diagram).filter((n) => n.kind === "ellipse").length).toBeGreaterThanOrEqual(3);
+        // And drawn in ASCII.
+        const ascii = drawn(text, dir, true);
+        expect(diagramToText(importAscii(ascii).diagram, true)).toBe(ascii);
+      }
       const r = importAscii(before);
       expect(r.warnings).toEqual([]);
       expect(diagramToText(r.diagram)).toBe(before);

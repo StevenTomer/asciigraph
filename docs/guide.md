@@ -89,6 +89,7 @@ afterwards in the properties panel.
 | decision | `<  ok?  >` | flowchart branches |
 | input/output | `╱ data ╱` | flowchart input and output |
 | start/end | `( Start )` | flowchart terminals |
+| circle | a round outline in steps, `╭─╯ ╰─╮` (`.-' '-.` in ASCII) | states, events, connectors between pages |
 | database | `├──────┤` under a rounded top | data stores |
 | document | a box with a wavy bottom | files, reports |
 | subroutine | `│ │ Ship it │ │` | a predefined step |
@@ -97,6 +98,11 @@ afterwards in the properties panel.
 | table | a grid of cells (the table tool, or a Markdown table) | tables |
 | frame | a named box drawn behind things | grouping; boxes inside it aren't hidden |
 | lifeline, activation | see [Sequence diagrams](#sequence-diagrams) | |
+
+A circle is drawn in steps of line characters, about twice as wide as it is tall (character
+cells are tall and narrow), so a wide one is an ellipse. It's always an odd number of rows, so
+each side has a straight stretch in the middle where connectors join it, and it grows taller as
+you type more than fits.
 
 **Class boxes:** a line of just `---` in the text divides the box there. The first part (the
 name) is centered and the rest left-aligned:
@@ -560,6 +566,7 @@ flowchart TD
 | `id[text]` | box |
 | `id(text)` | rounded box |
 | `id([text])` | start/end |
+| `id((text))`, `id(((text)))` | circle |
 | `id{text}` | decision |
 | `id[/text/]` | input/output |
 | `id[(text)]` | database |
@@ -703,9 +710,9 @@ digraph {
 - `graph` (lines) or `digraph` (arrows); chains (`a -> b -> c`) and groups (`{a b} -> c`);
   `node [...]` and `edge [...]` defaults; `rankdir=LR` (or the **layout** choice).
 - Subgraphs named `cluster…` are frames, named by their `label`.
-- Shapes: `box` and the like → box; `ellipse` (the default), `circle` → rounded box; `diamond` →
-  decision; `cylinder` → database; `note`; `parallelogram` → input/output; `doublecircle` →
-  start/end; `record` / `Mrecord` → class box (fields as compartments); `plaintext`, `none` →
+- Shapes: `box` and the like → box; no shape (DOT's default ellipse) → rounded box, so plain
+  graphs stay compact; `ellipse`, `oval`, `circle`, `doublecircle` given → circle; `diamond` →
+  decision; `cylinder` → database; `note`; `parallelogram` → input/output; `record` / `Mrecord` → class box (fields as compartments); `plaintext`, `none` →
   text.
 - Edges: `label`; `taillabel` / `headlabel` as end labels; `style=dashed / dotted / bold`;
   `dir`, `arrowhead`, `arrowtail` (`normal`, `empty`, `diamond`, `odiamond`, `dot`, `odot`,
@@ -792,7 +799,7 @@ What it recognizes:
   top border (`┌─ API ──┐`). A named box with nothing in it, or one holding only other boxes,
   becomes a frame.
 - **Shapes** as asciigraph draws them: decisions (`< >`), input/output (`╱ ╱`), start/end
-  (`( )`), databases (a rim under the top), documents (a wavy bottom), subroutines
+  (`( )`), circles (`╭─╯ ╰─╮`, or `.-' '-.` in ASCII), databases (a rim under the top), documents (a wavy bottom), subroutines
   (`│ │ … │ │`), notes (a folded corner), class boxes (full-width `├──┤` rows divide them), and
   tables (`┬ ┼ ┴` column lines all the way down, in box characters or `+---+` ASCII), whose text
   is written as a Markdown table. A row across the top with no column lines is its title, and so
