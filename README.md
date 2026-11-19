@@ -58,7 +58,7 @@ Here is what a sample textual export looks like, for a diagram drawn from four l
   or down, with sections; written as Mermaid `timeline` text), and sequence-diagram lifelines and
   activation bars.
 - **Connectors:** Six line styles, and a bus three cells wide; a head at either end (arrow, hollow arrow, diamond, hollow
-  diamond, dot, circle, cross, bar); labels, and end labels by each end (`1`, `0..*`); bend
+  diamond, dot, circle, cross, bar); labels (on the line or to either side), and end labels by each end (`1`, `0..*`); bend
   points; and a turn point you can drag.
 - **Draw from text:** [Mermaid](https://mermaid.js.org/)
   [sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html),

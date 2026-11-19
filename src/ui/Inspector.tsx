@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { Side } from "../geometry/geom";
 import { reveal, whenIdle } from "../editor/view";
 import { deleteObjects, freeEndpoint, headOf, updateEdge, updateNode, withHead } from "../model/ops";
 import { HEAD_NAMES, arrowGlyph } from "../render/charsets";
@@ -20,6 +21,10 @@ const BORDERS: [BorderStyle, string][] = [
 ];
 const LINES: [LineStyle, string][] = [
   ["single", "───"], ["double", "═══"], ["heavy", "━━━"], ["dashed", "┄┄┄"], ["dotted", "┈┈┈"], ["ascii", "---"], ["bus", "▐█▌"],
+];
+const LABEL_SIDES: [Side | undefined, string, string][] = [
+  [undefined, "auto", "on the line (or right of it, going up and down)"], ["top", "↑", "above the line"],
+  ["bottom", "↓", "below the line"], ["left", "←", "left of the line"], ["right", "→", "right of the line"],
 ];
 const HALIGN: [HAlign, string][] = [["left", "left"], ["center", "center"], ["right", "right"]];
 const VALIGN: [VAlign, string][] = [["top", "top"], ["middle", "middle"], ["bottom", "bottom"]];
@@ -268,6 +273,21 @@ export function Inspector() {
                 onChange={(e) => set(updateEdge(getState().diagram, e0.id, { label: e.target.value || undefined }))}
                 aria-label="Label"
               />
+            </Row>
+          )}
+          {edges.some((e) => e.label) && (
+            <Row label="label side">
+              {LABEL_SIDES.map(([v, glyph, name]) => (
+                <Choice
+                  key={v ?? "auto"}
+                  active={e0.labelSide === v}
+                  onClick={() => eachEdge(() => ({ labelSide: v }))}
+                  title={name}
+                  label={`Label ${name}`}
+                >
+                  {glyph}
+                </Choice>
+              ))}
             </Row>
           )}
           {edges.length === 1 && e0.turnAt !== undefined ? (

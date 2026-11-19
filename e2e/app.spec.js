@@ -618,6 +618,28 @@ test("a connector made a bus is drawn three wide, and clicking its wall selects 
   expect((await state(page)).selection).toEqual([id]);
 });
 
+test("a connector's label can go above or below its line, from the properties panel", async ({ page }) => {
+  await box(page, [2, 2], [10, 4], "A");
+  await box(page, [30, 2], [38, 4], "B");
+  await page.keyboard.press("a");
+  await drag(page, [6, 3], [34, 3]);
+  await page.keyboard.press("s");
+  const id = (await state(page)).selection[0];
+  await page.getByRole("textbox", { name: "Label", exact: true }).fill("calls");
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Label above the line" }).click();
+  expect((await state(page)).diagram.edges[id].labelSide).toBe("top");
+  const rows = (await text(page)).split("\n");
+  const line = rows.findIndex((r) => r.includes("├──────"));
+  expect(rows[line - 1]).toContain("calls");
+  expect(rows[line]).not.toContain("calls");
+  await page.getByRole("button", { name: "Label below the line" }).click();
+  expect((await text(page)).split("\n")[line + 1]).toContain("calls");
+  await page.getByRole("button", { name: "Label on the line (or right of it, going up and down)" }).click();
+  expect((await state(page)).diagram.edges[id].labelSide).toBeUndefined();
+  expect((await text(page)).split("\n")[line]).toContain(" calls ");
+});
+
 test("connector labels and bend points", async ({ page }) => {
   await box(page, [2, 2], [10, 4], "A");
   await box(page, [30, 2], [38, 4], "B");

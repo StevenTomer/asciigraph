@@ -108,7 +108,7 @@ export function rasterize(d: Diagram, quick = false): Rendered {
         });
         for (let x = rect.x - 1; x <= rect.x + rect.w; x++) labelCells.add(`${x},${rect.y}`);
       }
-      const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt, canUse, bus ? 2 : 1);
+      const placed = placeLabel(r.cells, edge.label ?? "", edge.labelAt, canUse, bus ? 2 : 1, edge.labelSide);
       if (edge.label) {
         for (let y = placed.rect.y; y < placed.rect.y + placed.rect.h; y++) {
           for (let x = placed.rect.x - 1; x <= placed.rect.x + placed.rect.w; x++) labelCells.add(`${x},${y}`);
@@ -174,6 +174,8 @@ export function placeEndLabel(
  * (`── yes ──►`), otherwise beside a vertical run. `at` (0–1 along the connector) puts it near
  * that point; without it, the longest horizontal run that fits (or the middle of the longest
  * vertical one). Without a label, `rect` is where one would go (for the editor). One line.
+ * `side`: above or below a horizontal run instead, or on that side of a vertical one (where the
+ * connector has such a run, and there's room; else as without it).
  */
 export function placeLabel(
   cells: Point[], label: string, at?: number,
@@ -182,6 +184,7 @@ export function placeLabel(
   canUse: (p: Point, onLine: boolean) => boolean = () => true,
   /** How far the line reaches either side of its route: 1, or 2 for a bus. */
   spread = 1,
+  side?: Side,
 ): { rect: Rect; chars: [Point, string][] } {
   // Lines as shown (Markdown lists rendered). A block of several lines is centered on the line.
   const rendered = label ? renderText(label, 1000) : { lines: [], list: false };
@@ -225,6 +228,20 @@ export function placeLabel(
     }
     return { rect: { x: x0, y: top, w: len, h: n }, chars: out, line: y };
   };
+  /** Above or below a horizontal run, just clear of the line, centered on `center` (or the run). */
+  const off = (run: { a: number; b: number }, where: "top" | "bottom", center?: number): Placed => {
+    const lo = Math.max(run.a, 1), hi = Math.min(run.b, cells.length - 2);
+    const minX = Math.min(cells[lo].x, cells[hi].x), maxX = Math.max(cells[lo].x, cells[hi].x);
+    const x0 = center === undefined
+      ? Math.floor((minX + maxX + 1 - len) / 2)
+      : Math.max(minX, Math.min(maxX + 1 - len, center - Math.floor((len - 1) / 2)));
+    const y = cells[lo].y, top = where === "top" ? y - spread - (n - 1) : y + spread;
+    const out: [Point, string][] = [];
+    place(x0, top, out);
+    return { rect: { x: x0, y: top, w: len, h: n }, chars: out };
+  };
+  const across = side === "top" || side === "bottom" ? side : null;
+  const upright = side === "left" || side === "right" ? side : null;
   /** Beside a cell of a vertical stretch: to its right, or to its left. */
   const beside = (cell: Point, side: "right" | "left" = "right"): Placed => {
     const x0 = side === "right" ? cell.x + 1 + spread : cell.x - spread - len, top = cell.y - Math.floor((n - 1) / 2);
@@ -248,10 +265,32 @@ export function placeLabel(
     // Dragged here: as near that spot as it fits cleanly, else right there anyway.
     const k = Math.max(1, Math.min(cells.length - 2, Math.round(at * (cells.length - 1))));
     const run = runs.find((r) => r.horizontal && r.a <= k && k <= r.b && room(r) >= len + 2);
-    const options = run ? [inline(run, cells[k].x)] : [beside(cells[k]), beside(cells[k], "left")];
+    const over = across && runs.find((r) => r.horizontal && r.a <= k && k <= r.b && room(r) >= len);
+    const options = over ? [off(over, across!, cells[k].x)]
+      : run ? [inline(run, cells[k].x)]
+      : upright === "left" ? [beside(cells[k], "left"), beside(cells[k])] : [beside(cells[k]), beside(cells[k], "left")];
     return options.find(fine) ?? options[0];
   }
-  // Inline on a horizontal stretch (the roomiest first, middle outwards)…
+  const vertical = runs.filter((r) => !r.horizontal || r.a === r.b).sort((p, q) => q.b - q.a - (p.b - p.a));
+  const uprights = vertical.filter((r) => r.b > r.a);
+  // On the side asked for, where there's a run that way…
+  const overs = runs.filter((r) => r.horizontal && room(r) >= len).sort((p, q) => room(q) - room(p));
+  if (across) {
+    for (const r of overs) {
+      for (const k of [undefined, ...outward(Math.max(r.a, 1), Math.min(r.b, cells.length - 2))]) {
+        const pl = off(r, across, k === undefined ? undefined : cells[k].x);
+        if (fine(pl)) return pl;
+      }
+    }
+  } else if (upright) {
+    for (const r of uprights) {
+      for (const k of outward(Math.max(r.a, 1), Math.min(r.b, cells.length - 2))) {
+        const pl = beside(cells[k], upright);
+        if (fine(pl)) return pl;
+      }
+    }
+  }
+  // …inline on a horizontal stretch (the roomiest first, middle outwards)…
   const horizontal = runs.filter((r) => r.horizontal && room(r) >= len + 2).sort((p, q) => room(q) - room(p));
   for (const r of horizontal) {
     const centered = inline(r);
@@ -263,7 +302,6 @@ export function placeLabel(
     }
   }
   // …else beside a vertical stretch (the longest first, middle outwards, right then left)…
-  const vertical = runs.filter((r) => !r.horizontal || r.a === r.b).sort((p, q) => q.b - q.a - (p.b - p.a));
   for (const r of vertical) {
     for (const k of outward(Math.max(r.a, 1), Math.min(r.b, cells.length - 2))) {
       for (const side of ["right", "left"] as const) {
@@ -273,9 +311,10 @@ export function placeLabel(
     }
   }
   // …else where it would have gone regardless.
-  if (horizontal[0]) return inline(horizontal[0]);
-  const v = vertical[0] ?? runs[0];
-  return beside(cells[Math.floor((v.a + v.b) / 2)]);
+  if (across && overs[0]) return off(overs[0], across);
+  if (horizontal[0] && !(upright && uprights[0])) return inline(horizontal[0]);
+  const v = (upright && uprights[0]) || vertical[0] || runs[0];
+  return beside(cells[Math.floor((v.a + v.b) / 2)], upright ?? "right");
 }
 
 /** Rects of the nodes that hide an edge: all but those containing one of its ends. */

@@ -152,6 +152,9 @@ export interface Edge {
   /** Where along the connector the label sits, 0 (start) to 1 (end), when dragged there.
    * Without it, the label goes on the longest straight stretch. */
   labelAt?: number;
+  /** Which side of the line the label goes: above or below a stretch across, left or right of
+   * one up and down. Without it, on the line across (`── yes ──►`), else right of it. */
+  labelSide?: Side;
   /** Bend points the route passes through, in order (absolute cells; they move only when the
    * connector itself is moved). Without them the route is automatic. */
   via?: Point[];

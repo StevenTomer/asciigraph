@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { addEdge, addNode, emptyDiagram, makeEdge, makeNode } from "../model/ops";
 import type { Diagram, Edge, Node } from "../model/types";
 import { diagramToText } from "./rasterize";
+import { importAscii } from "../text/ascii";
 
 const show = (d: Diagram) => "\n" + diagramToText(d) + "\n";
 const att = (node: string, side: "auto" | "top" | "bottom" | "left" | "right" = "auto") => ({ kind: "attached" as const, node, side });
@@ -33,6 +34,42 @@ describe("labels", () => {
 │  B  │
 └─────┘
 `);
+  });
+
+  it("goes on the side asked for, and reads back there", () => {
+    const across = (labelSide: Edge["labelSide"], line: Edge["line"] = "single") =>
+      build([box("A", 0, 0), box("B", 20, 8)], [makeEdge(att("A"), att("B"), { label: "yes", labelSide, line })]);
+    expect(show(across("top"))).toBe(`
+┌─────┐    yes
+│  A  ├──────────┐
+└─────┘          │
+                 │
+                 │
+                 │
+                 │
+                 │
+                 │  ┌─────┐
+                 └─►│  B  │
+                    └─────┘
+`);
+    expect(show(across("bottom")).split("\n")[3]).toBe("└─────┘    yes   │");
+    expect(show(across("left")).split("\n")[6]).toBe("             yes │");
+    expect(show(across("right")).split("\n")[6]).toBe("                 │ yes");
+    const side = build([box("A", 0, 0), box("B", 20, 0)], [makeEdge(att("A"), att("B"), { label: "yes", labelSide: "top", line: "bus" })]);
+    expect(show(side)).toBe(`
+            yes
+┌─────┐━━━━━━━━━━━━╲┌─────┐
+│  A  │            ►│  B  │
+└─────┘━━━━━━━━━━━━╱└─────┘
+`);
+    const down = build([box("A", 0, 0), box("B", 0, 8)], [makeEdge(att("A"), att("B"), { label: "no", labelSide: "left" })]);
+    expect(show(down).split("\n")[6]).toBe("no │");
+    for (const d of [across("top"), across("bottom"), across("left"), across("right"), side, down]) {
+      const text = diagramToText(d);
+      const back = importAscii(text).diagram;
+      expect(diagramToText(back)).toBe(text);
+      expect(Object.values(back.edges).map((e) => e.label)).toEqual([Object.values(d.edges)[0].label]);
+    }
   });
 });
 

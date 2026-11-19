@@ -1086,6 +1086,8 @@ export function importAscii(input: string, probe = false): ImportResult {
   type LabelAt = { start: Point; cell: Point };
   const edges: {
     from: Terminal; to: Terminal; path: Point[]; label?: string; labelAt?: LabelAt; endLabels?: { start?: string; end?: string };
+    /** The side of the line its label was drawn on (beside it, or above or below it). */
+    labelSide?: Side;
     /** A bus (its style isn't in its cells), which reaches 2 cells either side of its path. */
     bus?: boolean;
   }[] = buses.map((b) => ({ from: b.from, to: b.to, path: b.path, label: b.label, labelAt: b.labelAt, bus: true }));
@@ -1179,13 +1181,26 @@ export function importAscii(input: string, probe = false): ImportResult {
       if (e.label) continue;
       const s = e.bus ? 2 : 1;
       const besideAt = (p: Point) => p.y === run.y && (run.x === p.x + 1 + s || run.x + run.len === p.x - s);
-      const beside = e.path.some((p, i) => {
-        const vertical = (i > 0 && e.path[i - 1].x === p.x) || (i + 1 < e.path.length && e.path[i + 1].x === p.x);
-        return vertical && besideAt(p);
-      });
-      if (beside && !boxes.some((b) => inBox(run.x, run.y, b) !== inBox(e.path[0].x, e.path[0].y, b))) {
+      const vertical = (i: number) => {
+        const p = e.path[i];
+        return (i > 0 && e.path[i - 1].x === p.x) || (i + 1 < e.path.length && e.path[i + 1].x === p.x);
+      };
+      let cell = e.path.find((p, i) => vertical(i) && besideAt(p));
+      let side: Side | undefined = cell && (run.x > cell.x ? "right" : "left");
+      // Or just above or below a stretch across, the whole of it over the line (not its ends).
+      if (!cell) {
+        for (const [dy, where] of [[s, "top"], [-s, "bottom"]] as const) {
+          const inner = new Set(e.path.slice(1, -1).filter((_, i) => !vertical(i + 1)).map((p) => k(p.x, p.y)));
+          if (Array.from({ length: run.len }, (_, i) => k(run.x + i, run.y + dy)).every((c) => inner.has(c))) {
+            cell = { x: run.x + Math.floor((run.len - 1) / 2), y: run.y + dy };
+            side = where;
+            break;
+          }
+        }
+      }
+      if (cell && !boxes.some((b) => inBox(run.x, run.y, b) !== inBox(e.path[0].x, e.path[0].y, b))) {
         e.label = run.text;
-        const cell = e.path.find(besideAt)!;
+        e.labelSide = side;
         e.labelAt = { start: { x: run.x, y: run.y }, cell };
         for (let x = run.x; x < run.x + run.len; x++) used.add(k(x, run.y));
         break;
@@ -1343,7 +1358,7 @@ export function importAscii(input: string, probe = false): ImportResult {
 
   // Connectors: attached by side, each routed automatically if that reproduces the drawing;
   // otherwise with its ends where they were drawn, then also its bends.
-  const made: { id: Id; drawn: Point[]; from: Terminal; to: Terminal; labelAt?: LabelAt }[] = [];
+  const made: { id: Id; drawn: Point[]; from: Terminal; to: Terminal; labelAt?: LabelAt; labelSide?: Side }[] = [];
   // A connector's style is its own stretch's, not a trunk it shares with others.
   const uses = new Map<number, number>();
   for (const e of edges) for (const p of e.path) uses.set(k(p.x, p.y), (uses.get(k(p.x, p.y)) ?? 0) + 1);
@@ -1365,9 +1380,9 @@ export function importAscii(input: string, probe = false): ImportResult {
       ...(e.endLabels && { endLabels: e.endLabels }),
     });
     d = addEdge(d, edge);
-    made.push({ id: edge.id, drawn: e.path, from: e.from, to: e.to, labelAt: e.labelAt });
+    made.push({ id: edge.id, drawn: e.path, from: e.from, to: e.to, labelAt: e.labelAt, labelSide: e.labelSide });
   }
-  for (let round = 0; round < 3; round++) {
+  for (let round = 0; round < 5; round++) {
     const r = rasterize(d);
     let changed = false;
     for (const m of made) {
@@ -1377,6 +1392,12 @@ export function importAscii(input: string, probe = false): ImportResult {
         const at = r.edges.get(m.id)?.label;
         const want = m.labelAt;
         if (want && at && (at.x !== want.start.x || at.y !== want.start.y)) {
+          // On the side it was drawn on, then (if still needed) at that point along it.
+          if (m.labelSide && d.edges[m.id].labelSide === undefined) {
+            d = { ...d, edges: { ...d.edges, [m.id]: { ...d.edges[m.id], labelSide: m.labelSide } } };
+            changed = true;
+            continue;
+          }
           const idx = got.findIndex((p) => p.x === want.cell.x && p.y === want.cell.y);
           if (idx > 0 && d.edges[m.id].labelAt === undefined) {
             d = { ...d, edges: { ...d.edges, [m.id]: { ...d.edges[m.id], labelAt: idx / (got.length - 1) } } };

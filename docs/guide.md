@@ -488,6 +488,22 @@ Double-click a connector, or select it and press <kbd>Enter</kbd>, to label it.
 straight stretch (`── yes ──►`), or beside it on a vertical one. Drag the label to move it along
 the connector; right-click → **Reset Label Position** puts it back.
 
+To put it to one side of the line instead, select the connector and pick a **label side** in the
+properties panel: **↑** above or **↓** below a stretch going across, **←** left or **→** right of
+one going up and down. **auto** puts it back on the line. A connector with no stretch that way
+keeps its label where it was. A bus's label goes just outside its walls. Here, **↑**:
+
+```
+┌─────┐    yes
+│  A  ├──────────┐
+└─────┘          │
+                 │
+                 │
+                 │  ┌─────┐
+                 └─►│  B  │
+                    └─────┘
+```
+
 **End labels** are short text by each end: how many are there (`1`, `0..*`), a role, a port.
 Select the connector and fill in **end labels** in the properties panel (**at start**, **at
 end**). Each goes just past its end, above (or below) a line leaving sideways, or beside one
@@ -877,7 +893,7 @@ What it recognizes:
   carries on the row above it (a cell over several lines).
 - **Connectors:** lines between boxes, attached to the side they touch, with their heads
   (`► ▷ ◆ ◊ ● ○ × ┤`, and in ASCII `> |> * o @ O x |`), line style, and a label in a gap in the line (`── yes ──►`)
-  or just beside a vertical one. A bus (two heavy walls with its label between them) reads back
+  or just beside a vertical one, or just above or below a horizontal one (kept on that side). A bus (two heavy walls with its label between them) reads back
   as a bus; in ASCII, only one with a head at an end (without one, it looks just like two lines). A line a space or two short of a box (as ASCII often is) still
   attaches. A line that branches (one trunk to several boxes) becomes a connector per branch.
 - **Sequence diagrams:** a three-row box with a line straight down from it is a lifeline (with
