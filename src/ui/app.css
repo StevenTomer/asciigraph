@@ -676,3 +676,9 @@ button.peer.me {
   box-sizing: border-box;
   margin-bottom: 8px;
 }
+.manual-copy {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono, monospace);
+  word-break: break-all;
+}

@@ -22,7 +22,7 @@
 ![The editor: toolbar, canvas, properties panel and zoom controls](images/overview.png)
 
 - **Toolbar** (top): the diagram's name (click it for your list of diagrams), the tools, undo and
-  redo, **from text**, **export**, and toggles for the **grid**, **snap** and **dark** mode.
+  redo, **from text**, **export**, **share**, and toggles for the **grid**, **snap** and **dark** mode.
   **help** gives a short summary of everything here, with a search box at the top, and says
   which version is running (its number, the commit it was built from, and when).
 - **Canvas**: the drawing, on a grid of character cells. Drag empty space with the middle mouse
@@ -1032,14 +1032,28 @@ can't write files from a web page: opening works the same, and saving downloads 
 With something selected, all of these can be just the selection (**selection only**, ticked by
 default).
 
+### Sharing
+
+**share** in the toolbar offers two ways:
+
+- **Live** (when asciigraph runs with its server): **share live…** puts the diagram on the
+  server for you and others to edit at the same time, from a link. See below.
+- **A copy:** **copy share link** puts the whole diagram in a link; nothing is uploaded.
+  Whoever opens it gets their own copy to change (**save a copy** keeps it), and their changes
+  don't come back to you. (**export** has the same button, for just the selection.)
+
+Browsers only allow copying to the clipboard on `https` pages and at `localhost`, but asciigraph
+falls back to the older way of copying, which works on plain `http` too. If a browser refuses
+both, the link is shown, selected, to copy with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
 ### Live diagrams: editing together
 
 When asciigraph runs with its server (`docker compose up`, as in the README), you can share a
 diagram **live**. Everyone with its link edits the same diagram at the same time.
 
-1. In **diagrams**, choose **share live…**, type your name, and **share it**. A copy of the
+1. In **share** (or **diagrams**), choose **share live…**, type your name, and **share it**. A copy of the
    diagram goes to the server; your own copy stays as it was.
-2. In the panel at the bottom left, **copy link**, and send it to the people you want to edit
+2. In **share**, **copy live link** (or **copy link** in the panel at the bottom left), and send it to the people you want to edit
    with.
 3. When they open it, they're asked for their name (once; it's remembered), then they're in.
 

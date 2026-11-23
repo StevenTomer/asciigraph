@@ -998,6 +998,29 @@ test("save a selection as a stamp, insert it again, and delete it", async ({ pag
   await expect(stamps.getByText(/None of your own yet/)).toBeVisible();
 });
 
+test("share: a link with a copy of the diagram, copied even without the clipboard API (plain http), opens elsewhere", async ({ page, browser }) => {
+  // As on plain http at an address other than localhost: no navigator.clipboard.
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "clipboard", { get: () => undefined });
+    document.addEventListener("copy", () => (window.__copied = document.activeElement?.value));
+  });
+  await page.reload();
+  await box(page, [2, 2], [12, 4], "Shared");
+  await page.getByRole("button", { name: "share", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "share" });
+  await expect(dialog.getByRole("button", { name: "share live…" })).toBeVisible();
+  await dialog.getByRole("button", { name: "copy share link" }).click();
+  await expect(dialog.getByRole("status")).toHaveText("Copied a share link.");
+  // What was copied (seen as it's copied: the system clipboard is shared with other tests).
+  const link = await page.evaluate(() => window.__copied);
+  expect(link).toMatch(/#\/share\//);
+  const other = await browser.newContext();
+  const p2 = await other.newPage();
+  await p2.goto(link);
+  await expect.poll(() => p2.evaluate(() => window.__asciigraph__?.text())).toContain("Shared");
+  await other.close();
+});
+
 test("help can be searched, and says which version this is", async ({ page }) => {
   await page.getByRole("button", { name: "help" }).click();
   const help = page.getByRole("dialog", { name: "help" });
@@ -1005,7 +1028,7 @@ test("help can be searched, and says which version this is", async ({ page }) =>
   const entries = help.locator(".help-entry");
   const all = await entries.count();
   await page.getByRole("searchbox", { name: "Search help" }).fill("share link");
-  await expect(help.locator(".help-entry:visible dt").first()).toHaveText("sharing");
+  await expect(help.locator(".help-entry:visible dt").first()).toHaveText("share");
   const some = await help.locator(".help-entry:visible").count();
   expect(some).toBeGreaterThan(0);
   expect(some).toBeLessThan(all);
@@ -1824,8 +1847,8 @@ test("folder trees from text: without the tree's lines, and folders without thei
 
 test("live diagrams: share one, a second person joins by link, and both edit it together", async ({ page, browser }) => {
   await box(page, [2, 2], [12, 4], "A");
-  // Share it live, as Alice.
-  await page.getByTestId("diagrams").click();
+  // Share it live, as Alice (from share in the toolbar).
+  await page.getByRole("button", { name: "share", exact: true }).click();
   await page.getByRole("button", { name: "share live…" }).click();
   await page.getByLabel("Your name").fill("Alice");
   await page.getByRole("button", { name: "share it" }).click();
@@ -1861,8 +1884,12 @@ test("live diagrams: share one, a second person joins by link, and both edit it 
   const bId = Object.values((await state(bob)).diagram.nodes).find((n) => n.text === "B").id;
   await expect.poll(async () => (await state(page)).live.peers[0]?.selection).toEqual([bId]);
 
-  // copy link, where the page can't use the clipboard (plain http on a LAN): the link, to copy.
+  // copy link, where the page can't use the clipboard API (plain http on a LAN): copied the
+  // older way; and where that's refused too, the link, to copy by hand.
   await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("no")) } }));
+  await page.getByRole("button", { name: "copy link" }).click();
+  await expect(page.getByRole("status")).toContainText("Copied the link");
+  await page.evaluate(() => (document.execCommand = () => false));
   await page.getByRole("button", { name: "copy link" }).click();
   await expect(page.getByRole("textbox", { name: "The link to send" })).toHaveValue(link);
   await bobContext.close();

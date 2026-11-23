@@ -6,6 +6,7 @@ import { notify } from "../editor/file";
 import { type LiveState, useEditor } from "../editor/store";
 import { saveCopy } from "../editor/session";
 import { Dialog } from "./Dialogs";
+import { copyText } from "./copyText";
 
 /** Your name for live diagrams: asked before joining or sharing one, or to change it. */
 export function LiveNameDialog() {
@@ -145,10 +146,9 @@ function LiveBar({ live }: { live: LiveState }) {
   const [dialog, setDialog] = useState<"owner" | "history" | null>(null);
   const viewing = live.role === "view";
   const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(live.link);
+    if (await copyText(live.link)) {
       notify(viewing ? "Copied the link: anyone with it can see this diagram." : "Copied the link: anyone with it can edit this diagram.");
-    } catch {
+    } else {
       setShowLink(true);
     }
   };
@@ -213,10 +213,9 @@ function LinkRow({ label, link, children }: { label: string; link: string | null
   const input = useRef<HTMLInputElement>(null);
   const copy = async () => {
     if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
+    if (await copyText(link)) {
       notify(`Copied the ${label}.`);
-    } catch {
+    } else {
       input.current?.focus();
       input.current?.select();
       notify("Copy it with Ctrl+C (⌘C on a Mac).");

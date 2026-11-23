@@ -6,7 +6,7 @@ import { saveCopy } from "../editor/session";
 import { saveFile } from "../editor/file";
 import { install } from "../pwa/pwa";
 
-export type DialogId = "diagrams" | "export" | "help" | null;
+export type DialogId = "diagrams" | "export" | "share" | "help" | null;
 
 export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
   const tool = useEditor((s) => s.tool);
@@ -78,6 +78,7 @@ export function Toolbar({ openDialog }: { openDialog: (d: DialogId) => void }) {
         <button className="tb" onClick={() => openStampsDialog()} title="Insert ready-made pieces (flowchart, architecture, sequence, notes), your own saved ones, or banner text">stamps</button>
         <button className="tb" onClick={openFind} title="Find text (Ctrl+F)">find</button>
         <button className="tb" onClick={() => openDialog("export")} data-testid="export">export</button>
+        <button className="tb" onClick={() => openDialog("share")} title="Edit it with others live, or send a copy as a link">share</button>
         <button className="tb" onClick={() => setPrefs({ grid: !grid })} aria-pressed={grid}>grid</button>
         <button
           className={"tb" + (snap ? "" : " off")}

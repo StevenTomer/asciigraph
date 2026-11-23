@@ -14,6 +14,7 @@ import { directionOf, setDirection, unlinkSource } from "../text/sync";
 import { canShrinkToText, sameSize, shrinkToText } from "../model/size";
 import { withoutPoints } from "../shapes/timeline";
 import { autoSized, columnRooms, markdownTable, parseTable, withColumnWidth, withOptions, withTitle } from "../shapes/table";
+import { copyText } from "./copyText";
 
 const BORDERS: [BorderStyle, string][] = [
   ["single", "single"], ["double", "double"], ["rounded", "rounded"], ["heavy", "heavy"],
@@ -408,12 +409,8 @@ function TableRows({ node: n }: { node: Node }) {
   const patch = (p: (n: Node) => Partial<Node>) => apply((d) => updateNode(d, n.id, p(d.nodes[n.id])));
   const copied = useRef<HTMLSpanElement>(null);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(markdownTable(n.text));
-      if (copied.current) copied.current.textContent = "copied";
-    } catch {
-      if (copied.current) copied.current.textContent = "couldn't copy here";
-    }
+    const ok = await copyText(markdownTable(n.text));
+    if (copied.current) copied.current.textContent = ok ? "copied" : "couldn't copy here";
   };
   return (
     <>

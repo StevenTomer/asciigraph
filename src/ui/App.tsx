@@ -7,7 +7,7 @@ import { startOffline } from "../pwa/pwa";
 import { useEditor } from "../editor/store";
 import { Canvas } from "./Canvas";
 import { ContextMenu } from "./ContextMenu";
-import { DiagramsDialog, ExportDialog, FileConflictDialog, HelpDialog, Notice } from "./Dialogs";
+import { DiagramsDialog, ExportDialog, FileConflictDialog, HelpDialog, Notice, ShareDialog } from "./Dialogs";
 import { Inspector } from "./Inspector";
 import { TextEditor } from "./TextEditor";
 import { FindBar } from "./FindBar";
@@ -61,6 +61,7 @@ export function App() {
       <Notice />
       {dialog === "export" && <ExportDialog onClose={close} />}
       {dialog === "diagrams" && <DiagramsDialog onClose={close} />}
+      {dialog === "share" && <ShareDialog onClose={close} />}
       {dialog === "help" && <HelpDialog onClose={close} />}
     </div>
   );

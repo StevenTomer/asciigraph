@@ -14,6 +14,7 @@ import { FORMATS } from "../storage/diskFile";
 import { canWriteFiles, forgetFile, openFile, resolveConflict, saveFile, saveFileAs } from "../editor/file";
 import { Kbd } from "./Toolbar";
 import { VERSION } from "../version";
+import { copyText } from "./copyText";
 
 export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => {
@@ -40,6 +41,78 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 }
 
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * Copying text from a dialog: `copy(value, what)` says how it went with `setNote`. Where the
+ * browser won't copy at all, `manual` is the text, shown selected, to copy by hand.
+ */
+function useCopy(setNote: (note: string) => void) {
+  const [text, setText] = useState<string | null>(null);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, [text]);
+  const copy = async (value: string, what: string) => {
+    if (await copyText(value)) {
+      setText(null);
+      setNote(`Copied ${what}.`);
+    } else {
+      setText(value);
+      setNote(`This browser won't copy here: ${what} is selected below; copy it with Ctrl+C (⌘C on a Mac).`);
+    }
+  };
+  const manual = text !== null && (
+    <textarea ref={ref} className="field manual-copy" readOnly value={text} rows={3} aria-label="To copy" onFocus={(e) => e.target.select()} />
+  );
+  return { copy, manual };
+}
+
+/** Sharing a diagram: live (edited together, from a link) or as a copy in a link. */
+export function ShareDialog({ onClose }: { onClose: () => void }) {
+  const diagram = useEditor((s) => s.diagram);
+  const name = useEditor((s) => s.diagramName);
+  const live = useEditor((s) => s.live);
+  const liveAvailable = useEditor((s) => s.liveAvailable);
+  const [note, setNote] = useState("");
+  const { copy, manual } = useCopy(setNote);
+  return (
+    <Dialog title="share" onClose={onClose}>
+      {live ? (
+        <>
+          <p><b>Live:</b> everyone with this link {live.role === "view" ? "can see" : "edits"} this diagram at the same time.</p>
+          <div className="row buttons">
+            <button className="tb accent" onClick={() => void copy(live.link, "the link")}>copy live link</button>
+          </div>
+          {live.role === "owner" && <p className="muted">A view-only link, a password and read-only are under <b>owner…</b> (bottom left).</p>}
+        </>
+      ) : liveAvailable ? (
+        <>
+          <p><b>Live:</b> put it on the server and edit it with others at the same time. Everyone with the link sees each change as it's made, and gives a name.</p>
+          <div className="row buttons">
+            <button
+              className="tb accent"
+              onClick={() => {
+                useEditor.setState({ liveAsk: { share: true } });
+                onClose();
+              }}
+            >
+              share live…
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="muted">Editing together live needs asciigraph's server, which isn't running here.</p>
+      )}
+      <p><b>A copy:</b> the whole diagram in a link. Whoever opens it gets their own copy to change; their changes don't come back to you.</p>
+      <div className="row buttons">
+        <button className="tb" onClick={() => void copy(shareUrl(diagram, name), "a share link")}>copy share link</button>
+      </div>
+      {note && <p className="note" role="status">{note}</p>}
+      {manual}
+    </Dialog>
+  );
+}
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
   const whole = useEditor((s) => s.diagram);
@@ -86,14 +159,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const copy = async (value: string, what: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setNote(`Copied ${what}.`);
-    } catch {
-      setNote("Couldn't copy; select the text and copy it yourself.");
-    }
-  };
+  const { copy, manual } = useCopy(setNote);
 
   return (
     <Dialog title="export" onClose={onClose}>
@@ -175,6 +241,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         <button className="tb" onClick={() => void copy(shareUrl(diagram, name), "a share link")}>copy share link</button>
       </div>
       {note && <p className="note" role="status">{note}</p>}
+      {manual}
     </Dialog>
   );
 }
@@ -369,7 +436,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <div className="help-entry"><dt><Kbd>s</Kbd> or <Kbd>space</Kbd> select</dt><dd>click or drag a rectangle to select (inside a box or frame: hold <Kbd>ctrl</Kbd>/<Kbd>⌘</Kbd> as you start dragging, or it moves the box); drag to move; handles resize; double-click edits text (on a box's top border: its name)</dd></div>
         <div className="help-entry"><dt>snapping</dt><dd>moving, resizing or drawing a box lines its edges and center up with neighboring boxes (beside it for rows, above or below it for columns), with guides. Hold <Kbd>alt</Kbd>, or press <Kbd>ctrl</Kbd> once dragging, to place it freely, or turn "snap" off in the toolbar</dd></div>
         <div className="help-entry"><dt>properties panel</dt><dd>shows what's selected; click its title bar to collapse it (remembered). On a narrow screen it's a sheet along the bottom, and the drawing scrolls to keep the selection above it</dd></div>
-        <div className="help-entry"><dt>sharing</dt><dd>two ways. <b>A copy:</b> <b>export</b> → <b>copy share link</b> puts the whole diagram in a link; whoever opens it gets their own copy, and changes don't come back to you. <b>Live</b> (when asciigraph runs with its server): <b>diagrams</b> → <b>share live…</b>, then <b>copy link</b> and send it; everyone with the link edits the same diagram at once (see <b>live</b> below)</dd></div>
+        <div className="help-entry"><dt>share</dt><dd><b>share</b> in the toolbar, two ways. <b>Live</b> (when asciigraph runs with its server): <b>share live…</b>, give your name, then send the link (<b>copy live link</b>, or <b>copy link</b> bottom left); everyone with it edits the same diagram at once (see <b>live</b> below). <b>A copy:</b> <b>copy share link</b> puts the whole diagram in a link; whoever opens it gets their own copy, and changes don't come back to you. Where the browser won't copy (plain http at an address other than localhost, on some browsers), the link is shown selected, to copy with <Kbd>ctrl+c</Kbd></dd></div>
         <div className="help-entry"><dt>locking</dt><dd>select several things, right-click → Lock Together ▸ Horizontally (they move left–right together), Vertically (up–down) or Both. What a selected item is locked to shows with a dotted outline; Unlock (menu or properties panel) undoes it, and <Kbd>alt</Kbd>+drag moves one alone. Dragging, nudging, Align, Distribute and Auto Layout all bring lock-mates along; Auto Layout keeps boxes locked both ways together as one unit</dd></div>
         <div className="help-entry"><dt>sequence diagrams</dt><dd>moving a lifeline up or down moves its header; messages and activation bars keep their rows. Loop/alt frames stretch with the lifelines at their edges. Notes drawn from text beside (or over) one lifeline are locked left–right to it</dd></div>
         <div className="help-entry"><dt>boxes in boxes</dt><dd>a box entirely inside another is part of it: it's drawn in front, and moves when the outer box moves. <Kbd>alt</Kbd>+drag moves just the outer box; or set "inside: stays put" on the box</dd></div>
@@ -393,7 +460,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
         <div className="help-entry"><dt>lists</dt><dd>in a box, lines starting <code>- </code>, <code>* </code> or <code>1. </code> become bullet and numbered lists, and <code>- [ ] to do</code> / <code>- [x] done</code> a checklist; indent to nest. To keep a line as typed, put a backslash before the marker (<code>\- not a list</code>); to keep all of a box's text as typed, set "lists: off" in the properties panel</dd></div>
         <div className="help-entry"><dt>offline</dt><dd>once it has loaded, asciigraph works without a connection (everything happens in the browser). Install it as an app for its own window: <b>install</b> in the toolbar, or the install icon in Chrome or Edge's address bar; Safari: File → Add to Dock, or on a phone Share → Add to Home Screen. Installed in Chrome or Edge, it can open .md and .txt files from your desktop (Open With)</dd></div>
         <div className="help-entry"><dt>files</dt><dd>keep a diagram in a file too: <b>open file…</b> (<Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>) a .md, .txt or .json file, or save as one from the diagrams dialog (the diagram's name); then <Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> saves to it (its name in the toolbar shows • when there are unsaved changes). A .md file keeps the drawing in a <code>```text</code> block and the diagram itself hidden after it, so it opens again exactly; the rest of the file is left as it is. Chrome and Edge write to the file; other browsers download it</dd></div>
-        <div className="help-entry"><dt>live</dt><dd>when asciigraph runs with its server: <b>diagrams</b> → <b>share live…</b>, then <b>copy link</b> (bottom left) and send it. Everyone with the link edits the diagram at the same time; each gives a name, shown with their initials and around what they have selected. Undo takes back only your own changes; <b>history</b> lists who changed what. <b>save a copy</b> keeps one of your own. Whoever shared it has <b>owner…</b>: an edit link and a view-only link (each can be replaced), an owner link for another computer, a password, read-only, and deleting it</dd></div>
+        <div className="help-entry"><dt>live</dt><dd>when asciigraph runs with its server: <b>share</b> → <b>share live…</b> (or <b>diagrams</b> → <b>share live…</b>), then <b>copy link</b> (bottom left) and send it. Everyone with the link edits the diagram at the same time; each gives a name, shown with their initials and around what they have selected. Undo takes back only your own changes; <b>history</b> lists who changed what. <b>save a copy</b> keeps one of your own. Whoever shared it has <b>owner…</b>: an edit link and a view-only link (each can be replaced), an owner link for another computer, a password, read-only, and deleting it</dd></div>
         <div className="help-entry"><dt>export</dt><dd>copy or download the drawing as text: plain, a Markdown code block, or a comment block for source code (C/C++ <code>//</code> or <code>/* */</code>, Python or Bash <code>#</code>, or your own first line, line prefix and last line), optionally ASCII only. Or as a picture: PNG (download or copy) or SVG (font included), light or dark, optionally transparent. Also as JSON (to import later) or a share link. With something selected, all of these can be just the selection</dd></div>
         <div className="help-entry"><dt>right-click</dt><dd>menu for what's under the pointer: edit, cut/copy/paste/duplicate, stacking order, and with several boxes selected, Align and Distribute (the box selected first stays put; the others line up with it, or are evenly spaced around it) and Auto Layout (arranges boxes in layers following their connectors; on empty space it lays out the whole diagram)</dd></div>
         <div className="help-entry"><dt>sizes</dt><dd>right-click (or the properties panel): Shrink to Text makes boxes the smallest size that shows their text unwrapped (boxes with boxes inside are left alone); with several selected, Normalize Size makes them all as wide and/or tall as the one selected first</dd></div>
