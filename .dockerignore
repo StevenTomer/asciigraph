@@ -2,7 +2,11 @@ node_modules
 dist
 test-results
 playwright-report
-.git
+# Just enough of .git to tell which commit is being built (shown in help).
+.git/*
+!.git/HEAD
+!.git/refs
+!.git/packed-refs
 .env
 /cli/
 /server-dist/

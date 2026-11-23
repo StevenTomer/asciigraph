@@ -38,6 +38,31 @@ function serviceWorker(): Plugin {
   };
 }
 
+/** The commit being built (from .git, without needing git itself), or null. */
+function commit(): string | null {
+  try {
+    const head = readFileSync(".git/HEAD", "utf8").trim();
+    if (!head.startsWith("ref: ")) return head.slice(0, 7);
+    const ref = head.slice(5);
+    try {
+      return readFileSync(join(".git", ref), "utf8").trim().slice(0, 7);
+    } catch {
+      const line = readFileSync(".git/packed-refs", "utf8").split("\n").find((l) => l.endsWith(" " + ref));
+      return line ? line.slice(0, 7) : null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Shown in help: "0.1.0 (e182174, built 2026-11-23)". */
+const version = (() => {
+  const pkg = JSON.parse(readFileSync("package.json", "utf8")).version as string;
+  const built = new Date().toISOString().slice(0, 10);
+  const c = process.env.ASCIIGRAPH_COMMIT || commit();
+  return `${pkg} (${c ? c + ", " : ""}built ${built})`;
+})();
+
 /** The live-editing server (server/), for `npm run dev` and `vite preview`: api/ and ws are
  * passed to it, as nginx does in Docker. */
 const collab = process.env.ASCIIGRAPH_COLLAB ?? "http://127.0.0.1:1234";
@@ -51,6 +76,7 @@ export default defineConfig({
   // hash-based, so the server never sees app routes.
   base: "./",
   plugins: [react(), serviceWorker()],
+  define: { __APP_VERSION__: JSON.stringify(version) },
   build: { outDir: "dist", sourcemap: true },
   server: { proxy },
   preview: { proxy },

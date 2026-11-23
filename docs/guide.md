@@ -23,7 +23,8 @@
 
 - **Toolbar** (top): the diagram's name (click it for your list of diagrams), the tools, undo and
   redo, **from text**, **export**, and toggles for the **grid**, **snap** and **dark** mode.
-  **help** gives a short summary of everything here.
+  **help** gives a short summary of everything here, with a search box at the top, and says
+  which version is running (its number, the commit it was built from, and when).
 - **Canvas**: the drawing, on a grid of character cells. Drag empty space with the middle mouse
   button, or hold <kbd>Space</kbd> and drag, to pan. Scroll to move around; <kbd>Ctrl</kbd> +
   scroll, or pinch, to zoom.

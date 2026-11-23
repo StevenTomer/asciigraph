@@ -998,6 +998,23 @@ test("save a selection as a stamp, insert it again, and delete it", async ({ pag
   await expect(stamps.getByText(/None of your own yet/)).toBeVisible();
 });
 
+test("help can be searched, and says which version this is", async ({ page }) => {
+  await page.getByRole("button", { name: "help" }).click();
+  const help = page.getByRole("dialog", { name: "help" });
+  await expect(help.getByTestId("version")).toHaveText(/^asciigraph \d+\.\d+\.\d+ \(.*built \d{4}-\d\d-\d\d\)$/);
+  const entries = help.locator(".help-entry");
+  const all = await entries.count();
+  await page.getByRole("searchbox", { name: "Search help" }).fill("share link");
+  await expect(help.locator(".help-entry:visible dt").first()).toHaveText("sharing");
+  const some = await help.locator(".help-entry:visible").count();
+  expect(some).toBeGreaterThan(0);
+  expect(some).toBeLessThan(all);
+  await page.getByRole("searchbox", { name: "Search help" }).fill("zzzz nothing");
+  await expect(help.getByText("Nothing in help matches")).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search help" }).fill("");
+  await expect(help.locator(".help-entry:visible")).toHaveCount(all);
+});
+
 test("Escape closes a dialog and leaves the selection and tool as they were", async ({ page }) => {
   await box(page, [2, 2], [12, 4], "A");
   await click(page, 7, 3);

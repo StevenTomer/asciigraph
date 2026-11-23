@@ -671,3 +671,8 @@ button.peer.me {
   border-radius: 5px;
   vertical-align: middle;
 }
+.help-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
